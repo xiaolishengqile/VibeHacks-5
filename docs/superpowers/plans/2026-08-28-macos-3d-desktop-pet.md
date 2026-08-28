@@ -25,8 +25,9 @@
 ## 全局约束
 
 - 只支持当前苹果芯片电脑，不增加跨平台分支。
-- 窗口固定为 240 × 210 像素，透明、无边框、不可缩放、始终置顶。
-- 默认毛发壳层数量固定为 24，身体网格固定为 96 × 48 分段，毛发长度固定为 0.11。
+- 窗口固定为 264 × 231 像素，内部以 528 × 462 渲染；窗口透明、无边框、不可缩放、始终置顶。
+- 毛发使用 48 层短绒、128 × 64 身体网格、0.075 毛长、无缝真实绒毛材质和一万五千根独立细毛。
+- 官方通用模板导出后必须裁剪为仅苹果芯片程序，并重新完成本地临时签名。
 - 首版模型必须完全程序化生成，不安装三维建模工具。
 - 必须具备呼吸、眨眼、轻微弹跳、视线跟随、拖拽和右键退出。
 - 每个实现任务都必须先产生失败检查，再实现并通过检查。
@@ -120,10 +121,10 @@ const PetConfigScript = preload("res://scripts/config/pet_config.gd")
 
 static func run() -> Array[String]:
     var errors: Array[String] = []
-    if PetConfigScript.WINDOW_SIZE != Vector2i(240, 210):
-        errors.append("窗口尺寸必须为 240 × 210")
+    if PetConfigScript.WINDOW_SIZE != Vector2i(264, 231):
+        errors.append("窗口尺寸必须为 264 × 231")
     if PetConfigScript.FUR_SHELL_COUNT != 24:
-        errors.append("默认毛发壳层必须为 24")
+        errors.append("默认毛发壳层必须为 48")
     if PetConfigScript.TARGET_FPS != 60:
         errors.append("目标帧率必须为 60")
     return errors
@@ -147,11 +148,11 @@ Expected: failure because `scripts/config/pet_config.gd` does not exist.
 class_name PetConfig
 extends RefCounted
 
-const WINDOW_SIZE := Vector2i(240, 210)
-const FUR_SHELL_COUNT := 24
-const FUR_LENGTH := 0.11
-const FUR_RADIAL_SEGMENTS := 96
-const FUR_RINGS := 48
+const WINDOW_SIZE := Vector2i(264, 231)
+const FUR_SHELL_COUNT := 48
+const FUR_LENGTH := 0.075
+const FUR_RADIAL_SEGMENTS := 128
+const FUR_RINGS := 64
 const TARGET_FPS := 60
 const BODY_COLOR := Color("b7cf58")
 const BODY_SCALE := Vector3(1.28, 0.96, 1.0)
@@ -170,10 +171,10 @@ config/name="毛球桌宠"
 
 [display]
 
-window/size/viewport_width=240
-window/size/viewport_height=210
-window/size/window_width_override=240
-window/size/window_height_override=210
+window/size/viewport_width=528
+window/size/viewport_height=462
+window/size/window_width_override=264
+window/size/window_height_override=231
 window/size/borderless=true
 window/size/always_on_top=true
 window/size/transparent=true
@@ -239,7 +240,7 @@ Create a test that calls:
 
 ```gdscript
 var polygon := WindowGeometryScript.ellipse_polygon(
-    Vector2i(240, 210), Vector2(120, 115), Vector2(92.5, 72.5), 32
+    Vector2i(264, 231), Vector2(132, 126.5), Vector2(101.75, 79.75), 32
 )
 ```
 
@@ -288,7 +289,7 @@ func configure(window: Window) -> void:
     _window.unresizable = true
     _window.unfocusable = true
     _window.mouse_passthrough_polygon = WindowGeometry.ellipse_polygon(
-        PetConfig.WINDOW_SIZE, Vector2(120, 115), Vector2(92.5, 72.5), 32
+        PetConfig.WINDOW_SIZE, Vector2(132, 126.5), Vector2(101.75, 79.75), 32
     )
     var screen := DisplayServer.window_get_current_screen()
     var usable := DisplayServer.screen_get_usable_rect(screen)
@@ -339,7 +340,7 @@ Instantiate `PetVisual`, call `build()`, and assert:
 
 ```gdscript
 visual.get_node("Body/Base") != null
-visual.get_node("Body/FurShells").get_child_count() == 24
+visual.get_node("Body/FurShells").get_child_count() == 48
 visual.get_node("Eyes/Left") != null
 visual.get_node("Eyes/Right") != null
 visual.get_node("Shadow") != null
@@ -357,7 +358,7 @@ render_mode cull_back, diffuse_burley, specular_schlick_ggx;
 
 uniform vec3 fur_color : source_color = vec3(0.72, 0.82, 0.35);
 uniform float shell_ratio : hint_range(0.0, 1.0) = 0.0;
-uniform float fur_length : hint_range(0.0, 0.3) = 0.11;
+uniform float fur_length : hint_range(0.0, 0.3) = 0.075;
 
 float hash21(vec2 p) {
     p = fract(p * vec2(123.34, 456.21));
@@ -382,7 +383,7 @@ void fragment() {
 
 - [ ] **Step 3: Implement the procedural visual hierarchy**
 
-Create one compressed `SphereMesh` base, 24 shell instances sharing that mesh, and one material instance per shell with `shell_ratio = index / 23.0`:
+Create one compressed `SphereMesh` base, 48 shell instances sharing that mesh, and one material instance per shell with `shell_ratio = index / 47.0`:
 
 ```gdscript
 func _build_body() -> void:
@@ -427,7 +428,7 @@ Store only the node references required by the four public pose methods. Keep al
 
 - [ ] **Step 4: Run tests and inspect shader imports**
 
-Run the test entry and headless editor import. Expected: 24 fine fur shells, two eye groups, one shadow, no shader compile errors.
+Run the test entry and headless editor import. Expected: 48 dense fur shells, two eye groups, one shadow, no shader compile errors.
 
 - [ ] **Step 5: Commit**
 
@@ -621,7 +622,7 @@ git commit -m "功能：集成并运行三维桌面宠物"
 
 - [ ] **Step 1: Add the export preset and export script**
 
-Use the official universal template because current official template archives do not contain a standalone arm64 template binary. Runtime support remains limited to the current Apple Silicon computer. Use an ad-hoc local signature so the Apple Silicon system can launch the application.
+Use the official universal template because current official template archives do not contain a standalone arm64 template binary. After export, thin the executable to arm64 and apply a new ad-hoc signature so the deliverable runs only on the current Apple Silicon computer.
 
 `export_presets.cfg`:
 
@@ -655,10 +656,12 @@ codesign/codesign=1
 notarization/notarization=0
 ```
 
-The export script must create `build/` and run:
+The export script must create `build/`, export with the official template, thin the executable to arm64, and sign the final application:
 
 ```bash
 /Applications/Godot.app/Contents/MacOS/Godot --headless --path . --export-release "macOS" "build/毛球桌宠.app"
+/usr/bin/lipo "build/毛球桌宠.app/Contents/MacOS/毛球桌宠" -thin arm64 -output "build/毛球桌宠.app/Contents/MacOS/毛球桌宠.arm64"
+/usr/bin/codesign --force --deep --sign - "build/毛球桌宠.app"
 ```
 
 - [ ] **Step 2: Install matching export templates and export**
@@ -681,6 +684,7 @@ Manually or through desktop automation verify left-drag changes the window posit
 /Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/run_tests.gd
 /Applications/Godot.app/Contents/MacOS/Godot --headless --editor --path . --quit
 test -x "build/毛球桌宠.app/Contents/MacOS/毛球桌宠"
+./tests/test_export_app.command
 git diff --check
 git status --short
 ```

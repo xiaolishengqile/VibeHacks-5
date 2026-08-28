@@ -2,7 +2,9 @@ class_name PetVisual
 extends Node3D
 
 const PetConfigScript = preload("res://scripts/config/pet_config.gd")
+const FurStrandBuilderScript = preload("res://scripts/pet/fur_strand_builder.gd")
 const FUR_SHADER = preload("res://shaders/fur_shell.gdshader")
+const FUR_TEXTURE = preload("res://assets/textures/fur_plush.png")
 const SHADOW_SHADER = preload("res://shaders/shadow.gdshader")
 
 var _body_root: Node3D
@@ -83,8 +85,11 @@ func _build_body() -> void:
 		)
 		material.set_shader_parameter("fur_color", PetConfigScript.BODY_COLOR)
 		material.set_shader_parameter("fur_length", PetConfigScript.FUR_LENGTH)
+		material.set_shader_parameter("fur_texture", FUR_TEXTURE)
 		shell.material_override = material
 		shells.add_child(shell)
+
+	_body_root.add_child(FurStrandBuilderScript.create())
 
 
 func _build_eyes() -> void:

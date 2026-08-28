@@ -18,10 +18,11 @@ func configure(window: Window) -> void:
 	_window.always_on_top = true
 	_window.unresizable = true
 	_window.unfocusable = true
+	var window_scale := Vector2(PetConfigScript.WINDOW_SIZE) / Vector2(240, 210)
 	_window.mouse_passthrough_polygon = WindowGeometryScript.ellipse_polygon(
 		PetConfigScript.WINDOW_SIZE,
-		Vector2(120, 115),
-		Vector2(92.5, 72.5),
+		Vector2(120, 115) * window_scale,
+		Vector2(92.5, 72.5) * window_scale,
 		32,
 	)
 

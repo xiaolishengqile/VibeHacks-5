@@ -4,7 +4,9 @@
 
 ![运行效果](artifacts/desktop-pet.png)
 
-当前桌宠窗口为 240 × 210 像素，包含细绒毛、玻璃眼睛、呼吸、眨眼、视线跟随和拖拽反馈。
+当前桌宠窗口为 264 × 231 像素。毛发由 48 层密集短绒、1.5 万根独立细毛和参考图提炼的真实绒毛材质共同组成，内部使用 528 × 462 双倍尺寸渲染。
+
+成品只保留苹果芯片程序，不包含英特尔版本；同时包含玻璃眼睛、呼吸、眨眼、视线跟随和拖拽反馈。
 
 ## 启动
 
@@ -28,5 +30,7 @@
 ## 自动检查
 
 ```bash
+/Applications/Godot.app/Contents/MacOS/Godot --headless --editor --path . --quit
 /Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/run_tests.gd
+./tests/test_export_app.command
 ```
