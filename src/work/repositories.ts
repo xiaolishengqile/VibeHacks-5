@@ -10,7 +10,8 @@ export type WorkChangeKind =
 	| "executionStarted"
 	| "artifactReady"
 	| "executionFailed"
-	| "artifactAccepted";
+	| "artifactAccepted"
+	| "profileConfirmed";
 
 export interface WorkChange {
 	readonly id: string;

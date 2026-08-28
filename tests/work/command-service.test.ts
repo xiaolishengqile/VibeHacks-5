@@ -115,6 +115,36 @@ test("确认草稿后创建可排期的工作聚合", async () => {
 	assert.equal(result.aggregate.graph.node(result.aggregate.graph.nodes[0]!.id).status, "ready");
 });
 
+test("首次案例建立的工作模型经用户确认后才生成行动建议", async () => {
+	const repository = new MemoryRepository(null);
+	const service = new CommandService(repository, new DecisionEngine(), new SequenceIds(), new MutableClock());
+	const inferredProfile = createProfile({
+		id: "profile_first_use",
+		timezone: "Asia/Shanghai",
+		dailyCapacityMinutes: 420,
+		bufferPercent: 20,
+		source: "inferred",
+	}, "2026-08-28T09:00:00+08:00");
+	const created = await service.createFromDraft({
+		profile: inferredProfile,
+		draft: {
+			title: "季度复盘",
+			deadline: "2026-09-04T18:00:00+08:00",
+			milestones: [],
+			nodes: [{ title: "搭建框架", owner: "self", workMinutes: 180, waitMinutes: 0, dependencyIndexes: [] }],
+			assumptions: [],
+		},
+	});
+	assert.deepEqual(created.decisions, []);
+	assert.equal(created.aggregate.profile.dailyCapacityMinutes.confirmed, false);
+
+	const confirmed = await service.confirmProfile({ goalId: created.aggregate.graph.goal.id });
+	assert.equal(confirmed.aggregate.profile.dailyCapacityMinutes.confirmed, true);
+	assert.equal(confirmed.aggregate.profile.bufferPercent.confirmed, true);
+	assert.equal(confirmed.decisions.length, 1);
+	assert.equal(confirmed.change.kind, "profileConfirmed");
+});
+
 test("更换协作方后保存历史并重新计算当前行动", async () => {
 	const { service } = setup();
 	const result = await service.changeOwner({ goalId: "goal_1", nodeId: "request_data", owner: "小赵" });

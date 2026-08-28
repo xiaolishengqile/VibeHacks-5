@@ -17,6 +17,8 @@ export function parseUiCommand(input: unknown): Result<UiCommand, string> {
 	const goalId = requiredText(input, "goalId");
 	const executionId = requiredText(input, "executionId");
 	switch (input.name) {
+		case "confirmProfile":
+			return goalId ? ok({ name: input.name, goalId }) : err("工作命令参数无效");
 		case "changeDeadline": {
 			const deadline = requiredText(input, "deadline");
 			return goalId && deadline ? ok({ name: input.name, goalId, deadline }) : err("工作命令参数无效");

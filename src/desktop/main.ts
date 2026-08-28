@@ -72,6 +72,7 @@ const startDesktop = async (): Promise<void> => {
 		timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Shanghai",
 		dailyCapacityMinutes: 420,
 		bufferPercent: 20,
+		source: "inferred",
 	}, clock.now());
 	const coreBackend = new FallbackWorkBackend(commands, profile, clock);
 	const codexSetup = new CodexSetup<CodexAppServer>({

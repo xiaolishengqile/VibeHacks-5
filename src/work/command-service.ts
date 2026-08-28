@@ -1,7 +1,7 @@
 import type { IdGenerator } from "../shared/ids.js";
 import type { DecisionEngine, WorkDecision } from "./decision-engine.js";
 import { WorkGraph } from "./graph.js";
-import { recordDurationObservation } from "./profile.js";
+import { confirmProfile as confirmWorkProfile, isProfileConfirmed, recordDurationObservation } from "./profile.js";
 import type {
 	Clock,
 	StoredWorkAggregate,
@@ -93,6 +93,14 @@ export class CommandService {
 	async readLatest(): Promise<CommandState | null> {
 		const stored = await this.#repository.loadLatestAggregate();
 		return stored ? this.#state(this.#fromStored(stored)) : null;
+	}
+
+	async confirmProfile(input: { readonly goalId: string }): Promise<CommandResult> {
+		const aggregate = await this.#load(input.goalId);
+		if (isProfileConfirmed(aggregate.profile)) throw new Error("个人工作习惯已经确认");
+		const profile = confirmWorkProfile(aggregate.profile, this.#clock.now());
+		const change = this.#change("profileConfirmed", "确认个人工作习惯和排期参数");
+		return this.#save({ ...aggregate, profile }, change);
 	}
 
 	async changeDeadline(input: { readonly goalId: string; readonly deadline: string }): Promise<CommandResult> {
@@ -261,7 +269,9 @@ export class CommandService {
 	#state(aggregate: LoadedAggregate): CommandState {
 		return {
 			aggregate,
-			decisions: this.#decisionEngine.replan(aggregate.graph, aggregate.profile, this.#clock.now()),
+			decisions: isProfileConfirmed(aggregate.profile)
+				? this.#decisionEngine.replan(aggregate.graph, aggregate.profile, this.#clock.now())
+				: [],
 		};
 	}
 

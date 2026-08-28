@@ -15,6 +15,7 @@ const fakeCodex = join(projectRoot, "tests", "e2e", "fake-codex.mjs");
 type FakeMode = "success" | "slow" | "failure";
 type Snapshot = {
 	goal: { id: string; title: string } | null;
+	profile: { confirmed: boolean } | null;
 	nodes: ReadonlyArray<{ id: string; title: string; status: string; owner: string }>;
 	executions: ReadonlyArray<{ id: string; status: string }>;
 	approvals: ReadonlyArray<{ executionId: string; requestId: string }>;
@@ -58,6 +59,9 @@ export class StartDayHarness {
 		await this.mini.getByRole("button", { name: "整理计划" }).click();
 		await expect.poll(async () => (await this.snapshot()).goal?.title).toBe("季度复盘");
 		await expect(this.mini.locator("#submit-message")).toHaveText("计划已更新，请检查后再开始执行。");
+		await expect(this.mini.getByRole("button", { name: "确认工作习惯" })).toBeVisible();
+		await this.mini.getByRole("button", { name: "确认工作习惯" }).click();
+		await expect.poll(async () => (await this.snapshot()).profile?.confirmed).toBe(true);
 	}
 
 	async changeFirstCollaborator(owner: string): Promise<void> {

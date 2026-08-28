@@ -176,6 +176,10 @@ async function executeScenario(product) {
 		return value.goal && value.nodes.length > 0 ? value : null;
 	}, 180_000);
 	if (planned.nodes.length !== 1) throw new Error(`真实验收要求一个工作节点，实际得到 ${planned.nodes.length} 个`);
+	if (!planned.profile?.confirmed) {
+		await product.mini.getByRole("button", { name: "确认工作习惯" }).click();
+		await waitFor("个人工作习惯确认", async () => (await snapshot(product.mini)).profile?.confirmed);
+	}
 	await product.mini.screenshot({ path: screenshots.mini, fullPage: true });
 
 	await waitFor("执行入口启用", async () => await product.mini.locator("#execution-primary").isEnabled());

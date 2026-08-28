@@ -5,6 +5,7 @@ import type { ExecutionRisk, ExecutionStatus } from "../execution/types.js";
 import type { CodexSetupState } from "./codex-setup.js";
 
 export type UiCommand =
+	| { readonly name: "confirmProfile"; readonly goalId: string }
 	| { readonly name: "changeDeadline"; readonly goalId: string; readonly deadline: string }
 	| { readonly name: "changeMilestone"; readonly goalId: string; readonly milestoneId: string; readonly at: string }
 	| { readonly name: "changeOwner"; readonly goalId: string; readonly nodeId: string; readonly owner: string }
@@ -76,6 +77,15 @@ export interface ArtifactSummary {
 	readonly verified: boolean;
 }
 
+export interface ProfileSummary {
+	readonly timezone: string;
+	readonly workdayStart: string;
+	readonly workdayEnd: string;
+	readonly dailyCapacityMinutes: number;
+	readonly bufferPercent: number;
+	readonly confirmed: boolean;
+}
+
 export interface ApplicationSnapshot {
 	readonly goal: WorkGoal | null;
 	readonly nodes: readonly WorkNode[];
@@ -85,6 +95,7 @@ export interface ApplicationSnapshot {
 	readonly approvals: readonly ApprovalSummary[];
 	readonly artifacts: readonly ArtifactSummary[];
 	readonly events: readonly VisibleApplicationEvent[];
+	readonly profile: ProfileSummary | null;
 	readonly workDirectory: string | null;
 	readonly pendingStop: { readonly token: string; readonly affectedNodeIds: readonly string[] } | null;
 	readonly codex: CodexSetupState;
@@ -99,6 +110,7 @@ export const emptyApplicationSnapshot = (): ApplicationSnapshot => ({
 	approvals: [],
 	artifacts: [],
 	events: [],
+	profile: null,
 	workDirectory: null,
 	pendingStop: null,
 	codex: {

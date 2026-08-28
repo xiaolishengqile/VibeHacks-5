@@ -38,6 +38,10 @@ test("轻面板关闭请求只隐藏窗口而不退出应用", async () => {
 });
 
 test("执行审批和成果验收命令必须携带精确标识", () => {
+	assert.deepEqual(parseUiCommand({ name: "confirmProfile", goalId: "goal-1" }), {
+		ok: true,
+		value: { name: "confirmProfile", goalId: "goal-1" },
+	});
 	assert.deepEqual(parseUiCommand({
 		name: "startExecution",
 		goalId: "goal-1",

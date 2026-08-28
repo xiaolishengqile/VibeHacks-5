@@ -181,7 +181,7 @@ const render = (value: ApplicationSnapshot): void => {
 	const start = requiredElement<HTMLButtonElement>("start-today-execution");
 	const nodeId = value.nodes.find((node) => node.status === "ready")?.id;
 	const active = value.executions.some((entry) => !["succeeded", "failed", "canceled"].includes(entry.status));
-	start.disabled = !value.goal || !nodeId || !value.workDirectory || !value.codex.ready || active;
+	start.disabled = !value.goal || !value.profile?.confirmed || !nodeId || !value.workDirectory || !value.codex.ready || active;
 };
 
 const reload = async (): Promise<void> => {

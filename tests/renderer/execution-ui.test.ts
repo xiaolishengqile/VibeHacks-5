@@ -13,6 +13,8 @@ test("轻面板提供代理状态、计划确认和执行控制入口", async ()
 		"execution-primary",
 		"execution-secondary",
 		"approval-summary",
+		"profile-summary",
+		"confirm-profile",
 	]) assert.match(html, new RegExp(`id="${id}"`));
 	assert.match(await read("mini-panel.ts"), /startDay\.hideMiniPanel\(\)/);
 });

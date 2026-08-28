@@ -13,6 +13,14 @@ export type ProfileField =
 	| "dailyCapacityMinutes"
 	| "bufferPercent";
 
+const profileFields: readonly ProfileField[] = [
+	"timezone",
+	"workdayStart",
+	"workdayEnd",
+	"dailyCapacityMinutes",
+	"bufferPercent",
+];
+
 export interface CreateProfileInput {
 	readonly id?: string;
 	readonly timezone: string;
@@ -89,6 +97,17 @@ export function confirmProfileField(
 			updatedAt: confirmedAt,
 		},
 	};
+}
+
+export function isProfileConfirmed(profile: WorkProfile): boolean {
+	return profileFields.every((fieldName) => profile[fieldName].confirmed);
+}
+
+export function confirmProfile(profile: WorkProfile, confirmedAt: string): WorkProfile {
+	return profileFields.reduce(
+		(current, fieldName) => confirmProfileField(current, fieldName, confirmedAt),
+		profile,
+	);
 }
 
 export function recordDurationObservation(

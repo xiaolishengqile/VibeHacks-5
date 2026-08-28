@@ -1,6 +1,7 @@
 import type { CommandService, CommandState } from "../work/command-service.js";
 import type { Clock } from "../work/repositories.js";
 import type { WorkProfile } from "../work/types.js";
+import { isProfileConfirmed } from "../work/profile.js";
 import {
 	emptyApplicationSnapshot,
 	type ApplicationSnapshot,
@@ -9,7 +10,7 @@ import {
 
 export class FallbackWorkBackend {
 	readonly #commands: CommandService;
-	readonly #profile: WorkProfile;
+	#profile: WorkProfile;
 	readonly #clock: Clock;
 	#snapshot = emptyApplicationSnapshot();
 
@@ -44,6 +45,8 @@ export class FallbackWorkBackend {
 
 	async runCommand(command: UiCommand): Promise<ApplicationSnapshot> {
 		switch (command.name) {
+			case "confirmProfile":
+				return this.#capture(await this.#commands.confirmProfile(command));
 			case "changeDeadline":
 				return this.#capture(await this.#commands.changeDeadline(command));
 			case "changeMilestone":
@@ -79,12 +82,21 @@ export class FallbackWorkBackend {
 	}
 
 	#capture(result: CommandState, clearPendingStop = true): ApplicationSnapshot {
+		this.#profile = result.aggregate.profile;
 		this.#snapshot = {
 			...this.#snapshot,
 			goal: result.aggregate.graph.goal,
 			nodes: result.aggregate.graph.nodes,
 			decisions: result.decisions,
 			changes: result.aggregate.changes,
+			profile: {
+				timezone: this.#profile.timezone.value,
+				workdayStart: this.#profile.workdayStart.value,
+				workdayEnd: this.#profile.workdayEnd.value,
+				dailyCapacityMinutes: this.#profile.dailyCapacityMinutes.value,
+				bufferPercent: this.#profile.bufferPercent.value,
+				confirmed: isProfileConfirmed(this.#profile),
+			},
 			pendingStop: clearPendingStop ? null : this.#snapshot.pendingStop,
 		};
 		return this.#snapshot;

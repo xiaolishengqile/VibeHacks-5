@@ -11,6 +11,8 @@ const input = requiredElement<HTMLTextAreaElement>("work-input");
 const submit = requiredElement<HTMLButtonElement>("submit-work");
 const message = requiredElement<HTMLParagraphElement>("submit-message");
 const planSummary = requiredElement<HTMLParagraphElement>("plan-summary");
+const profileSummary = requiredElement<HTMLParagraphElement>("profile-summary");
+const confirmProfile = requiredElement<HTMLButtonElement>("confirm-profile");
 const directorySummary = requiredElement<HTMLParagraphElement>("directory-summary");
 const progressSummary = requiredElement<HTMLParagraphElement>("progress-summary");
 const resultLink = requiredElement<HTMLAnchorElement>("result-link");
@@ -56,8 +58,10 @@ const render = (value: ApplicationSnapshot): void => {
 		setText(actionTime, `最晚 ${today.latestStart}`);
 	} else {
 		setText(actionTitle, value.goal?.title ?? "告诉我你想完成什么");
-		setText(actionReason, "我会整理目标、依赖、等待时间和最晚开始时间。");
-		setText(actionRisk, "暂无计划");
+		setText(actionReason, value.goal && value.profile && !value.profile.confirmed
+			? "请先确认从首个案例建立的工作习惯，再生成行动建议。"
+			: "我会整理目标、依赖、等待时间和最晚开始时间。");
+		setText(actionRisk, value.goal && value.profile && !value.profile.confirmed ? "待确认习惯" : "暂无计划");
 		setText(actionTime, "");
 	}
 
@@ -65,6 +69,10 @@ const render = (value: ApplicationSnapshot): void => {
 		planSummary,
 		value.goal ? `${value.goal.title} · ${value.nodes.length} 个工作节点 · ${value.approvals.length} 项待确认` : "暂无计划。执行前会展示范围并请求确认。",
 	);
+	setText(profileSummary, value.profile
+		? `工作习惯：${value.profile.workdayStart}–${value.profile.workdayEnd} · 每日 ${value.profile.dailyCapacityMinutes} 分钟 · 缓冲 ${value.profile.bufferPercent}%`
+		: "提交首个真实工作案例后建立个人工作习惯。");
+	confirmProfile.hidden = !value.goal || !value.profile || value.profile.confirmed;
 	setText(directorySummary, value.workDirectory ? `工作目录：${value.workDirectory}` : "尚未选择工作目录");
 	const execution = value.executions.at(-1);
 	const executionView = execution ? toExecutionView(execution) : null;
@@ -86,7 +94,7 @@ const render = (value: ApplicationSnapshot): void => {
 		execution: execution ?? null,
 		hasApproval: Boolean(approval),
 		hasVerifiedArtifact: Boolean(artifact?.verified),
-		canStart: Boolean(value.goal && nodeId && value.workDirectory && value.codex.ready && !active),
+		canStart: Boolean(value.goal && value.profile?.confirmed && nodeId && value.workDirectory && value.codex.ready && !active),
 	});
 	setText(executionPrimary, control.primaryLabel);
 	executionPrimary.disabled = control.primaryAction === null;
@@ -137,6 +145,11 @@ requiredElement<HTMLButtonElement>("choose-directory").addEventListener("click",
 	const result = await window.startDay.chooseWorkDirectory();
 	if (!result.ok) setMessage(result.error, true);
 	else await reload();
+});
+
+confirmProfile.addEventListener("click", () => {
+	const goalId = snapshot?.goal?.id;
+	if (goalId) void run({ name: "confirmProfile", goalId });
 });
 
 requiredElement<HTMLButtonElement>("change-owner").addEventListener("click", async () => {
