@@ -112,7 +112,11 @@ submit.addEventListener("click", async () => {
 	const result = await window.startDay.submitWorkText(input.value);
 	busy = false;
 	updateSubmitState();
-	if (request !== requestSequence) return;
+	if (request !== requestSequence) {
+		if (result.ok) setMessage("计划已更新，请检查后再开始执行。");
+		else setMessage(result.error, true);
+		return;
+	}
 	if (result.ok) {
 		render(result.value);
 		setMessage("计划已更新，请检查后再开始执行。");

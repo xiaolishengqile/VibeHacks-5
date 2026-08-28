@@ -57,6 +57,7 @@ export class StartDayHarness {
 		await this.mini.getByPlaceholder(/例如/).fill(text);
 		await this.mini.getByRole("button", { name: "整理计划" }).click();
 		await expect.poll(async () => (await this.snapshot()).goal?.title).toBe("季度复盘");
+		await expect(this.mini.locator("#submit-message")).toHaveText("计划已更新，请检查后再开始执行。");
 	}
 
 	async changeFirstCollaborator(owner: string): Promise<void> {
