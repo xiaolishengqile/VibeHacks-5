@@ -8,8 +8,8 @@ run/main_scene="res://scenes/main.tscn"
 
 [display]
 
-window/size/viewport_width=570
-window/size/viewport_height=500
+window/size/viewport_width=855
+window/size/viewport_height=750
 window/size/window_width_override=285
 window/size/window_height_override=250
 window/size/borderless=true

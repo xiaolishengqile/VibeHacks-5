@@ -5,8 +5,12 @@ uniform vec3 fur_color : source_color = vec3(0.72, 0.82, 0.35);
 uniform sampler2D fur_texture : source_color, repeat_enable, filter_linear_mipmap;
 uniform float shell_ratio : hint_range(0.0, 1.0) = 0.0;
 uniform float fur_length : hint_range(0.0, 0.3) = 0.075;
+uniform vec2 left_eye_center = vec2(-0.242, 0.146);
+uniform vec2 right_eye_center = vec2(0.242, 0.146);
+uniform vec2 eye_clear_radius = vec2(0.227, 0.281);
 
 varying vec3 fur_position;
+varying float eye_socket;
 
 
 float hash31(vec3 point) {
@@ -32,13 +36,21 @@ float value_noise(vec3 point) {
 
 void vertex() {
 	fur_position = VERTEX;
+	float left_distance = length((VERTEX.xy - left_eye_center) / eye_clear_radius);
+	float right_distance = length((VERTEX.xy - right_eye_center) / eye_clear_radius);
+	float front = smoothstep(0.30, 0.62, VERTEX.z);
+	eye_socket = (1.0 - smoothstep(0.72, 1.08, min(left_distance, right_distance))) * front;
 	float tuft_length = mix(0.72, 1.28, value_noise(VERTEX * 7.0));
-	VERTEX += NORMAL * fur_length * shell_ratio * tuft_length;
+	float eye_length = mix(1.0, 0.08, eye_socket);
+	VERTEX += NORMAL * fur_length * shell_ratio * tuft_length * eye_length;
 	VERTEX.x += sin(TIME * 1.15 + VERTEX.y * 8.0) * 0.004 * shell_ratio;
 }
 
 
 void fragment() {
+	if (eye_socket > 0.25 && shell_ratio > mix(0.30, 0.04, eye_socket)) {
+		discard;
+	}
 	float fine_strand = hash31(floor(fur_position * 460.0));
 	float soft_clump = value_noise(fur_position * 18.0);
 	float strand = mix(fine_strand, soft_clump, 0.20);
@@ -48,8 +60,9 @@ void fragment() {
 	}
 	float tuft_tone = value_noise(fur_position * 10.0);
 	vec3 plush_sample = texture(fur_texture, UV * vec2(1.8, 1.35)).rgb;
-	vec3 plush_detail = clamp((plush_sample - vec3(0.5)) * 1.42 + vec3(0.5), vec3(0.0), vec3(1.0));
-	vec3 textured_color = mix(fur_color, plush_detail, 0.84);
+	float plush_luma = dot(plush_sample, vec3(0.299, 0.587, 0.114));
+	float plush_detail = clamp((plush_luma - 0.5) * 1.16 + 0.5, 0.0, 1.0);
+	vec3 textured_color = fur_color * mix(0.68, 1.24, plush_detail);
 	ALBEDO = textured_color * mix(0.84, 1.08, shell_ratio) * mix(0.92, 1.07, tuft_tone);
 	ROUGHNESS = 0.96;
 }

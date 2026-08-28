@@ -2,7 +2,7 @@ class_name PetVisual
 extends Node3D
 
 const PetConfigScript = preload("res://scripts/config/pet_config.gd")
-const HatBuilderScript = preload("res://scripts/pet/hat_builder.gd")
+const FurTuftBuilderScript = preload("res://scripts/pet/fur_tuft_builder.gd")
 const FUR_SHADER = preload("res://shaders/fur_shell.gdshader")
 const FUR_TEXTURE = preload("res://assets/textures/fur_plush.png")
 const SHADOW_SHADER = preload("res://shaders/shadow.gdshader")
@@ -13,6 +13,8 @@ var _left_eye: Node3D
 var _right_eye: Node3D
 var _left_gaze: Node3D
 var _right_gaze: Node3D
+var _left_lid: Node3D
+var _right_lid: Node3D
 var _shadow: MeshInstance3D
 var _shadow_material: ShaderMaterial
 
@@ -23,6 +25,7 @@ func build() -> void:
 	_build_body()
 	_build_eyes()
 	_build_shadow()
+	set_blink(1.0)
 
 
 func set_body_pose(scale_factor: Vector3, y_offset: float) -> void:
@@ -33,9 +36,13 @@ func set_body_pose(scale_factor: Vector3, y_offset: float) -> void:
 
 
 func set_blink(openness: float) -> void:
-	var eye_scale_y := maxf(0.08, openness)
-	_left_eye.scale.y = eye_scale_y
-	_right_eye.scale.y = eye_scale_y
+	var clamped_openness := clampf(openness, 0.0, 1.0)
+	var lid_y := lerpf(-0.22, -0.095, clamped_openness)
+	var lid_scale_y := lerpf(1.88, 1.38, clamped_openness)
+	_left_lid.position.y = lid_y
+	_right_lid.position.y = lid_y
+	_left_lid.scale.y = lid_scale_y
+	_right_lid.scale.y = lid_scale_y
 
 
 func set_gaze(offset: Vector2) -> void:
@@ -86,10 +93,13 @@ func _build_body() -> void:
 		material.set_shader_parameter("fur_color", PetConfigScript.BODY_COLOR)
 		material.set_shader_parameter("fur_length", PetConfigScript.FUR_LENGTH)
 		material.set_shader_parameter("fur_texture", FUR_TEXTURE)
+		material.set_shader_parameter("left_eye_center", Vector2(-0.242, 0.146))
+		material.set_shader_parameter("right_eye_center", Vector2(0.242, 0.146))
+		material.set_shader_parameter("eye_clear_radius", Vector2(0.227, 0.281))
 		shell.material_override = material
 		shells.add_child(shell)
 
-	_body_root.add_child(HatBuilderScript.create())
+	_body_root.add_child(FurTuftBuilderScript.create())
 
 
 func _build_eyes() -> void:
@@ -100,9 +110,11 @@ func _build_eyes() -> void:
 	var left := _create_eye("Left", Vector3(-0.31, 0.14, 0.72))
 	_left_eye = left.eye
 	_left_gaze = left.gaze
+	_left_lid = left.lid
 	var right := _create_eye("Right", Vector3(0.31, 0.14, 0.72))
 	_right_eye = right.eye
 	_right_gaze = right.gaze
+	_right_lid = right.lid
 
 
 func _create_eye(eye_name: String, eye_position: Vector3) -> Dictionary:
@@ -111,7 +123,7 @@ func _create_eye(eye_name: String, eye_position: Vector3) -> Dictionary:
 	eye.position = eye_position
 	_eyes_root.add_child(eye)
 
-	var white := _sphere("EyeWhite", 0.235, Color("e9f5d9"), 0.24)
+	var white := _sphere("EyeWhite", 0.235, Color("edf0df"), 0.24)
 	white.scale.z = 0.78
 	eye.add_child(white)
 
@@ -144,7 +156,21 @@ func _create_eye(eye_name: String, eye_position: Vector3) -> Dictionary:
 	cornea.scale.z = 0.80
 	eye.add_child(cornea)
 
-	return {"eye": eye, "gaze": gaze}
+	var lid_mesh := SphereMesh.new()
+	lid_mesh.radius = 0.25
+	lid_mesh.height = 0.25
+	lid_mesh.is_hemisphere = true
+	lid_mesh.radial_segments = 48
+	lid_mesh.rings = 24
+	var lid := MeshInstance3D.new()
+	lid.name = "UpperLid"
+	lid.mesh = lid_mesh
+	lid.position = Vector3(0.0, -0.04, 0.31)
+	lid.scale = Vector3(1.0, 1.16, 0.16)
+	lid.material_override = _solid_material(Color("e4e7dd"), 0.86)
+	eye.add_child(lid)
+
+	return {"eye": eye, "gaze": gaze, "lid": lid}
 
 
 func _build_shadow() -> void:

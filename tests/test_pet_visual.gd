@@ -20,24 +20,37 @@ static func run() -> Array[String]:
 	var body_mesh := (visual.get_node("Body/Base") as MeshInstance3D).mesh as SphereMesh
 	if body_mesh.radial_segments != 128 or body_mesh.rings != 64:
 		errors.append("身体网格密度不足，毛发轮廓会显得粗糙")
-	if visual.get_node_or_null("Body/FurStrands") != null:
-		errors.append("桌宠边缘不能保留独立长毛")
+	var fur_tufts := visual.get_node_or_null("Body/FurTufts") as MultiMeshInstance3D
+	if fur_tufts == null or fur_tufts.multimesh == null:
+		errors.append("桌宠必须包含定向细长毛束")
+	elif fur_tufts.multimesh.instance_count < 1400:
+		errors.append("定向毛束数量不足，无法形成参考图中的蓬松效果")
+	else:
+		for index in fur_tufts.multimesh.instance_count:
+			var origin := fur_tufts.multimesh.get_instance_transform(index).origin
+			if origin.z < 0.45:
+				continue
+			var left_distance := Vector2(
+				(origin.x + 0.31) / 0.29,
+				(origin.y - 0.14) / 0.27,
+			).length()
+			var right_distance := Vector2(
+				(origin.x - 0.31) / 0.29,
+				(origin.y - 0.14) / 0.27,
+			).length()
+			if minf(left_distance, right_distance) < 1.0:
+				errors.append("定向毛束不能穿过眼睛区域")
+				break
 	if visual.get_node_or_null("Eyes/Left") == null:
 		errors.append("桌宠必须包含左眼")
 	if visual.get_node_or_null("Eyes/Right") == null:
 		errors.append("桌宠必须包含右眼")
-	var hat := visual.get_node_or_null("Body/Hat") as Node3D
-	if hat == null:
-		errors.append("桌宠必须戴有贝雷帽")
-	else:
-		var visible_parts := 0
-		for child in hat.get_children():
-			if child is MeshInstance3D and child.mesh != null:
-				visible_parts += 1
-		if visible_parts < 3:
-			errors.append("贝雷帽必须包含帽檐、帽冠和顶部装饰")
-		if hat.position.y < 0.70:
-			errors.append("贝雷帽必须位于毛球顶部")
+	if visual.get_node_or_null("Eyes/Left/UpperLid") == null:
+		errors.append("左眼必须包含独立上眼皮")
+	if visual.get_node_or_null("Eyes/Right/UpperLid") == null:
+		errors.append("右眼必须包含独立上眼皮")
+	if visual.get_node_or_null("Body/Hat") != null:
+		errors.append("参考效果不能保留紫色帽子")
 	if visual.get_node_or_null("Shadow") == null:
 		errors.append("桌宠必须包含桌面阴影")
 	for method_name in ["set_body_pose", "set_blink", "set_gaze", "set_shadow"]:
@@ -52,9 +65,14 @@ static func run() -> Array[String]:
 		errors.append("身体姿态缩放未生效")
 	if not is_equal_approx(visual.get_node("Eyes").position.y, 0.08):
 		errors.append("眼睛必须跟随身体垂直移动")
-	visual.set_blink(0.4)
-	if not is_equal_approx(visual.get_node("Eyes/Left").scale.y, 0.4):
-		errors.append("眨眼开合值未应用到眼睛")
+	visual.set_blink(1.0)
+	var sleepy_lid_y: float = (visual.get_node("Eyes/Left/UpperLid") as Node3D).position.y
+	visual.set_blink(0.0)
+	var closed_lid_y: float = (visual.get_node("Eyes/Left/UpperLid") as Node3D).position.y
+	if closed_lid_y >= sleepy_lid_y:
+		errors.append("闭眼时上眼皮必须向下覆盖眼球")
+	if not visual.get_node("Eyes/Left").scale.is_equal_approx(Vector3.ONE):
+		errors.append("眨眼不能再压扁整颗眼睛")
 	visual.set_gaze(Vector2(0.03, -0.02))
 	if not visual.get_node("Eyes/Left/Gaze").position.is_equal_approx(Vector3(0.03, -0.02, 0.0)):
 		errors.append("视线偏移未应用到瞳孔组")
