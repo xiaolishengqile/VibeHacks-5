@@ -10,8 +10,9 @@
     "exactOptionalPropertyTypes": true,
     "verbatimModuleSyntax": true,
     "declaration": true,
-    "sourceMap": true,
-    "types": ["node"]
+		"sourceMap": true,
+		"lib": ["ES2023", "DOM"],
+		"types": ["node"]
   },
   "include": ["src/**/*.ts", "tests/**/*.ts"],
   "exclude": ["node_modules", "dist"]
