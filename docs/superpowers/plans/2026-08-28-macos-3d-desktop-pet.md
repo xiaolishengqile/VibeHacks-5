@@ -167,18 +167,16 @@ config/name="毛球桌宠"
 
 [display]
 
-[display/window]
-
-size/viewport_width=480
-size/viewport_height=420
-size/window_width_override=480
-size/window_height_override=420
-size/borderless=true
-size/always_on_top=true
-size/transparent=true
-size/no_focus=true
-size/resizable=false
-per_pixel_transparency/allowed=true
+window/size/viewport_width=480
+window/size/viewport_height=420
+window/size/window_width_override=480
+window/size/window_height_override=420
+window/size/borderless=true
+window/size/always_on_top=true
+window/size/transparent=true
+window/size/no_focus=true
+window/size/resizable=false
+window/per_pixel_transparency/allowed=true
 
 [rendering]
 
