@@ -10,6 +10,22 @@ export interface BrowserWindowConstructor {
 	new(options: BrowserWindowConstructorOptions): BrowserWindow;
 }
 
+export type ScreenCorner = "topLeft" | "topRight" | "bottomLeft" | "bottomRight";
+
+interface RectangleLike {
+	readonly x: number;
+	readonly y: number;
+	readonly width: number;
+	readonly height: number;
+}
+
+interface MiniPanelLike {
+	getBounds(): RectangleLike;
+	setPosition(x: number, y: number): void;
+	show(): void;
+	focus(): void;
+}
+
 const desktopDirectory = dirname(fileURLToPath(import.meta.url));
 const preloadPath = join(desktopDirectory, "preload.js");
 const rendererDirectory = join(desktopDirectory, "../renderer");
@@ -58,4 +74,29 @@ export function createMiniPanelWindow(Window: BrowserWindowConstructor): Browser
 	const window = new Window(miniPanelWindowOptions());
 	void window.loadFile(join(rendererDirectory, "mini.html"));
 	return window;
+}
+
+export function screenCornerForPoint(point: { readonly x: number; readonly y: number }, workArea: RectangleLike): ScreenCorner {
+	const horizontal = point.x < workArea.x + workArea.width / 2 ? "Left" : "Right";
+	const vertical = point.y < workArea.y + workArea.height / 2 ? "top" : "bottom";
+	return `${vertical}${horizontal}` as ScreenCorner;
+}
+
+export function showMiniPanelNearPet(
+	window: MiniPanelLike,
+	workArea: RectangleLike,
+	corner: ScreenCorner = "bottomRight",
+): void {
+	const panel = window.getBounds();
+	const pet = { width: 264, height: 231 };
+	const gap = 12;
+	const right = workArea.x + workArea.width;
+	const bottom = workArea.y + workArea.height;
+	let x = corner.endsWith("Right") ? right - panel.width - pet.width - gap : workArea.x + pet.width + gap;
+	let y = corner.startsWith("bottom") ? bottom - panel.height : workArea.y;
+	x = Math.max(workArea.x, Math.min(x, right - panel.width));
+	y = Math.max(workArea.y, Math.min(y, bottom - panel.height));
+	window.setPosition(Math.round(x), Math.round(y));
+	window.show();
+	window.focus();
 }
