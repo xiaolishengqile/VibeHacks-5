@@ -1,6 +1,8 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import readline from "node:readline";
 
+import { terminateProcessTree } from "../shared/process-tree.js";
+
 import type {
 	JsonRpcCommand,
 	JsonRpcError,
@@ -31,7 +33,9 @@ export function redactSecrets(value: string): string {
 	return value
 		.replace(/sk-[A-Za-z0-9_-]{8,}/g, "[已隐藏]")
 		.replace(/(Bearer\s+)[^\s]+/gi, "$1[已隐藏]")
-		.replace(/((?:OPENAI_)?API_KEY\s*=\s*)[^\s]+/gi, "$1[已隐藏]");
+		.replace(/((?:OPENAI_)?API_KEY\s*=\s*)[^\s]+/gi, "$1[已隐藏]")
+		.replace(/((?:x-)?api[-_]?key["']?\s*[:=]\s*["']?)[^"'\s,}]+/gi, "$1[已隐藏]")
+		.replace(/((?:access|refresh)[-_]?token["']?\s*[:=]\s*["']?)[^"'\s,}]+/gi, "$1[已隐藏]");
 }
 
 export class JsonRpcTransport {
@@ -61,6 +65,7 @@ export class JsonRpcTransport {
 	static async start(command: JsonRpcCommand, options: TransportOptions = {}): Promise<JsonRpcTransport> {
 		const child = spawn(command.command, command.args, {
 			stdio: ["pipe", "pipe", "pipe"],
+			detached: process.platform !== "win32",
 			...(command.cwd ? { cwd: command.cwd } : {}),
 			env: command.env ?? process.env,
 		});
@@ -118,8 +123,10 @@ export class JsonRpcTransport {
 		this.#closed = true;
 		this.#rejectPending(new Error("执行代理传输已关闭"));
 		this.#child.stdin.end();
-		if (!this.#exited) this.#child.kill("SIGTERM");
+		if (!this.#exited) terminateProcessTree(this.#child, "SIGTERM");
 		await this.#exitPromise;
+		// 主进程退出后再次清理同一进程组，避免执行工具成为孤儿进程。
+		terminateProcessTree(this.#child, "SIGKILL");
 	}
 
 	async #write(message: JsonRpcMessage): Promise<void> {

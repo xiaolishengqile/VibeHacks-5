@@ -59,9 +59,14 @@ const isPublicHttpUrl = (value: string): boolean => {
 	try {
 		const url = new URL(value);
 		if (url.protocol !== "https:" && url.protocol !== "http:") return false;
-		const host = url.hostname.toLowerCase();
-		if (host === "localhost" || host === "::1" || host.startsWith("127.")) return false;
-		if (host.startsWith("10.") || host.startsWith("192.168.")) return false;
+		const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+		if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local") || host.endsWith(".internal")) return false;
+		if (host === "::" || host === "::1" || host.startsWith("::ffff:")) return false;
+		if (/^(?:fc|fd|fe[89ab]|ff)/.test(host)) return false;
+		if (host.startsWith("0.") || host.startsWith("10.") || host.startsWith("127.")) return false;
+		if (host.startsWith("169.254.") || host.startsWith("192.168.")) return false;
+		const shared100 = /^100\.(\d+)\./.exec(host);
+		if (shared100 && Number(shared100[1]) >= 64 && Number(shared100[1]) <= 127) return false;
 		const private172 = /^172\.(\d+)\./.exec(host);
 		if (private172 && Number(private172[1]) >= 16 && Number(private172[1]) <= 31) return false;
 		return true;

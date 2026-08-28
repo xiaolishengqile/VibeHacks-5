@@ -1,6 +1,8 @@
 import { spawn } from "node:child_process";
 import { join } from "node:path";
 
+import { terminateProcessTree } from "../shared/process-tree.js";
+
 export interface PetConnection {
 	readonly port: number;
 	readonly token: string;
@@ -19,6 +21,7 @@ export interface PetLaunchSpec {
 }
 
 interface ChildProcessLike {
+	readonly pid?: number | undefined;
 	once(event: "exit", listener: (code: number | null, signal: NodeJS.Signals | null) => void): this;
 	kill(signal?: NodeJS.Signals): boolean;
 }
@@ -63,6 +66,7 @@ export class PetProcess {
 		this.#spawnProcess = options.spawnProcess ?? ((spec) => spawn(spec.command, spec.args, {
 			env: spec.env,
 			stdio: "ignore",
+			detached: process.platform !== "win32",
 		}) as ChildProcessLike);
 		this.#schedule = options.schedule ?? ((callback) => setTimeout(callback, 800));
 		this.#now = options.now ?? Date.now;
@@ -91,7 +95,7 @@ export class PetProcess {
 		this.#deliberateStop = true;
 		const child = this.#child;
 		this.#child = null;
-		child?.kill("SIGTERM");
+		if (child) terminateProcessTree(child, "SIGTERM");
 	}
 
 	#spawn(): void {
