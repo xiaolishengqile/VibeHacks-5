@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit",
     "build": "tsc",
     "demo:core": "tsx src/demo/core-demo.ts",
-		"build:desktop": "node scripts/copy-static.mjs && tsc",
+    "build:desktop": "node scripts/copy-static.mjs && tsc",
     "start": "npm run build:desktop && electron ."
   },
   "devDependencies": {
@@ -18,5 +18,8 @@
     "electron": "44.0.0",
     "tsx": "4.23.12",
     "typescript": "7.0.2"
+  },
+  "dependencies": {
+    "@openai/codex": "0.150.1"
   }
 }
