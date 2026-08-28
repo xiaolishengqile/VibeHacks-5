@@ -13,6 +13,7 @@ export type PermissionRequest =
 		readonly destinationPath?: string;
 	}
 	| { readonly kind: "command"; readonly executable: string; readonly args: readonly string[] }
+	| { readonly kind: "workspacePatch"; readonly reason: string }
 	| { readonly kind: "network"; readonly purpose: "research" | "download" | "other"; readonly url: string }
 	| { readonly kind: "outward"; readonly action: "sendMessage" | "publish" | "payment" | "changePermission" }
 	| { readonly kind: "unknown"; readonly value: unknown };
@@ -76,6 +77,8 @@ export class PermissionPolicy {
 				return this.#file(request, run);
 			case "command":
 				return this.#command(request, run);
+			case "workspacePatch":
+				return confirm("medium", request.reason || "修改已授权工作目录内的文件");
 			case "network":
 				return request.purpose === "research"
 					&& run.networkEnabled

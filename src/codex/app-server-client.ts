@@ -1,11 +1,12 @@
 import { JsonRpcTransport } from "./jsonrpc-transport.js";
-import type { JsonRpcCommand, JsonRpcId, JsonRpcNotification } from "./protocol.js";
+import type { JsonRpcCommand, JsonRpcId, JsonRpcNotification, JsonRpcServerRequest } from "./protocol.js";
 
 export interface AppServerTransport {
 	request(method: string, params: unknown): Promise<unknown>;
 	notify(method: string, params: unknown): Promise<void>;
 	respond(id: JsonRpcId, result: unknown): Promise<void>;
 	onNotification?(listener: (notification: JsonRpcNotification) => void): () => void;
+	onServerRequest?(listener: (request: JsonRpcServerRequest) => void | Promise<void>): () => void;
 	close(): Promise<void>;
 }
 
@@ -160,6 +161,11 @@ export class CodexAppServer {
 	onNotification(listener: (notification: JsonRpcNotification) => void): () => void {
 		if (!this.#transport.onNotification) throw new Error("执行代理传输不支持流式事件");
 		return this.#transport.onNotification(listener);
+	}
+
+	onServerRequest(listener: (request: JsonRpcServerRequest) => void | Promise<void>): () => void {
+		if (!this.#transport.onServerRequest) throw new Error("执行代理传输不支持权限请求");
+		return this.#transport.onServerRequest(listener);
 	}
 
 	async close(): Promise<void> {

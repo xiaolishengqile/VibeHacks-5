@@ -21,6 +21,7 @@ const run: ExecutionRun = {
 	id: "run_1",
 	workNodeId: "node_1",
 	goal: "完成季度复盘",
+	model: "gpt-5.6-terra",
 	workspaceRoots: [workspace],
 	networkEnabled: true,
 	allowedTools: ["读取文件", "创建文件", "运行测试", "网页调研"],
@@ -65,6 +66,8 @@ test("覆盖、移动和安装依赖需要单次确认", () => {
 		destinationPath: join(workspace, "archive", "report.md"),
 	}, run).kind, "confirm");
 	assert.equal(policy.evaluate(command("npm", ["install", "marked"]), run).kind, "confirm");
+	const workspacePatch = policy.evaluate({ kind: "workspacePatch", reason: "创建复盘初稿" }, run);
+	assert.deepEqual(workspacePatch.kind === "confirm" && workspacePatch.sessionEligible, false);
 });
 
 test("测试和已声明的公开网页调研可以执行", () => {

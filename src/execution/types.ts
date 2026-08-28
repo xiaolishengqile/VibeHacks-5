@@ -15,6 +15,7 @@ export interface ExecutionRun {
 	readonly id: string;
 	readonly workNodeId: string;
 	readonly goal: string;
+	readonly model: string;
 	readonly workspaceRoots: readonly string[];
 	readonly networkEnabled: boolean;
 	readonly allowedTools: readonly string[];

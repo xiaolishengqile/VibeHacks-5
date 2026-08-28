@@ -10,6 +10,7 @@ const sampleRun = (status: ExecutionStatus): ExecutionRun => ({
 	id: "run_1",
 	workNodeId: "node_1",
 	goal: "生成季度复盘文档",
+	model: "gpt-5.6-terra",
 	workspaceRoots: ["/workspace/review"],
 	networkEnabled: false,
 	allowedTools: ["读取文件", "创建文件", "运行测试"],
