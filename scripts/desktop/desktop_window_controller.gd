@@ -20,8 +20,8 @@ func configure(window: Window) -> void:
 	_window.unfocusable = true
 	_window.mouse_passthrough_polygon = WindowGeometryScript.ellipse_polygon(
 		PetConfigScript.WINDOW_SIZE,
-		Vector2(240, 230),
-		Vector2(185, 145),
+		Vector2(120, 115),
+		Vector2(92.5, 72.5),
 		32,
 	)
 

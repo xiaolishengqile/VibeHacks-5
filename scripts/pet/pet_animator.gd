@@ -10,7 +10,7 @@ var _elapsed := 0.0
 var _blink_elapsed := -1.0
 var _time_until_blink := 2.8
 var _reaction_elapsed := REACTION_DURATION
-var _mouse_position := Vector2(240, 210)
+var _mouse_position := Vector2(120, 105)
 var _random := RandomNumberGenerator.new()
 
 

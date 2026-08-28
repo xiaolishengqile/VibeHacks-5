@@ -57,8 +57,8 @@ func _build_body() -> void:
 	var body_mesh := SphereMesh.new()
 	body_mesh.radius = 0.82
 	body_mesh.height = 1.64
-	body_mesh.radial_segments = 48
-	body_mesh.rings = 24
+	body_mesh.radial_segments = PetConfigScript.FUR_RADIAL_SEGMENTS
+	body_mesh.rings = PetConfigScript.FUR_RINGS
 
 	var base := MeshInstance3D.new()
 	base.name = "Base"
@@ -82,6 +82,7 @@ func _build_body() -> void:
 			float(index) / float(PetConfigScript.FUR_SHELL_COUNT - 1),
 		)
 		material.set_shader_parameter("fur_color", PetConfigScript.BODY_COLOR)
+		material.set_shader_parameter("fur_length", PetConfigScript.FUR_LENGTH)
 		shell.material_override = material
 		shells.add_child(shell)
 

@@ -8,7 +8,7 @@ const DesktopWindowControllerScript = preload("res://scripts/desktop/desktop_win
 
 static func run() -> Array[String]:
 	var errors: Array[String] = []
-	var viewport := Vector2(480, 420)
+	var viewport := Vector2(240, 210)
 	if not PetAnimatorScript.gaze_offset(viewport * 0.5, viewport).is_zero_approx():
 		errors.append("鼠标位于窗口中心时视线偏移必须为零")
 	var clamped_gaze := PetAnimatorScript.gaze_offset(Vector2(960, -420), viewport)
@@ -27,7 +27,7 @@ static func run() -> Array[String]:
 	visual.build()
 	var animator := PetAnimatorScript.new()
 	animator.setup(visual)
-	animator.set_mouse_position(Vector2(240, 210))
+	animator.set_mouse_position(Vector2(120, 105))
 	animator.react()
 
 	var window := Window.new()

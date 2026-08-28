@@ -11,8 +11,11 @@ static func run() -> Array[String]:
 	if visual.get_node_or_null("Body/Base") == null:
 		errors.append("桌宠必须包含基础身体")
 	var fur_shells := visual.get_node_or_null("Body/FurShells")
-	if fur_shells == null or fur_shells.get_child_count() != 16:
-		errors.append("桌宠必须包含 16 层毛发")
+	if fur_shells == null or fur_shells.get_child_count() != 24:
+		errors.append("桌宠必须包含 24 层细密毛发")
+	var body_mesh := (visual.get_node("Body/Base") as MeshInstance3D).mesh as SphereMesh
+	if body_mesh.radial_segments != 96 or body_mesh.rings != 48:
+		errors.append("身体网格密度不足，毛发轮廓会显得粗糙")
 	if visual.get_node_or_null("Eyes/Left") == null:
 		errors.append("桌宠必须包含左眼")
 	if visual.get_node_or_null("Eyes/Right") == null:

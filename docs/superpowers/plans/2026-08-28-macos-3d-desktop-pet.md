@@ -25,8 +25,8 @@
 ## 全局约束
 
 - 只支持当前苹果芯片电脑，不增加跨平台分支。
-- 窗口固定为 480 × 420 像素，透明、无边框、不可缩放、始终置顶。
-- 默认毛发壳层数量固定为 16，可通过单一配置常量调整。
+- 窗口固定为 240 × 210 像素，透明、无边框、不可缩放、始终置顶。
+- 默认毛发壳层数量固定为 24，身体网格固定为 96 × 48 分段，毛发长度固定为 0.11。
 - 首版模型必须完全程序化生成，不安装三维建模工具。
 - 必须具备呼吸、眨眼、轻微弹跳、视线跟随、拖拽和右键退出。
 - 每个实现任务都必须先产生失败检查，再实现并通过检查。
@@ -120,10 +120,10 @@ const PetConfigScript = preload("res://scripts/config/pet_config.gd")
 
 static func run() -> Array[String]:
     var errors: Array[String] = []
-    if PetConfigScript.WINDOW_SIZE != Vector2i(480, 420):
-        errors.append("窗口尺寸必须为 480 × 420")
-    if PetConfigScript.FUR_SHELL_COUNT != 16:
-        errors.append("默认毛发壳层必须为 16")
+    if PetConfigScript.WINDOW_SIZE != Vector2i(240, 210):
+        errors.append("窗口尺寸必须为 240 × 210")
+    if PetConfigScript.FUR_SHELL_COUNT != 24:
+        errors.append("默认毛发壳层必须为 24")
     if PetConfigScript.TARGET_FPS != 60:
         errors.append("目标帧率必须为 60")
     return errors
@@ -147,8 +147,11 @@ Expected: failure because `scripts/config/pet_config.gd` does not exist.
 class_name PetConfig
 extends RefCounted
 
-const WINDOW_SIZE := Vector2i(480, 420)
-const FUR_SHELL_COUNT := 16
+const WINDOW_SIZE := Vector2i(240, 210)
+const FUR_SHELL_COUNT := 24
+const FUR_LENGTH := 0.11
+const FUR_RADIAL_SEGMENTS := 96
+const FUR_RINGS := 48
 const TARGET_FPS := 60
 const BODY_COLOR := Color("b7cf58")
 const BODY_SCALE := Vector3(1.28, 0.96, 1.0)
@@ -167,10 +170,10 @@ config/name="毛球桌宠"
 
 [display]
 
-window/size/viewport_width=480
-window/size/viewport_height=420
-window/size/window_width_override=480
-window/size/window_height_override=420
+window/size/viewport_width=240
+window/size/viewport_height=210
+window/size/window_width_override=240
+window/size/window_height_override=210
 window/size/borderless=true
 window/size/always_on_top=true
 window/size/transparent=true
@@ -236,11 +239,11 @@ Create a test that calls:
 
 ```gdscript
 var polygon := WindowGeometryScript.ellipse_polygon(
-    Vector2i(480, 420), Vector2(240, 230), Vector2(185, 145), 32
+    Vector2i(240, 210), Vector2(120, 115), Vector2(92.5, 72.5), 32
 )
 ```
 
-Assert that it contains 32 points, every point is inside the window, its first point is approximately `(425, 230)`, and opposite points are symmetric. Register the test in `tests/run_tests.gd`.
+Assert that it contains 32 points, every point is inside the window, its first point is approximately `(212.5, 115)`, and opposite points are symmetric. Register the test in `tests/run_tests.gd`.
 
 - [ ] **Step 2: Run the test and verify it fails**
 
@@ -285,7 +288,7 @@ func configure(window: Window) -> void:
     _window.unresizable = true
     _window.unfocusable = true
     _window.mouse_passthrough_polygon = WindowGeometry.ellipse_polygon(
-        PetConfig.WINDOW_SIZE, Vector2(240, 230), Vector2(185, 145), 32
+        PetConfig.WINDOW_SIZE, Vector2(120, 115), Vector2(92.5, 72.5), 32
     )
     var screen := DisplayServer.window_get_current_screen()
     var usable := DisplayServer.screen_get_usable_rect(screen)
@@ -336,7 +339,7 @@ Instantiate `PetVisual`, call `build()`, and assert:
 
 ```gdscript
 visual.get_node("Body/Base") != null
-visual.get_node("Body/FurShells").get_child_count() == 16
+visual.get_node("Body/FurShells").get_child_count() == 24
 visual.get_node("Eyes/Left") != null
 visual.get_node("Eyes/Right") != null
 visual.get_node("Shadow") != null
@@ -354,7 +357,7 @@ render_mode cull_back, diffuse_burley, specular_schlick_ggx;
 
 uniform vec3 fur_color : source_color = vec3(0.72, 0.82, 0.35);
 uniform float shell_ratio : hint_range(0.0, 1.0) = 0.0;
-uniform float fur_length : hint_range(0.0, 0.3) = 0.18;
+uniform float fur_length : hint_range(0.0, 0.3) = 0.11;
 
 float hash21(vec2 p) {
     p = fract(p * vec2(123.34, 456.21));
@@ -368,7 +371,7 @@ void vertex() {
 }
 
 void fragment() {
-    float strand = hash21(floor(UV * 110.0));
+    float strand = hash21(floor(UV * vec2(260.0, 180.0)));
     if (shell_ratio > 0.0 && strand < shell_ratio * 0.82) {
         discard;
     }
@@ -379,7 +382,7 @@ void fragment() {
 
 - [ ] **Step 3: Implement the procedural visual hierarchy**
 
-Create one compressed `SphereMesh` base, 16 shell instances sharing that mesh, and one material instance per shell with `shell_ratio = index / 15.0`:
+Create one compressed `SphereMesh` base, 24 shell instances sharing that mesh, and one material instance per shell with `shell_ratio = index / 23.0`:
 
 ```gdscript
 func _build_body() -> void:
@@ -390,8 +393,8 @@ func _build_body() -> void:
     var body_mesh := SphereMesh.new()
     body_mesh.radius = 0.82
     body_mesh.height = 1.64
-    body_mesh.radial_segments = 48
-    body_mesh.rings = 24
+    body_mesh.radial_segments = PetConfig.FUR_RADIAL_SEGMENTS
+    body_mesh.rings = PetConfig.FUR_RINGS
 
     var base := MeshInstance3D.new()
     base.name = "Base"
@@ -424,7 +427,7 @@ Store only the node references required by the four public pose methods. Keep al
 
 - [ ] **Step 4: Run tests and inspect shader imports**
 
-Run the test entry and headless editor import. Expected: 16 fur shells, two eye groups, one shadow, no shader compile errors.
+Run the test entry and headless editor import. Expected: 24 fine fur shells, two eye groups, one shadow, no shader compile errors.
 
 - [ ] **Step 5: Commit**
 
