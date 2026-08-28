@@ -41,13 +41,19 @@ test("传输层转发通知并能从坏消息恢复", async (context) => {
 	assert.match(transport.diagnostics().join("\n"), /无法解析/);
 });
 
-test("服务端错误、进程退出和请求超时会明确失败", async () => {
-	const failed = await JsonRpcTransport.start(fakeServerCommand, { requestTimeoutMs: 40 });
+test("服务端错误、进程退出和请求超时会明确失败", async (context) => {
+	const failed = await JsonRpcTransport.start(fakeServerCommand);
+	context.after(() => failed.close());
 	await assert.rejects(() => failed.request("fail", {}), /模拟失败/);
-	await assert.rejects(() => failed.request("never", {}), /超时/);
 	await failed.close();
 
+	const timedOut = await JsonRpcTransport.start(fakeServerCommand, { requestTimeoutMs: 40 });
+	context.after(() => timedOut.close());
+	await assert.rejects(() => timedOut.request("never", {}), /超时/);
+	await timedOut.close();
+
 	const exited = await JsonRpcTransport.start(fakeServerCommand);
+	context.after(() => exited.close());
 	await assert.rejects(() => exited.request("exit", {}), /退出/);
 	await exited.close();
 });
