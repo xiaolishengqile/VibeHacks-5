@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit",
     "build": "tsc",
     "demo:core": "tsx src/demo/core-demo.ts",
-    "build:desktop": "tsc && node scripts/copy-static.mjs",
+		"build:desktop": "node scripts/copy-static.mjs && tsc",
     "start": "npm run build:desktop && electron ."
   },
   "devDependencies": {

@@ -111,13 +111,13 @@ export class ApplicationService {
 		const normalized = text.trim();
 		if (!normalized) throw new Error("工作描述不能为空");
 		if (!this.#options.submitText) throw new Error("工作理解服务尚未就绪");
-		this.#snapshot = await this.#options.submitText(normalized);
+		this.#snapshot = this.#mergeBusinessSnapshot(await this.#options.submitText(normalized));
 		return this.getSnapshot();
 	}
 
 	async runCommand(command: UiCommand): Promise<ApplicationSnapshot> {
 		if (!this.#options.runCommand) throw new Error("当前没有可操作的工作计划");
-		this.#snapshot = await this.#options.runCommand(command);
+		this.#snapshot = this.#mergeBusinessSnapshot(await this.#options.runCommand(command));
 		return this.getSnapshot();
 	}
 
@@ -142,5 +142,13 @@ export class ApplicationService {
 		if (!event) return;
 		this.#snapshot = { ...this.#snapshot, events: [...this.#snapshot.events, event].slice(-200) };
 		for (const listener of this.#listeners) listener(event);
+	}
+
+	#mergeBusinessSnapshot(next: ApplicationSnapshot): ApplicationSnapshot {
+		return {
+			...next,
+			workDirectory: next.workDirectory ?? this.#snapshot.workDirectory,
+			events: next.events.length > 0 ? next.events : this.#snapshot.events,
+		};
 	}
 }
