@@ -1,7 +1,6 @@
 extends RefCounted
 
 const PetVisualScript = preload("res://scripts/pet/pet_visual.gd")
-const FurStrandBuilderScript = preload("res://scripts/pet/fur_strand_builder.gd")
 
 
 static func run() -> Array[String]:
@@ -21,34 +20,8 @@ static func run() -> Array[String]:
 	var body_mesh := (visual.get_node("Body/Base") as MeshInstance3D).mesh as SphereMesh
 	if body_mesh.radial_segments != 128 or body_mesh.rings != 64:
 		errors.append("身体网格密度不足，毛发轮廓会显得粗糙")
-	var strands := visual.get_node_or_null("Body/FurStrands") as MultiMeshInstance3D
-	if strands == null or strands.multimesh == null:
-		errors.append("桌宠必须包含独立细毛实例")
-	elif strands.multimesh.instance_count != 15000:
-		errors.append("独立细毛数量必须为一万五千根")
-	else:
-		var strand_mesh := strands.multimesh.mesh as ArrayMesh
-		var strand_arrays := strand_mesh.surface_get_arrays(0)
-		var strand_vertices: PackedVector3Array = strand_arrays[Mesh.ARRAY_VERTEX]
-		var strand_normals = strand_arrays[Mesh.ARRAY_NORMAL]
-		if strand_normals == null or strand_normals.size() != strand_vertices.size():
-			errors.append("独立细毛必须包含完整法线以避免黑色颗粒")
-	var strand_direction := Callable(FurStrandBuilderScript, "strand_direction")
-	if not strand_direction.is_valid():
-		errors.append("细毛构建器必须提供可测试的毛束方向计算")
-	else:
-		var normal := Vector3(0.0, 0.0, 1.0)
-		var hair_direction: Vector3 = strand_direction.call(
-			Vector3(0.0, 0.0, 0.82),
-			normal,
-			Vector3(-1.0, 0.0, 0.0),
-			Vector3(0.0, 1.0, 0.0),
-			0.0,
-			0.0,
-		)
-		var outward_alignment := hair_direction.dot(normal)
-		if outward_alignment >= 0.97 or outward_alignment <= 0.80:
-			errors.append("正面细毛必须向外倾斜形成可见毛束")
+	if visual.get_node_or_null("Body/FurStrands") != null:
+		errors.append("桌宠边缘不能保留独立长毛")
 	if visual.get_node_or_null("Eyes/Left") == null:
 		errors.append("桌宠必须包含左眼")
 	if visual.get_node_or_null("Eyes/Right") == null:

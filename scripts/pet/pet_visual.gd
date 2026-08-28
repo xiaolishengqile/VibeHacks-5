@@ -2,7 +2,6 @@ class_name PetVisual
 extends Node3D
 
 const PetConfigScript = preload("res://scripts/config/pet_config.gd")
-const FurStrandBuilderScript = preload("res://scripts/pet/fur_strand_builder.gd")
 const HatBuilderScript = preload("res://scripts/pet/hat_builder.gd")
 const FUR_SHADER = preload("res://shaders/fur_shell.gdshader")
 const FUR_TEXTURE = preload("res://assets/textures/fur_plush.png")
@@ -90,7 +89,6 @@ func _build_body() -> void:
 		shell.material_override = material
 		shells.add_child(shell)
 
-	_body_root.add_child(FurStrandBuilderScript.create())
 	_body_root.add_child(HatBuilderScript.create())
 
 

@@ -16,10 +16,6 @@ static func run() -> Array[String]:
 		errors.append("短绒长度必须为 0.075")
 	if PetConfigScript.FUR_RADIAL_SEGMENTS != 128 or PetConfigScript.FUR_RINGS != 64:
 		errors.append("身体网格必须提升到 128 × 64")
-	if constants.get("FUR_STRAND_COUNT") != 15000:
-		errors.append("轮廓必须包含一万五千根独立细毛")
-	if PetConfigScript.FUR_STRAND_WIDTH < 0.011 or PetConfigScript.FUR_STRAND_WIDTH > 0.012:
-		errors.append("轮廓细毛必须兼顾清晰边缘与细腻观感")
 	if ProjectSettings.get_setting("display/window/size/viewport_width") != 570:
 		errors.append("项目内部渲染宽度必须为 570")
 	if ProjectSettings.get_setting("display/window/size/viewport_height") != 500:
