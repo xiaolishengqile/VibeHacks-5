@@ -53,6 +53,18 @@ static func run() -> Array[String]:
 		errors.append("桌宠必须包含左眼")
 	if visual.get_node_or_null("Eyes/Right") == null:
 		errors.append("桌宠必须包含右眼")
+	var hat := visual.get_node_or_null("Body/Hat") as Node3D
+	if hat == null:
+		errors.append("桌宠必须戴有贝雷帽")
+	else:
+		var visible_parts := 0
+		for child in hat.get_children():
+			if child is MeshInstance3D and child.mesh != null:
+				visible_parts += 1
+		if visible_parts < 3:
+			errors.append("贝雷帽必须包含帽檐、帽冠和顶部装饰")
+		if hat.position.y < 0.70:
+			errors.append("贝雷帽必须位于毛球顶部")
 	if visual.get_node_or_null("Shadow") == null:
 		errors.append("桌宠必须包含桌面阴影")
 	for method_name in ["set_body_pose", "set_blink", "set_gaze", "set_shadow"]:

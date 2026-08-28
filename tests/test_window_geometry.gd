@@ -6,19 +6,19 @@ const DesktopWindowControllerScript = preload("res://scripts/desktop/desktop_win
 
 static func run() -> Array[String]:
 	var errors: Array[String] = []
-	var size := Vector2i(264, 231)
-	var center := Vector2(132, 126.5)
+	var size := Vector2i(285, 250)
+	var center := Vector2(142.5, 136.90476)
 	var polygon := WindowGeometryScript.ellipse_polygon(
 		size,
 		center,
-		Vector2(101.75, 79.75),
+		Vector2(109.84375, 86.30952),
 		32,
 	)
 
 	if polygon.size() != 32:
 		errors.append("桌宠命中区域必须包含 32 个顶点")
 		return errors
-	if not polygon[0].is_equal_approx(Vector2(233.75, 126.5)):
+	if not polygon[0].is_equal_approx(Vector2(252.34375, 136.90476)):
 		errors.append("命中区域首个顶点位置错误")
 	if not (polygon[0] + polygon[16]).is_equal_approx(center * 2.0):
 		errors.append("命中区域对向顶点必须围绕中心对称")
@@ -30,8 +30,8 @@ static func run() -> Array[String]:
 	var window := Window.new()
 	var controller = DesktopWindowControllerScript.new()
 	controller.configure(window)
-	if window.size != Vector2i(264, 231):
-		errors.append("窗口控制器必须应用增大 10% 后的尺寸")
+	if window.size != Vector2i(285, 250):
+		errors.append("窗口控制器必须应用为帽子扩大的尺寸")
 	if not window.borderless or not window.transparent or not window.always_on_top:
 		errors.append("窗口控制器必须启用无边框、透明和置顶")
 	controller.begin_drag()
