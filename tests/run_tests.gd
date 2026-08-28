@@ -6,6 +6,7 @@ const TESTS := [
 	preload("res://tests/test_pet_visual.gd"),
 	preload("res://tests/test_animation_math.gd"),
 	preload("res://tests/test_main_scene.gd"),
+	preload("res://tests/test_export_config.gd"),
 ]
 
 

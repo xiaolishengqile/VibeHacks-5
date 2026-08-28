@@ -1,5 +1,6 @@
 .worktrees/
 .godot/
 build/
+artifacts/*.import
 *.log
 .DS_Store

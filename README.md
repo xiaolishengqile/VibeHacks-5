@@ -1,14 +1,22 @@
 # 毛球桌宠
 
-一个仅面向当前苹果芯片电脑的三维绿色绒毛桌宠。
+一个仅面向当前苹果芯片电脑的三维绿色绒毛桌宠，使用 Godot 4.7.2 制作。
+
+![运行效果](artifacts/desktop-pet.png)
+
+当前桌宠窗口为 240 × 210 像素，包含细绒毛、玻璃眼睛、呼吸、眨眼、视线跟随和拖拽反馈。
 
 ## 启动
 
-双击 `scripts/run.command`，或在项目目录运行：
+直接双击 `build/毛球桌宠.app` 使用成品。
+
+开发时可双击 `scripts/run.command`，或在项目目录运行：
 
 ```bash
 /Applications/Godot.app/Contents/MacOS/Godot --path .
 ```
+
+需要重新生成成品时，双击 `scripts/export.command`。
 
 ## 操作
 
