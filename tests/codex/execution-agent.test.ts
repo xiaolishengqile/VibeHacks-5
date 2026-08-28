@@ -22,6 +22,7 @@ test.after(() => rmSync(root, { recursive: true, force: true }));
 
 const run: ExecutionRun = {
 	id: "run-1",
+	workGoalId: "goal-1",
 	workNodeId: "node-1",
 	goal: "完成季度复盘框架",
 	model: "gpt-5.6-terra",

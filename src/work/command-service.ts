@@ -189,6 +189,49 @@ export class CommandService {
 		return this.#save({ ...aggregate, graph }, change);
 	}
 
+	async startExecution(input: { readonly goalId: string; readonly nodeId: string }): Promise<CommandResult> {
+		return this.#transitionForExecution(
+			input,
+			"running",
+			"executionStarted",
+			"执行代理开始处理工作节点",
+		);
+	}
+
+	async submitForReview(input: { readonly goalId: string; readonly nodeId: string }): Promise<CommandResult> {
+		return this.#transitionForExecution(
+			input,
+			"review",
+			"artifactReady",
+			"成果验证通过，等待用户验收",
+		);
+	}
+
+	async failExecution(input: {
+		readonly goalId: string;
+		readonly nodeId: string;
+		readonly reason: string;
+	}): Promise<CommandResult> {
+		return this.#transitionForExecution(
+			input,
+			"failed",
+			"executionFailed",
+			`执行失败：${input.reason}`,
+		);
+	}
+
+	async #transitionForExecution(
+		input: { readonly goalId: string; readonly nodeId: string },
+		target: "running" | "review" | "failed",
+		kind: "executionStarted" | "artifactReady" | "executionFailed",
+		reason: string,
+	): Promise<CommandResult> {
+		const aggregate = await this.#load(input.goalId);
+		const graph = aggregate.graph.transitionNode(input.nodeId, target);
+		const change = this.#change(kind, reason);
+		return this.#save({ ...aggregate, graph }, change);
+	}
+
 	async #load(goalId: string): Promise<LoadedAggregate> {
 		const stored = await this.#repository.loadAggregate(goalId);
 		if (!stored) throw new Error(`找不到工作目标：${goalId}`);

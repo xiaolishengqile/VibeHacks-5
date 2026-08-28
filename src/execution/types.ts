@@ -13,6 +13,7 @@ export type ExecutionRisk = "low" | "medium" | "high";
 
 export interface ExecutionRun {
 	readonly id: string;
+	readonly workGoalId: string;
 	readonly workNodeId: string;
 	readonly goal: string;
 	readonly model: string;

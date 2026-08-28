@@ -7,6 +7,9 @@ export type WorkChangeKind =
 	| "ownerChanged"
 	| "stopped"
 	| "durationRecorded"
+	| "executionStarted"
+	| "artifactReady"
+	| "executionFailed"
 	| "artifactAccepted";
 
 export interface WorkChange {

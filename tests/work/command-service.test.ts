@@ -191,3 +191,19 @@ test("接受成果后工作节点从待验收进入完成", async () => {
 	assert.equal(result.aggregate.graph.node("request_data").status, "done");
 	assert.match(result.change.reason, /artifact_1/);
 });
+
+test("执行节点依次进入运行、待验收和完成", async () => {
+	const { service } = setup();
+	const running = await service.startExecution({ goalId: "goal_1", nodeId: "request_data" });
+	assert.equal(running.aggregate.graph.node("request_data").status, "running");
+	const review = await service.submitForReview({ goalId: "goal_1", nodeId: "request_data" });
+	assert.equal(review.aggregate.graph.node("request_data").status, "review");
+});
+
+test("执行失败会同步工作节点状态和原因", async () => {
+	const { service } = setup();
+	await service.startExecution({ goalId: "goal_1", nodeId: "request_data" });
+	const failed = await service.failExecution({ goalId: "goal_1", nodeId: "request_data", reason: "成果为空" });
+	assert.equal(failed.aggregate.graph.node("request_data").status, "failed");
+	assert.match(failed.change.reason, /成果为空/);
+});

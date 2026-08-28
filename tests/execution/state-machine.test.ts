@@ -8,6 +8,7 @@ const now = "2026-08-28T09:00:00+08:00";
 
 const sampleRun = (status: ExecutionStatus): ExecutionRun => ({
 	id: "run_1",
+	workGoalId: "goal_1",
 	workNodeId: "node_1",
 	goal: "生成季度复盘文档",
 	model: "gpt-5.6-terra",
