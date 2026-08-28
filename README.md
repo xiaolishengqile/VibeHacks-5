@@ -34,3 +34,11 @@
 /Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script res://tests/run_tests.gd
 ./tests/test_export_app.command
 ```
+
+## 业务核心演示
+
+下面的命令会用固定数据演示“创建季度复盘计划、自动倒排、变更协作方、重新计算当前行动”的完整闭环：
+
+```bash
+npm run demo:core
+```

@@ -4,11 +4,12 @@
   "private": true,
   "description": "启动日桌宠智能工作执行系统",
   "type": "module",
-  "scripts": {
+	"scripts": {
 		"test": "node --disable-warning=ExperimentalWarning --test --import tsx tests/**/*.test.ts",
-    "typecheck": "tsc --noEmit",
-    "build": "tsc"
-  },
+		"typecheck": "tsc --noEmit",
+		"build": "tsc",
+		"demo:core": "tsx src/demo/core-demo.ts"
+	},
   "devDependencies": {
     "@types/node": "26.4.0",
     "tsx": "4.23.12",
