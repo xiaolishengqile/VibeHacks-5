@@ -19,11 +19,31 @@
 			</header>
 
 			<div class="dashboard-grid">
+				<section class="panel panel--codex">
+					<div class="section-heading">
+						<div><p class="section-label">执行代理</p><h2 id="codex-readiness">正在检查</h2></div>
+						<div class="button-row">
+							<button id="codex-login" class="text-button" type="button" hidden>登录</button>
+							<button id="codex-refresh" class="text-button" type="button">刷新状态</button>
+						</div>
+					</div>
+					<div class="status-grid">
+						<p><span class="muted">账号</span><strong id="codex-account">正在检查</strong></p>
+						<p><span class="muted">模型</span><strong id="codex-model">正在检查</strong></p>
+						<p><span class="muted">额度</span><strong id="codex-rate-limit">正在检查</strong></p>
+					</div>
+				</section>
+
 				<section class="panel panel--today">
 					<p class="section-label">今天</p>
 					<h2 id="today-title">暂无当前行动</h2>
 					<div class="meta-row"><span id="today-risk" class="pill">等待输入</span><span id="today-time" class="muted"></span></div>
 					<p id="today-reason">从桌宠打开轻面板，输入你想完成的工作。</p>
+					<label class="permission-toggle" for="allow-web-research">
+						<input id="allow-web-research" type="checkbox">
+						<span>允许本次计划访问公开网页</span>
+					</label>
+					<button id="start-today-execution" class="primary-button" type="button" disabled>生成执行计划</button>
 				</section>
 
 				<section class="panel panel--graph">

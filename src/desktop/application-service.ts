@@ -1,6 +1,8 @@
 import type { WorkDecision } from "../work/decision-engine.js";
 import type { WorkChange } from "../work/repositories.js";
 import type { WorkGoal, WorkNode } from "../work/types.js";
+import type { ExecutionRisk, ExecutionStatus } from "../execution/types.js";
+import type { CodexSetupState } from "./codex-setup.js";
 
 export type UiCommand =
 	| { readonly name: "changeDeadline"; readonly goalId: string; readonly deadline: string }
@@ -9,7 +11,31 @@ export type UiCommand =
 	| { readonly name: "prepareStop"; readonly goalId: string; readonly nodeId: string }
 	| { readonly name: "confirmStop"; readonly goalId: string; readonly token: string }
 	| { readonly name: "recordDuration"; readonly goalId: string; readonly nodeId: string; readonly actualMinutes: number }
-	| { readonly name: "acceptArtifact"; readonly goalId: string; readonly nodeId: string; readonly artifactId: string };
+	| { readonly name: "acceptArtifact"; readonly goalId: string; readonly nodeId: string; readonly artifactId: string }
+	| {
+		readonly name: "startExecution";
+		readonly goalId: string;
+		readonly nodeId: string;
+		readonly allowWebResearch: boolean;
+	}
+	| { readonly name: "confirmExecutionPlan"; readonly executionId: string }
+	| {
+		readonly name: "answerExecutionApproval";
+		readonly executionId: string;
+		readonly requestId: string;
+		readonly decision: "approve" | "deny";
+	}
+	| { readonly name: "cancelExecution"; readonly executionId: string }
+	| { readonly name: "resumeExecution"; readonly executionId: string }
+	| {
+		readonly name: "acceptExecutionArtifact";
+		readonly executionId: string;
+		readonly artifactId: string;
+		readonly actualMinutes: number;
+	}
+	| { readonly name: "openExecutionArtifact"; readonly executionId: string; readonly artifactId: string }
+	| { readonly name: "startCodexLogin" }
+	| { readonly name: "refreshCodex" };
 
 export type VisibleEventKind = "info" | "progress" | "approval" | "artifact" | "warning" | "error";
 
@@ -22,14 +48,21 @@ export interface VisibleApplicationEvent {
 export interface ExecutionSummary {
 	readonly id: string;
 	readonly title: string;
-	readonly status: "planning" | "awaitingApproval" | "running" | "verifying" | "succeeded" | "failed" | "paused";
+	readonly status: ExecutionStatus;
 	readonly progress: string;
 	readonly updatedAt: string;
+	readonly model: string;
+	readonly workspaceRoots: readonly string[];
+	readonly networkEnabled: boolean;
+	readonly allowedTools: readonly string[];
+	readonly risk: ExecutionRisk;
+	readonly error: string | null;
 }
 
 export interface ApprovalSummary {
 	readonly id: string;
 	readonly executionId: string;
+	readonly requestId: string;
 	readonly summary: string;
 	readonly risk: "low" | "medium" | "high";
 }
@@ -37,6 +70,7 @@ export interface ApprovalSummary {
 export interface ArtifactSummary {
 	readonly id: string;
 	readonly executionId: string;
+	readonly workNodeId: string;
 	readonly name: string;
 	readonly path: string;
 	readonly verified: boolean;
@@ -53,6 +87,7 @@ export interface ApplicationSnapshot {
 	readonly events: readonly VisibleApplicationEvent[];
 	readonly workDirectory: string | null;
 	readonly pendingStop: { readonly token: string; readonly affectedNodeIds: readonly string[] } | null;
+	readonly codex: CodexSetupState;
 }
 
 export const emptyApplicationSnapshot = (): ApplicationSnapshot => ({
@@ -66,10 +101,21 @@ export const emptyApplicationSnapshot = (): ApplicationSnapshot => ({
 	events: [],
 	workDirectory: null,
 	pendingStop: null,
+	codex: {
+		ready: false,
+		reason: "正在检查执行代理",
+		canStartBrowserLogin: false,
+		executable: null,
+		version: null,
+		account: "正在检查",
+		model: null,
+		rateLimit: "正在检查",
+	},
 });
 
 interface ApplicationServiceOptions {
 	readonly initialSnapshot?: ApplicationSnapshot;
+	readonly getSnapshot?: () => Promise<ApplicationSnapshot>;
 	readonly submitText?: (text: string) => Promise<ApplicationSnapshot>;
 	readonly runCommand?: (command: UiCommand) => Promise<ApplicationSnapshot>;
 	readonly chooseDirectory?: () => Promise<readonly string[]>;
@@ -104,6 +150,9 @@ export class ApplicationService {
 	}
 
 	async getSnapshot(): Promise<ApplicationSnapshot> {
+		if (this.#options.getSnapshot) {
+			this.#snapshot = this.#mergeBusinessSnapshot(await this.#options.getSnapshot());
+		}
 		return structuredClone(this.#snapshot);
 	}
 

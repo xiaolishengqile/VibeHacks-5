@@ -46,12 +46,18 @@
 				<div class="card-heading"><h2>计划与权限</h2><button id="choose-directory" class="text-button" type="button">选择目录</button></div>
 				<p id="plan-summary">暂无计划。执行前会展示范围并请求确认。</p>
 				<p id="directory-summary" class="muted">尚未选择工作目录</p>
+				<p id="approval-summary" class="muted">当前没有待确认操作</p>
 			</section>
 
 			<section class="compact-card">
-				<h2>执行进度</h2>
+				<div class="card-heading"><h2>执行进度</h2><span id="codex-status" class="pill">正在检查代理</span></div>
 				<p id="progress-summary">当前没有执行任务</p>
 				<a id="result-link" class="result-link" href="#" aria-disabled="true">暂无可验收成果</a>
+				<div class="button-row execution-controls">
+					<button id="execution-primary" class="primary-button" type="button" disabled>生成执行计划</button>
+					<button id="execution-secondary" class="danger-button" type="button" hidden>拒绝</button>
+					<button id="codex-login" class="text-button" type="button" hidden>登录执行代理</button>
+				</div>
 			</section>
 
 			<button id="open-workbench" class="secondary-button" type="button">打开完整工作台</button>

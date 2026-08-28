@@ -3,7 +3,7 @@ import test from "node:test";
 
 import type { ExecutionSummary } from "../../src/desktop/application-service.js";
 import type { WorkDecision } from "../../src/work/decision-engine.js";
-import { toPetStatus, toTodayActionView } from "../../src/renderer/view-models.js";
+import { toMiniExecutionControl, toPetStatus, toTodayActionView } from "../../src/renderer/view-models.js";
 
 const readyDecision: WorkDecision = {
 	nodeId: "node_1",
@@ -21,6 +21,12 @@ const execution = (status: ExecutionSummary["status"], updatedAt = "2026-08-28T0
 	status,
 	progress: "正在处理",
 	updatedAt,
+	model: "gpt-5.6-terra",
+	workspaceRoots: ["/tmp/work"],
+	networkEnabled: false,
+	allowedTools: ["创建文件"],
+	risk: "medium",
+	error: null,
 });
 
 test("等待确认的执行优先映射为桌宠确认状态", () => {
@@ -54,4 +60,31 @@ test("今日行动包含标题、最晚开始、风险和中文原因", () => {
 	assert.equal(view.latestStart, "2026-08-28 10:00");
 	assert.equal(view.risk, "高风险");
 	assert.equal(view.reason, readyDecision.reason);
+});
+
+test("轻面板按执行阶段给出唯一的主要动作", () => {
+	assert.deepEqual(toMiniExecutionControl({ execution: null, hasApproval: false, hasVerifiedArtifact: false, canStart: true }), {
+		primaryLabel: "生成执行计划",
+		primaryAction: "start",
+		secondaryAction: null,
+	});
+	assert.equal(toMiniExecutionControl({
+		execution: execution("awaitingApproval"), hasApproval: false, hasVerifiedArtifact: false, canStart: false,
+	}).primaryAction, "confirm");
+	assert.deepEqual(toMiniExecutionControl({
+		execution: execution("awaitingApproval"), hasApproval: true, hasVerifiedArtifact: false, canStart: false,
+	}), {
+		primaryLabel: "批准一次",
+		primaryAction: "approve",
+		secondaryAction: "deny",
+	});
+	assert.equal(toMiniExecutionControl({
+		execution: execution("running"), hasApproval: false, hasVerifiedArtifact: false, canStart: false,
+	}).primaryAction, "cancel");
+	assert.equal(toMiniExecutionControl({
+		execution: execution("paused"), hasApproval: false, hasVerifiedArtifact: false, canStart: false,
+	}).primaryAction, "resume");
+	assert.equal(toMiniExecutionControl({
+		execution: execution("succeeded"), hasApproval: false, hasVerifiedArtifact: true, canStart: false,
+	}).primaryAction, "accept");
 });

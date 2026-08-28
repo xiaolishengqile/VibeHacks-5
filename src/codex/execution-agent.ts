@@ -153,13 +153,13 @@ export class CodexExecutionAgent {
 	async execute(run: ExecutionRun): Promise<{ threadId: string; turnId: string }> {
 		const cwd = this.#primaryWorkspace(run);
 		const threadId = run.threadId ?? (await this.#server.startThread({
-			model: run.model, cwd, approvalPolicy: "unlessTrusted", sandbox: "workspace-write", ephemeral: false,
+			model: run.model, cwd, approvalPolicy: "on-request", sandbox: "workspace-write", ephemeral: false,
 		})).thread.id;
 		const turn = await this.#server.startTurn({
 			threadId,
 			input: [{ type: "text", text: run.goal, text_elements: [] }],
 			cwd,
-			approvalPolicy: "unlessTrusted",
+			approvalPolicy: "on-request",
 			sandboxPolicy: {
 				type: "workspaceWrite",
 				writableRoots: [...run.workspaceRoots],

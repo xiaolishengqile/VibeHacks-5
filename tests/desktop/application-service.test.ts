@@ -43,3 +43,30 @@ test("订阅事件只保留用户可见字段", () => {
 		at: "2026-08-28T09:00:00+08:00",
 	}]);
 });
+
+test("读取快照时会合并后台最新的执行状态", async () => {
+	let reads = 0;
+	const service = new ApplicationService({
+		getSnapshot: async () => {
+			reads += 1;
+			return {
+				...emptyApplicationSnapshot(),
+				executions: [{
+					id: "run-1",
+					title: "生成复盘初稿",
+					status: "running",
+					progress: "正在生成",
+					updatedAt: "2026-08-29T09:00:00+08:00",
+					model: "gpt-5.6-terra",
+					workspaceRoots: ["/tmp/work"],
+					networkEnabled: false,
+					allowedTools: ["创建文件"],
+					risk: "medium",
+					error: null,
+				}],
+			};
+		},
+	});
+	assert.equal((await service.getSnapshot()).executions[0]?.status, "running");
+	assert.equal(reads, 1);
+});

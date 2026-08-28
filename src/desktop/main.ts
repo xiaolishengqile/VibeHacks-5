@@ -1,14 +1,22 @@
-import { app, BrowserWindow, dialog, ipcMain, screen } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, screen, shell } from "electron";
+import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 
 import { RandomIdGenerator } from "../shared/ids.js";
 import { migrateDatabase, openDatabase } from "../storage/database.js";
 import { SqliteWorkRepository } from "../storage/work-repository.js";
+import { SqliteExecutionRepository } from "../storage/execution-repository.js";
 import { CommandService } from "../work/command-service.js";
 import { DecisionEngine } from "../work/decision-engine.js";
 import { createProfile } from "../work/profile.js";
 import { ApplicationService } from "./application-service.js";
 import { FallbackWorkBackend } from "./core-application.js";
+import { CodexAppServer } from "../codex/app-server-client.js";
+import { locateCodex } from "../codex/codex-locator.js";
+import { CodexSetup } from "./codex-setup.js";
+import { createDesktopExecutionRuntime } from "./codex-runtime.js";
+import { IntegratedDesktopBackend } from "./integrated-backend.js";
+import { CommandWorkExecutionPort } from "../work/execution-port.js";
 import { registerDesktopIpc } from "./ipc.js";
 import { PetBridge } from "./pet-bridge.js";
 import { PetProcess } from "./pet-process.js";
@@ -26,6 +34,7 @@ let miniPanel: BrowserWindow | null = null;
 let closeIpc: (() => void) | null = null;
 let closeDatabase: (() => void) | null = null;
 let closePetEvents: (() => void) | null = null;
+let shutdownStarted = false;
 
 const createWindows = (): void => {
 	if (!workbench || workbench.isDestroyed()) workbench = createWorkbenchWindow(BrowserWindow);
@@ -53,15 +62,44 @@ const startDesktop = async (): Promise<void> => {
 	migrateDatabase(database);
 	closeDatabase = () => database.close();
 	const repository = new SqliteWorkRepository(database);
+	const executionRepository = new SqliteExecutionRepository(database);
+	const interpreterDirectory = join(app.getPath("userData"), "work-interpreter");
+	mkdirSync(interpreterDirectory, { recursive: true, mode: 0o700 });
 	const clock = { now: () => new Date().toISOString() };
-	const commands = new CommandService(repository, new DecisionEngine(), new RandomIdGenerator(), clock);
+	const ids = new RandomIdGenerator();
+	const commands = new CommandService(repository, new DecisionEngine(), ids, clock);
 	const profile = createProfile({
 		id: "profile_local",
 		timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Shanghai",
 		dailyCapacityMinutes: 420,
 		bufferPercent: 20,
 	}, clock.now());
-	const backend = new FallbackWorkBackend(commands, profile, clock);
+	const coreBackend = new FallbackWorkBackend(commands, profile, clock);
+	const codexSetup = new CodexSetup<CodexAppServer>({
+		locate: () => locateCodex({
+			localBinaryPath: app.isPackaged
+				? join(process.resourcesPath, "codex", "codex")
+				: join(app.getAppPath(), "node_modules", ".bin", "codex"),
+		}),
+		connect: (command) => CodexAppServer.start(command, app.getVersion()),
+		openExternal: (url) => shell.openExternal(url),
+	});
+	const backend = new IntegratedDesktopBackend({
+		core: coreBackend,
+		setup: codexSetup,
+		executionRepository,
+		createRuntime: (publish) => createDesktopExecutionRuntime({
+			setup: codexSetup,
+			repository: executionRepository,
+			work: new CommandWorkExecutionPort(commands),
+			ids,
+			clock,
+			profile,
+			readOnlyDirectory: interpreterDirectory,
+		}, publish),
+		openArtifact: async (path) => { shell.showItemInFolder(path); },
+		clock,
+	});
 	const updatePetState = async <T extends Awaited<ReturnType<typeof backend.submitText>>>(work: Promise<T>): Promise<T> => {
 		const snapshot = await work;
 		bridge.setState(toPetStatus({
@@ -71,31 +109,47 @@ const startDesktop = async (): Promise<void> => {
 		return snapshot;
 	};
 	const applicationService = new ApplicationService({
+		getSnapshot: () => backend.getSnapshot(),
 		submitText: (text) => updatePetState(backend.submitText(text)),
 		runCommand: (command) => updatePetState(backend.runCommand(command)),
 		chooseDirectory: async () => {
 			const selection = await dialog.showOpenDialog({ properties: ["openDirectory", "createDirectory"] });
-			return selection.canceled ? [] : selection.filePaths;
+			const paths = selection.canceled ? [] : selection.filePaths;
+			backend.setWorkDirectory(paths[0] ?? null);
+			return paths;
 		},
 		openWorkbench: () => {
 			workbench?.show();
 			workbench?.focus();
 		},
 	});
+	const closeBackendEvents = backend.subscribe((event) => {
+		applicationService.publishEvent(event);
+		void backend.getSnapshot().then((snapshot) => bridge.setState(toPetStatus({
+			topDecision: snapshot.decisions[0] ?? null,
+			activeExecution: snapshot.executions.at(-1) ?? null,
+		})));
+	});
 	closeIpc = registerDesktopIpc(ipcMain, applicationService, () =>
 		[workbench, miniPanel].filter((window): window is BrowserWindow => window !== null).map((window) => window.webContents));
 
-	app.on("before-quit", () => {
+	app.on("before-quit", (event) => {
+		if (shutdownStarted) return;
+		event.preventDefault();
+		shutdownStarted = true;
 		petProcess.stop();
 		closePetEvents?.();
 		closePetEvents = null;
-		void bridge.close();
 		closeIpc?.();
 		closeIpc = null;
-		closeDatabase?.();
-		closeDatabase = null;
-		workbench = null;
-		miniPanel = null;
+		closeBackendEvents();
+		void Promise.allSettled([bridge.close(), backend.close(), codexSetup.close()]).finally(() => {
+			closeDatabase?.();
+			closeDatabase = null;
+			workbench = null;
+			miniPanel = null;
+			app.quit();
+		});
 	});
 };
 

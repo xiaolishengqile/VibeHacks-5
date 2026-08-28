@@ -15,6 +15,7 @@ const requiredText = (record: Record<string, unknown>, key: string): string | nu
 export function parseUiCommand(input: unknown): Result<UiCommand, string> {
 	if (!isRecord(input) || typeof input.name !== "string") return err("不支持的工作命令");
 	const goalId = requiredText(input, "goalId");
+	const executionId = requiredText(input, "executionId");
 	switch (input.name) {
 		case "changeDeadline": {
 			const deadline = requiredText(input, "deadline");
@@ -52,6 +53,39 @@ export function parseUiCommand(input: unknown): Result<UiCommand, string> {
 				? ok({ name: input.name, goalId, nodeId, artifactId })
 				: err("工作命令参数无效");
 		}
+		case "startExecution": {
+			const nodeId = requiredText(input, "nodeId");
+			return goalId && nodeId && typeof input.allowWebResearch === "boolean"
+				? ok({ name: input.name, goalId, nodeId, allowWebResearch: input.allowWebResearch })
+				: err("执行命令参数无效");
+		}
+		case "confirmExecutionPlan":
+		case "cancelExecution":
+		case "resumeExecution":
+			return executionId ? ok({ name: input.name, executionId }) : err("执行命令参数无效");
+		case "answerExecutionApproval": {
+			const requestId = requiredText(input, "requestId");
+			const decision = input.decision;
+			return executionId && requestId && (decision === "approve" || decision === "deny")
+				? ok({ name: input.name, executionId, requestId, decision })
+				: err("执行审批参数无效");
+		}
+		case "acceptExecutionArtifact": {
+			const artifactId = requiredText(input, "artifactId");
+			const actualMinutes = input.actualMinutes;
+			return executionId && artifactId && Number.isInteger(actualMinutes) && Number(actualMinutes) > 0
+				? ok({ name: input.name, executionId, artifactId, actualMinutes: Number(actualMinutes) })
+				: err("成果验收参数无效");
+		}
+		case "openExecutionArtifact": {
+			const artifactId = requiredText(input, "artifactId");
+			return executionId && artifactId
+				? ok({ name: input.name, executionId, artifactId })
+				: err("成果打开参数无效");
+		}
+		case "startCodexLogin":
+		case "refreshCodex":
+			return ok({ name: input.name });
 		default:
 			return err("不支持的工作命令");
 	}

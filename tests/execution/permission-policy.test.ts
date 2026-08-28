@@ -25,7 +25,7 @@ const run: ExecutionRun = {
 	model: "gpt-5.6-terra",
 	workspaceRoots: [workspace],
 	networkEnabled: true,
-	allowedTools: ["读取文件", "创建文件", "运行测试", "网页调研"],
+	allowedTools: ["读取文件", "创建文件", "运行测试", "公开网页调研"],
 	risk: "medium",
 	status: "running",
 	threadId: null,

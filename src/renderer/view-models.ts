@@ -31,6 +31,14 @@ export interface ExecutionView {
 	readonly updatedAt: string;
 }
 
+export type MiniExecutionAction = "start" | "confirm" | "approve" | "deny" | "cancel" | "resume" | "accept";
+
+export interface MiniExecutionControl {
+	readonly primaryLabel: string;
+	readonly primaryAction: Exclude<MiniExecutionAction, "deny"> | null;
+	readonly secondaryAction: "deny" | null;
+}
+
 const riskLabels: Record<WorkDecision["risk"], string> = {
 	low: "低风险",
 	medium: "中风险",
@@ -57,6 +65,7 @@ const nodeStatusLabels: Record<ApplicationSnapshot["nodes"][number]["status"], s
 };
 
 const executionStatusLabels: Record<ExecutionSummary["status"], string> = {
+	queued: "等待规划",
 	planning: "规划中",
 	awaitingApproval: "等待确认",
 	running: "执行中",
@@ -64,6 +73,7 @@ const executionStatusLabels: Record<ExecutionSummary["status"], string> = {
 	succeeded: "已完成",
 	failed: "失败",
 	paused: "已暂停",
+	canceled: "已取消",
 };
 
 const compactInstant = (value: string): string => value.slice(0, 16).replace("T", " ");
@@ -99,6 +109,39 @@ export function toExecutionView(execution: ExecutionSummary): ExecutionView {
 		progress: execution.progress,
 		updatedAt: compactInstant(execution.updatedAt),
 	};
+}
+
+export function toMiniExecutionControl(input: {
+	readonly execution: ExecutionSummary | null;
+	readonly hasApproval: boolean;
+	readonly hasVerifiedArtifact: boolean;
+	readonly canStart: boolean;
+}): MiniExecutionControl {
+	const execution = input.execution;
+	if (!execution || execution.status === "failed" || execution.status === "canceled") {
+		return {
+			primaryLabel: "生成执行计划",
+			primaryAction: input.canStart ? "start" : null,
+			secondaryAction: null,
+		};
+	}
+	if (execution.status === "queued" || execution.status === "planning") {
+		return { primaryLabel: "正在生成计划", primaryAction: null, secondaryAction: null };
+	}
+	if (execution.status === "awaitingApproval") {
+		return input.hasApproval
+			? { primaryLabel: "批准一次", primaryAction: "approve", secondaryAction: "deny" }
+			: { primaryLabel: "确认并开始", primaryAction: "confirm", secondaryAction: null };
+	}
+	if (execution.status === "running" || execution.status === "verifying") {
+		return { primaryLabel: "取消执行", primaryAction: "cancel", secondaryAction: null };
+	}
+	if (execution.status === "paused") {
+		return { primaryLabel: "恢复执行", primaryAction: "resume", secondaryAction: null };
+	}
+	return input.hasVerifiedArtifact
+		? { primaryLabel: "接受成果", primaryAction: "accept", secondaryAction: null }
+		: { primaryLabel: "等待成果验证", primaryAction: null, secondaryAction: null };
 }
 
 export function toPetStatus(input: {

@@ -27,6 +27,11 @@ export interface BrowserLogin {
 	readonly authUrl: string;
 }
 
+export interface RateLimitReadiness {
+	readonly available: boolean | null;
+	readonly summary: string;
+}
+
 export interface ThreadStartResult {
 	readonly thread: { readonly id: string };
 	readonly [key: string]: unknown;
@@ -140,6 +145,23 @@ export class CodexAppServer {
 		return models.find((entry) => entry.model === "gpt-5.6-terra")?.model
 			?? models.find((entry) => entry.isDefault)?.model
 			?? null;
+	}
+
+	async rateLimits(): Promise<RateLimitReadiness> {
+		const result = await this.#transport.request("account/rateLimits/read", {});
+		if (!isRecord(result) || !isRecord(result.rateLimits)) {
+			return { available: null, summary: "额度状态未知" };
+		}
+		const snapshot = result.rateLimits;
+		const primary = isRecord(snapshot.primary) ? snapshot.primary : null;
+		const usedPercent = primary && typeof primary.usedPercent === "number" ? primary.usedPercent : null;
+		const reached = snapshot.rateLimitReachedType !== null && snapshot.rateLimitReachedType !== undefined;
+		if (reached || (usedPercent !== null && usedPercent >= 100)) {
+			return { available: false, summary: "当前额度已用完" };
+		}
+		return usedPercent === null
+			? { available: null, summary: "额度状态未知" }
+			: { available: true, summary: `额度可用，已使用 ${Math.round(usedPercent)}%` };
 	}
 
 	async startThread(params: Readonly<Record<string, unknown>>): Promise<ThreadStartResult> {

@@ -61,7 +61,17 @@ export class FallbackWorkBackend {
 				return this.#capture(await this.#commands.recordActualDuration(command));
 			case "acceptArtifact":
 				return this.#capture(await this.#commands.acceptArtifact(command));
+			default:
+				throw new Error("该命令不属于基础工作计划");
 		}
+	}
+
+	async getSnapshot(): Promise<ApplicationSnapshot> {
+		return structuredClone(this.#snapshot);
+	}
+
+	async createFromDraft(draft: Parameters<CommandService["createFromDraft"]>[0]["draft"]): Promise<ApplicationSnapshot> {
+		return this.#capture(await this.#commands.createFromDraft({ profile: this.#profile, draft }));
 	}
 
 	#capture(result: CommandResult): ApplicationSnapshot {

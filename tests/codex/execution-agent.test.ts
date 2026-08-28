@@ -103,7 +103,7 @@ test("执行回合锁定用户目录、网络和中等推理强度", async () =>
 		threadId: "thread-1",
 		input: [{ type: "text", text: "完成季度复盘框架", text_elements: [] }],
 		cwd: workspace,
-		approvalPolicy: "unlessTrusted",
+		approvalPolicy: "on-request",
 		sandboxPolicy: {
 			type: "workspaceWrite",
 			writableRoots: [workspace],

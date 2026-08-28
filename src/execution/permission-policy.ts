@@ -82,7 +82,7 @@ export class PermissionPolicy {
 			case "network":
 				return request.purpose === "research"
 					&& run.networkEnabled
-					&& run.allowedTools.includes("网页调研")
+					&& run.allowedTools.includes("公开网页调研")
 					&& isPublicHttpUrl(request.url)
 					? allow(`只读调研公开网页：${request.url}`)
 					: deny("当前执行未获准访问该网络资源");
