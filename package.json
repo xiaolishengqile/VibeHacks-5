@@ -5,7 +5,7 @@
   "description": "启动日桌宠智能工作执行系统",
   "type": "module",
   "scripts": {
-    "test": "node --test --import tsx tests/**/*.test.ts",
+		"test": "node --disable-warning=ExperimentalWarning --test --import tsx tests/**/*.test.ts",
     "typecheck": "tsc --noEmit",
     "build": "tsc"
   },
