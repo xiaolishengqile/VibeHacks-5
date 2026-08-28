@@ -27,7 +27,7 @@ interface MiniPanelLike {
 }
 
 const desktopDirectory = dirname(fileURLToPath(import.meta.url));
-const preloadPath = join(desktopDirectory, "preload.js");
+const preloadPath = join(desktopDirectory, "preload.cjs");
 const rendererDirectory = join(desktopDirectory, "../renderer");
 
 const secureWebPreferences = () => ({

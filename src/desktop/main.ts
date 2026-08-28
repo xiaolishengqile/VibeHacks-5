@@ -42,7 +42,6 @@ const createWindows = (): void => {
 };
 
 const startDesktop = async (): Promise<void> => {
-	createWindows();
 	const bridge = await PetBridge.start();
 	const petProcess = new PetProcess({
 		packaged: app.isPackaged,
@@ -132,6 +131,7 @@ const startDesktop = async (): Promise<void> => {
 	});
 	closeIpc = registerDesktopIpc(ipcMain, applicationService, () =>
 		[workbench, miniPanel].filter((window): window is BrowserWindow => window !== null).map((window) => window.webContents));
+	createWindows();
 
 	app.on("before-quit", (event) => {
 		if (shutdownStarted) return;

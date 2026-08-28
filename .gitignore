@@ -5,6 +5,7 @@ node_modules/
 dist/
 coverage/
 build/
+release/
 artifacts/*.import
 *.sqlite
 *.sqlite-shm

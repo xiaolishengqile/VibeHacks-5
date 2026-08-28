@@ -14,6 +14,6 @@
 		"lib": ["ES2023", "DOM"],
 		"types": ["node"]
   },
-  "include": ["src/**/*.ts", "tests/**/*.ts"],
+  "include": ["src/**/*.ts", "src/**/*.cts", "tests/**/*.ts"],
   "exclude": ["node_modules", "dist"]
 }

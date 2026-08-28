@@ -11,9 +11,12 @@
     "build": "tsc",
     "demo:core": "tsx src/demo/core-demo.ts",
     "build:desktop": "node scripts/copy-static.mjs && tsc",
+    "package": "node scripts/package-desktop.mjs",
+    "verify:package": "node scripts/verify-package.mjs",
     "start": "npm run build:desktop && electron ."
   },
   "devDependencies": {
+    "@electron/packager": "^20.3.0",
     "@types/node": "26.4.0",
     "electron": "44.0.0",
     "tsx": "4.23.12",

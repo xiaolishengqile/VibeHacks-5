@@ -80,6 +80,24 @@ test("额度接口暂时失败时仍允许使用已登录且有模型的代理",
 	assert.equal(state.rateLimit, "额度状态未知");
 });
 
+test("两个窗口并发检查时只建立一个代理连接", async () => {
+	const client = new FakeClient();
+	client.accountState = {
+		account: { type: "chatgpt", email: "user@example.com" },
+		requiresOpenaiAuth: true,
+	};
+	let connections = 0;
+	const service = new CodexSetup({
+		locate: async () => ({ command: "/app/codex", version: "codex-cli 0.150.1", source: "local" }),
+		connect: async () => { connections += 1; return client; },
+		openExternal: async () => undefined,
+	});
+	const [first, second] = await Promise.all([service.readiness(), service.readiness()]);
+	assert.equal(first.ready, true);
+	assert.equal(second.ready, true);
+	assert.equal(connections, 1);
+});
+
 test("浏览器登录只打开服务端返回的可信安全地址", async () => {
 	const client = new FakeClient();
 	const context = setup(client);

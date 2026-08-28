@@ -9,6 +9,7 @@ test("桌面窗口禁用渲染进程系统权限", () => {
 	assert.equal(options.webPreferences.nodeIntegration, false);
 	assert.equal(options.webPreferences.contextIsolation, true);
 	assert.equal(options.webPreferences.sandbox, true);
+	assert.match(options.webPreferences.preload ?? "", /preload\.cjs$/);
 });
 
 test("桌宠轻面板无边框、默认隐藏且保持置顶", () => {

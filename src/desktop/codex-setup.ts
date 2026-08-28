@@ -56,6 +56,7 @@ export class CodexSetup<TClient extends CodexSetupClient = CodexSetupClient> {
 	#located: LocatedCodex | null = null;
 	#client: TClient | null = null;
 	#lastState: CodexSetupState | null = null;
+	#readinessPromise: Promise<CodexSetupState> | null = null;
 
 	constructor(dependencies: CodexSetupDependencies<TClient> = defaultDependencies as CodexSetupDependencies<TClient>) {
 		this.#dependencies = dependencies;
@@ -63,11 +64,22 @@ export class CodexSetup<TClient extends CodexSetupClient = CodexSetupClient> {
 
 	async readiness(refresh = false): Promise<CodexSetupState> {
 		if (this.#lastState && !refresh) return this.#lastState;
+		if (this.#readinessPromise) return this.#readinessPromise;
+		const pending = this.#loadReadiness(refresh);
+		this.#readinessPromise = pending;
+		try {
+			return await pending;
+		} finally {
+			if (this.#readinessPromise === pending) this.#readinessPromise = null;
+		}
+	}
+
+	async #loadReadiness(refresh: boolean): Promise<CodexSetupState> {
 		try {
 			if (!this.#located) this.#located = await this.#dependencies.locate();
 			if (!this.#located) return this.#store(this.#unavailable("未找到本机执行代理"));
 			if (!this.#client) this.#client = await this.#dependencies.connect(this.#located.command);
-			const account = await this.#client.account(this.#lastState !== null);
+			const account = await this.#client.account(refresh && this.#lastState !== null);
 			if (!account.account) {
 				return this.#store({
 					ready: false,
@@ -126,6 +138,7 @@ export class CodexSetup<TClient extends CodexSetupClient = CodexSetupClient> {
 	}
 
 	async close(): Promise<void> {
+		await this.#readinessPromise?.catch(() => undefined);
 		const client = this.#client;
 		this.#client = null;
 		this.#lastState = null;
