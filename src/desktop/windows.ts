@@ -44,7 +44,7 @@ export function workbenchWindowOptions(): SecureWindowOptions {
 		minWidth: 820,
 		minHeight: 560,
 		show: false,
-		backgroundColor: "#111713",
+		backgroundColor: "#f5f5f7",
 		title: "启动日工作台",
 		webPreferences: secureWebPreferences(),
 	};
@@ -59,7 +59,7 @@ export function miniPanelWindowOptions(): SecureWindowOptions {
 		resizable: false,
 		alwaysOnTop: true,
 		skipTaskbar: true,
-		backgroundColor: "#101a14",
+		backgroundColor: "#f5f5f7",
 		webPreferences: secureWebPreferences(),
 	};
 }

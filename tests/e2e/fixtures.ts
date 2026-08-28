@@ -142,6 +142,42 @@ export class StartDayHarness {
 		expect(widestRight).toBeLessThanOrEqual(420);
 	}
 
+	async expectMiniPanelHasContinuousSurface(): Promise<void> {
+		const metrics = await this.mini.evaluate(async () => {
+			const bodyStyle = getComputedStyle(document.body);
+			const shell = document.querySelector<HTMLElement>(".shell--mini");
+			if (!shell) throw new Error("找不到轻面板外框");
+			const documentScrollHeight = document.documentElement.scrollHeight;
+			const viewportHeight = window.innerHeight;
+			const maxScroll = documentScrollHeight - viewportHeight;
+			const shellBottoms: number[] = [];
+			for (const position of [0, maxScroll / 2, maxScroll]) {
+				window.scrollTo(0, position);
+				await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+				shellBottoms.push(shell.getBoundingClientRect().bottom);
+			}
+			window.scrollTo(0, 0);
+			return {
+				bodyBorderBottomWidth: bodyStyle.borderBottomWidth,
+				bodyHeight: document.body.getBoundingClientRect().height,
+				bodyScrollHeight: document.body.scrollHeight,
+				documentScrollHeight,
+				viewportHeight,
+				maxScroll,
+				shellBorderBottomWidth: getComputedStyle(shell).borderBottomWidth,
+				shellBottoms,
+			};
+		});
+		expect(metrics.bodyBorderBottomWidth).toBe("0px");
+		expect(metrics.bodyHeight).toBeGreaterThanOrEqual(metrics.bodyScrollHeight - 1);
+		expect(metrics.bodyScrollHeight).toBe(metrics.documentScrollHeight);
+		expect(metrics.maxScroll).toBeGreaterThan(50);
+		expect(metrics.shellBorderBottomWidth).toBe("1px");
+		expect(metrics.shellBottoms[0]).toBeGreaterThan(metrics.viewportHeight + 50);
+		expect(metrics.shellBottoms[1]).toBeGreaterThan(metrics.viewportHeight + 20);
+		expect(Math.abs((metrics.shellBottoms[2] ?? 0) - metrics.viewportHeight)).toBeLessThanOrEqual(2);
+	}
+
 	async isMiniPanelVisible(): Promise<boolean> {
 		return this.app.evaluate(({ BrowserWindow }) =>
 			BrowserWindow.getAllWindows().find((window) => window.getTitle() === "启动日轻面板")?.isVisible() ?? false);

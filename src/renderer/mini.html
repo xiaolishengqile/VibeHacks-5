@@ -12,24 +12,29 @@
 			<button id="close-mini-panel" class="window-close" type="button" aria-label="关闭轻面板" title="关闭轻面板">×</button>
 			<header class="mini-header drag-region">
 				<div>
-					<p class="eyebrow">桌宠助手</p>
-					<p class="mini-kicker">今日行动</p>
+					<p class="eyebrow">启动日日历</p>
+					<p id="mini-calendar-range" class="mini-kicker">本周</p>
 				</div>
 				<span class="status-dot" aria-label="连接状态"></span>
 			</header>
 
-			<section class="action-card" aria-live="polite">
-				<div class="card-heading">
+			<section class="mini-calendar" aria-label="当日日程" aria-live="polite">
+				<div class="mini-day-heading">
+					<div><strong id="mini-focus-weekday">今天</strong><span id="mini-focus-date">当前日期</span></div>
 					<span id="action-risk" class="pill">暂无计划</span>
-					<span id="action-time" class="muted"></span>
 				</div>
-				<h1 id="action-title">告诉我你想完成什么</h1>
-				<p id="action-reason">我会整理目标、依赖、等待时间和最晚开始时间。</p>
+				<div class="mini-agenda-row">
+					<time id="action-time">现在</time>
+					<div class="mini-event-card">
+						<h1 id="action-title">告诉我你想完成什么</h1>
+						<p id="action-reason">我会整理目标、依赖、等待时间和最晚开始时间。</p>
+					</div>
+				</div>
 			</section>
 
 			<section class="input-card">
-				<label for="work-input">工作想法</label>
-				<textarea id="work-input" rows="4" placeholder="例如：下周五前完成季度复盘，需要等同事一天的数据"></textarea>
+				<label for="work-input">添加日程</label>
+				<textarea id="work-input" rows="3" placeholder="例如：下周五前完成季度复盘，需要等同事一天的数据"></textarea>
 				<div class="input-actions">
 					<button class="voice-future" type="button" disabled title="语音输入后续开放">◉ 语音 · 后续开放</button>
 					<button id="submit-work" class="primary-button" type="button" disabled>整理计划</button>

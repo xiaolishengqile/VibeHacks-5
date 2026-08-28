@@ -1,10 +1,11 @@
 import type { ApplicationSnapshot, UiCommand } from "../desktop/application-service.js";
+import { toWeekCalendarView } from "./calendar-view.js";
 import { confirmAction, requestText } from "./dialogs.js";
 import { isSubmitDisabled, requiredElement, setText } from "./dom.js";
 import { toExecutionView, toMiniExecutionControl, toTodayActionView } from "./view-models.js";
 
 const actionRisk = requiredElement<HTMLSpanElement>("action-risk");
-const actionTime = requiredElement<HTMLSpanElement>("action-time");
+const actionTime = requiredElement<HTMLTimeElement>("action-time");
 const actionTitle = requiredElement<HTMLHeadingElement>("action-title");
 const actionReason = requiredElement<HTMLParagraphElement>("action-reason");
 const input = requiredElement<HTMLTextAreaElement>("work-input");
@@ -50,19 +51,27 @@ const run = async (command: UiCommand): Promise<void> => {
 
 const render = (value: ApplicationSnapshot): void => {
 	snapshot = value;
+	const calendar = toWeekCalendarView(value);
+	const focusDay = calendar.days.find((day) => day.key === calendar.focusDayKey) ?? calendar.days[0];
+	setText(requiredElement("mini-calendar-range"), calendar.rangeLabel);
+	setText(requiredElement("mini-focus-weekday"), focusDay?.isToday ? "今天" : focusDay?.weekday ?? "今天");
+	setText(requiredElement("mini-focus-date"), focusDay?.dateLabel ?? "当前日期");
+	const focusItem = focusDay?.items.find((item) => item.id === calendar.focusItemId);
 	const today = toTodayActionView(value.decisions[0] ?? null);
 	if (today) {
 		setText(actionTitle, today.title);
 		setText(actionReason, today.reason);
 		setText(actionRisk, today.risk);
-		setText(actionTime, `最晚 ${today.latestStart}`);
+		setText(actionTime, focusItem?.timeLabel ?? today.latestStart.slice(11, 16));
+		actionTime.dateTime = focusItem?.dateTime ?? value.decisions[0]?.latestStart ?? "";
 	} else {
 		setText(actionTitle, value.goal?.title ?? "告诉我你想完成什么");
 		setText(actionReason, value.goal && value.profile && !value.profile.confirmed
 			? "请先确认从首个案例建立的工作习惯，再生成行动建议。"
 			: "我会整理目标、依赖、等待时间和最晚开始时间。");
 		setText(actionRisk, value.goal && value.profile && !value.profile.confirmed ? "待确认习惯" : "暂无计划");
-		setText(actionTime, "");
+		setText(actionTime, focusDay?.isToday ? "现在" : "");
+		actionTime.removeAttribute("datetime");
 	}
 
 	setText(

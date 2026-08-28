@@ -1,4 +1,5 @@
 import type { ApplicationSnapshot, UiCommand } from "../desktop/application-service.js";
+import { toWeekCalendarView } from "./calendar-view.js";
 import { requestText } from "./dialogs.js";
 import { clearElement, createTextElement, renderEmpty, requiredElement, setText } from "./dom.js";
 import { toExecutionView, toGraphView, toTodayActionView } from "./view-models.js";
@@ -54,6 +55,39 @@ const renderCodex = (value: ApplicationSnapshot): void => {
 	text("codex-rate-limit", value.codex.rateLimit);
 	const login = requiredElement<HTMLButtonElement>("codex-login");
 	login.hidden = !value.codex.canStartBrowserLogin;
+};
+
+const renderCalendar = (value: ApplicationSnapshot): void => {
+	const calendar = toWeekCalendarView(value);
+	text("calendar-range", calendar.rangeLabel);
+	const outside = requiredElement<HTMLParagraphElement>("calendar-outside");
+	setText(outside, calendar.outsideWeekCount > 0 ? `另有 ${calendar.outsideWeekCount} 项安排在其他周` : "");
+	outside.hidden = calendar.outsideWeekCount === 0;
+	const target = requiredElement<HTMLDivElement>("week-calendar");
+	clearElement(target);
+	for (const day of calendar.days) {
+		const column = document.createElement("article");
+		column.className = `calendar-day${day.isToday ? " is-today" : ""}${day.key === calendar.focusDayKey ? " is-focus" : ""}`;
+		const heading = document.createElement("header");
+		heading.append(createTextElement("strong", "", day.weekday));
+		heading.append(createTextElement("span", "", day.dateLabel));
+		column.append(heading);
+		if (day.items.length === 0) {
+			column.append(createTextElement("span", "calendar-empty", "暂无安排"));
+		} else {
+			for (const item of day.items) {
+				const event = document.createElement("div");
+				event.className = `calendar-event calendar-event--${item.tone}`;
+				const time = createTextElement("time", "", item.timeLabel);
+				time.setAttribute("datetime", item.dateTime);
+				event.append(time);
+				event.append(createTextElement("strong", "", item.title));
+				event.append(createTextElement("span", "", `${item.owner} · ${item.status}`));
+				column.append(event);
+			}
+		}
+		target.append(column);
+	}
 };
 
 const renderExecutions = (value: ApplicationSnapshot): void => {
@@ -154,6 +188,7 @@ const renderArtifacts = (value: ApplicationSnapshot): void => {
 const render = (value: ApplicationSnapshot): void => {
 	snapshot = value;
 	renderCodex(value);
+	renderCalendar(value);
 	text("goal-title", value.goal?.title ?? "把想法变成今天能推进的工作");
 	text("goal-deadline", value.goal ? `目标截止：${value.goal.deadline}` : "输入工作想法后，这里会展示完整计划。");
 	const today = toTodayActionView(value.decisions[0] ?? null);
