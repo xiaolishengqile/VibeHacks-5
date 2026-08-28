@@ -8,8 +8,10 @@ const channels = Object.freeze({
 	submitText: "work:submit-text",
 	command: "work:command",
 	openWorkbench: "window:open-workbench",
+	hideMiniPanel: "window:hide-mini-panel",
 	chooseDirectory: "workspace:choose-directory",
 	event: "application:event",
+	changed: "application:changed",
 });
 
 const desktopApi = {
@@ -17,11 +19,12 @@ const desktopApi = {
 	submitWorkText: (text) => ipcRenderer.invoke(channels.submitText, { text }),
 	runCommand: (command) => ipcRenderer.invoke(channels.command, command),
 	openWorkbench: () => ipcRenderer.invoke(channels.openWorkbench),
+	hideMiniPanel: () => ipcRenderer.invoke(channels.hideMiniPanel),
 	chooseWorkDirectory: () => ipcRenderer.invoke(channels.chooseDirectory),
 	subscribe: (listener) => {
-		const wrapped = (_event: Electron.IpcRendererEvent, value: Parameters<typeof listener>[0]) => listener(value);
-		ipcRenderer.on(channels.event, wrapped);
-		return () => ipcRenderer.removeListener(channels.event, wrapped);
+		const wrapped = () => listener();
+		ipcRenderer.on(channels.changed, wrapped);
+		return () => ipcRenderer.removeListener(channels.changed, wrapped);
 	},
 } satisfies DesktopApi;
 

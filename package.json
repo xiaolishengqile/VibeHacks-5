@@ -13,10 +13,12 @@
     "build:desktop": "node scripts/copy-static.mjs && tsc",
     "package": "node scripts/package-desktop.mjs",
     "verify:package": "node scripts/verify-package.mjs",
+    "test:e2e": "playwright test",
     "start": "npm run build:desktop && electron ."
   },
   "devDependencies": {
     "@electron/packager": "^20.3.0",
+    "@playwright/test": "^1.62.1",
     "@types/node": "26.4.0",
     "electron": "44.0.0",
     "tsx": "4.23.12",

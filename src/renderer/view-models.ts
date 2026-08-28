@@ -139,6 +139,9 @@ export function toMiniExecutionControl(input: {
 	if (execution.status === "paused") {
 		return { primaryLabel: "恢复执行", primaryAction: "resume", secondaryAction: null };
 	}
+	if (execution.status === "succeeded" && input.canStart) {
+		return { primaryLabel: "生成执行计划", primaryAction: "start", secondaryAction: null };
+	}
 	return input.hasVerifiedArtifact
 		? { primaryLabel: "接受成果", primaryAction: "accept", secondaryAction: null }
 		: { primaryLabel: "等待成果验证", primaryAction: null, secondaryAction: null };

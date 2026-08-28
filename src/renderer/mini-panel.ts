@@ -1,4 +1,5 @@
 import type { ApplicationSnapshot, UiCommand } from "../desktop/application-service.js";
+import { confirmAction, requestText } from "./dialogs.js";
 import { isSubmitDisabled, requiredElement, setText } from "./dom.js";
 import { toExecutionView, toMiniExecutionControl, toTodayActionView } from "./view-models.js";
 
@@ -21,6 +22,7 @@ const executionSecondary = requiredElement<HTMLButtonElement>("execution-seconda
 
 let busy = false;
 let snapshot: ApplicationSnapshot | null = null;
+let requestSequence = 0;
 
 const setMessage = (value: string, error = false): void => {
 	setText(message, value);
@@ -33,7 +35,9 @@ const updateSubmitState = (): void => {
 };
 
 const run = async (command: UiCommand): Promise<void> => {
+	const request = ++requestSequence;
 	const result = await window.startDay.runCommand(command);
+	if (request !== requestSequence) return;
 	if (result.ok) {
 		render(result.value);
 		setMessage("操作已更新。");
@@ -76,7 +80,7 @@ const render = (value: ApplicationSnapshot): void => {
 
 	setText(codexStatus, value.codex.ready ? `代理已就绪 · ${value.codex.model ?? "默认模型"}` : value.codex.reason);
 	codexLogin.hidden = !value.codex.canStartBrowserLogin;
-	const nodeId = value.decisions[0]?.nodeId ?? value.nodes.find((node) => node.status === "ready")?.id;
+	const nodeId = value.nodes.find((node) => node.status === "ready")?.id;
 	const active = value.executions.some((item) => !["succeeded", "failed", "canceled"].includes(item.status));
 	const control = toMiniExecutionControl({
 		execution: execution ?? null,
@@ -92,19 +96,23 @@ const render = (value: ApplicationSnapshot): void => {
 };
 
 const reload = async (): Promise<void> => {
+	const request = ++requestSequence;
 	const result = await window.startDay.getSnapshot();
+	if (request !== requestSequence) return;
 	if (result.ok) render(result.value);
 	else setMessage(result.error, true);
 };
 
 input.addEventListener("input", updateSubmitState);
 submit.addEventListener("click", async () => {
+	const request = ++requestSequence;
 	busy = true;
 	updateSubmitState();
 	setMessage("正在理解目标并生成计划…");
 	const result = await window.startDay.submitWorkText(input.value);
 	busy = false;
 	updateSubmitState();
+	if (request !== requestSequence) return;
 	if (result.ok) {
 		render(result.value);
 		setMessage("计划已更新，请检查后再开始执行。");
@@ -117,6 +125,10 @@ requiredElement<HTMLButtonElement>("open-workbench").addEventListener("click", (
 	void window.startDay.openWorkbench();
 });
 
+requiredElement<HTMLButtonElement>("close-mini-panel").addEventListener("click", () => {
+	void window.startDay.hideMiniPanel();
+});
+
 requiredElement<HTMLButtonElement>("choose-directory").addEventListener("click", async () => {
 	const result = await window.startDay.chooseWorkDirectory();
 	if (!result.ok) setMessage(result.error, true);
@@ -127,7 +139,9 @@ requiredElement<HTMLButtonElement>("change-owner").addEventListener("click", asy
 	const goal = snapshot?.goal;
 	const node = snapshot?.nodes.find((item) => item.owner !== "self" && item.status !== "done" && item.status !== "stopped");
 	if (!goal || !node) return setMessage("当前没有可更换的协作方。", true);
-	const owner = window.prompt(`把“${node.title}”交给谁？`, node.owner)?.trim();
+	const owner = await requestText({
+		title: "更换协作方", message: `把“${node.title}”交给谁？`, defaultValue: node.owner,
+	});
 	if (!owner) return;
 	const result = await window.startDay.runCommand({ name: "changeOwner", goalId: goal.id, nodeId: node.id, owner });
 	if (result.ok) render(result.value); else setMessage(result.error, true);
@@ -136,7 +150,9 @@ requiredElement<HTMLButtonElement>("change-owner").addEventListener("click", asy
 requiredElement<HTMLButtonElement>("change-deadline").addEventListener("click", async () => {
 	const goal = snapshot?.goal;
 	if (!goal) return setMessage("当前没有可调整的目标。", true);
-	const deadline = window.prompt("请输入新的截止时间", goal.deadline)?.trim();
+	const deadline = await requestText({
+		title: "调整截止时间", message: "请输入带时区的完整截止时间", defaultValue: goal.deadline,
+	});
 	if (!deadline) return;
 	const result = await window.startDay.runCommand({ name: "changeDeadline", goalId: goal.id, deadline });
 	if (result.ok) render(result.value); else setMessage(result.error, true);
@@ -149,14 +165,16 @@ requiredElement<HTMLButtonElement>("stop-work").addEventListener("click", async 
 	const prepared = await window.startDay.runCommand({ name: "prepareStop", goalId: goal.id, nodeId });
 	if (!prepared.ok) return setMessage(prepared.error, true);
 	const pending = prepared.value.pendingStop;
-	if (!pending || !window.confirm(`停止会影响 ${pending.affectedNodeIds.length} 个工作节点，是否继续？`)) return;
+	if (!pending || !await confirmAction({
+		title: "确认停止工作", message: `停止会影响 ${pending.affectedNodeIds.length} 个工作节点。`, confirmLabel: "确认停止",
+	})) return;
 	const confirmed = await window.startDay.runCommand({ name: "confirmStop", goalId: goal.id, token: pending.token });
 	if (confirmed.ok) render(confirmed.value); else setMessage(confirmed.error, true);
 });
 
 codexLogin.addEventListener("click", () => void run({ name: "startCodexLogin" }));
 
-executionPrimary.addEventListener("click", () => {
+executionPrimary.addEventListener("click", async () => {
 	const value = snapshot;
 	if (!value) return;
 	const execution = value.executions.at(-1);
@@ -167,7 +185,7 @@ executionPrimary.addEventListener("click", () => {
 	switch (executionPrimary.dataset.action) {
 		case "start": {
 			const goalId = value.goal?.id;
-			const nodeId = value.decisions[0]?.nodeId ?? value.nodes.find((node) => node.status === "ready")?.id;
+			const nodeId = value.nodes.find((node) => node.status === "ready")?.id;
 			if (goalId && nodeId) void run({
 				name: "startExecution", goalId, nodeId, allowWebResearch: false,
 			});
@@ -189,7 +207,9 @@ executionPrimary.addEventListener("click", () => {
 			break;
 		case "accept": {
 			if (!execution || !artifact) break;
-			const minutes = Number(window.prompt("请输入这项工作的实际耗时（分钟）", "60")?.trim());
+			const minutes = Number(await requestText({
+				title: "记录实际耗时", message: "请输入这项工作的实际耗时（分钟）", defaultValue: "60", inputType: "number",
+			}));
 			if (Number.isInteger(minutes) && minutes > 0) void run({
 				name: "acceptExecutionArtifact", executionId: execution.id, artifactId: artifact.id, actualMinutes: minutes,
 			});

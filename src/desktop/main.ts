@@ -121,6 +121,7 @@ const startDesktop = async (): Promise<void> => {
 			workbench?.show();
 			workbench?.focus();
 		},
+		hideMiniPanel: () => miniPanel?.hide(),
 	});
 	const closeBackendEvents = backend.subscribe((event) => {
 		applicationService.publishEvent(event);

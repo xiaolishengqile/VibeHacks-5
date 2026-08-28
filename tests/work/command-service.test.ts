@@ -18,6 +18,10 @@ class MemoryRepository implements WorkRepository {
 		return this.aggregate?.goal.id === goalId ? structuredClone(this.aggregate) : null;
 	}
 
+	async loadLatestAggregate(): Promise<StoredWorkAggregate | null> {
+		return this.aggregate ? structuredClone(this.aggregate) : null;
+	}
+
 	async saveAggregate(aggregate: StoredWorkAggregate): Promise<void> {
 		this.aggregate = structuredClone(aggregate);
 	}
@@ -178,17 +182,18 @@ test("记录实际耗时会更新节点和个人工作模型", async () => {
 	assert.equal(result.aggregate.profile.durationObservations[0]?.actualMinutes, 240);
 });
 
-test("接受成果后工作节点从待验收进入完成", async () => {
+test("接受成果后当前节点完成并解锁下一个工作节点", async () => {
 	const repository = new MemoryRepository({
 		profile,
 		goal,
-		nodes: [{ ...nodes[0]!, status: "review" }],
+		nodes: [{ ...nodes[0]!, status: "review" }, nodes[1]!],
 		changes: [],
 	});
 	const service = new CommandService(repository, new DecisionEngine(), new SequenceIds(), new MutableClock());
 	const result = await service.acceptArtifact({ goalId: "goal_1", nodeId: "request_data", artifactId: "artifact_1" });
 
 	assert.equal(result.aggregate.graph.node("request_data").status, "done");
+	assert.equal(result.aggregate.graph.node("analysis").status, "ready");
 	assert.match(result.change.reason, /artifact_1/);
 });
 

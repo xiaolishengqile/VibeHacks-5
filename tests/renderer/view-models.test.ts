@@ -87,4 +87,7 @@ test("轻面板按执行阶段给出唯一的主要动作", () => {
 	assert.equal(toMiniExecutionControl({
 		execution: execution("succeeded"), hasApproval: false, hasVerifiedArtifact: true, canStart: false,
 	}).primaryAction, "accept");
+	assert.equal(toMiniExecutionControl({
+		execution: execution("succeeded"), hasApproval: false, hasVerifiedArtifact: true, canStart: true,
+	}).primaryAction, "start");
 });

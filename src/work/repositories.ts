@@ -28,6 +28,7 @@ export interface StoredWorkAggregate {
 
 export interface WorkRepository {
 	loadAggregate(goalId: string): Promise<StoredWorkAggregate | null>;
+	loadLatestAggregate(): Promise<StoredWorkAggregate | null>;
 	saveAggregate(aggregate: StoredWorkAggregate): Promise<void>;
 }
 

@@ -70,3 +70,18 @@ test("读取快照时会合并后台最新的执行状态", async () => {
 	assert.equal((await service.getSnapshot()).executions[0]?.status, "running");
 	assert.equal(reads, 1);
 });
+
+test("业务变更会通知所有窗口刷新且普通读取不会循环通知", async () => {
+	let changes = 0;
+	const service = new ApplicationService({
+		runCommand: async () => emptyApplicationSnapshot(),
+	});
+	service.subscribeChange(() => { changes += 1; });
+
+	await service.getSnapshot();
+	assert.equal(changes, 0);
+	await service.runCommand({ name: "refreshCodex" });
+	assert.equal(changes, 1);
+	service.publishEvent({ kind: "progress", message: "执行进度变化", at: "2026-08-29T09:00:00+08:00" });
+	assert.equal(changes, 2);
+});

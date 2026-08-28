@@ -11,15 +11,18 @@ import type {
 } from "./repositories.js";
 import type { WorkDraft, WorkGoal, WorkNode, WorkProfile } from "./types.js";
 
-interface LoadedAggregate {
+export interface LoadedAggregate {
 	readonly profile: WorkProfile;
 	readonly graph: WorkGraph;
 	readonly changes: readonly WorkChange[];
 }
 
-export interface CommandResult {
+export interface CommandState {
 	readonly aggregate: LoadedAggregate;
 	readonly decisions: readonly WorkDecision[];
+}
+
+export interface CommandResult extends CommandState {
 	readonly change: WorkChange;
 }
 
@@ -81,6 +84,15 @@ export class CommandService {
 		const graph = WorkGraph.create(goal, nodes);
 		const change = this.#change("created", `创建工作目标：${goal.title}`);
 		return this.#save({ profile: input.profile, graph, changes: [change] }, change);
+	}
+
+	async read(goalId: string): Promise<CommandState> {
+		return this.#state(await this.#load(goalId));
+	}
+
+	async readLatest(): Promise<CommandState | null> {
+		const stored = await this.#repository.loadLatestAggregate();
+		return stored ? this.#state(this.#fromStored(stored)) : null;
 	}
 
 	async changeDeadline(input: { readonly goalId: string; readonly deadline: string }): Promise<CommandResult> {
@@ -184,7 +196,7 @@ export class CommandService {
 		readonly artifactId: string;
 	}): Promise<CommandResult> {
 		const aggregate = await this.#load(input.goalId);
-		const graph = aggregate.graph.transitionNode(input.nodeId, "done");
+		const graph = aggregate.graph.completeNode(input.nodeId);
 		const change = this.#change("artifactAccepted", `接受成果 ${input.artifactId}`);
 		return this.#save({ ...aggregate, graph }, change);
 	}
@@ -235,10 +247,21 @@ export class CommandService {
 	async #load(goalId: string): Promise<LoadedAggregate> {
 		const stored = await this.#repository.loadAggregate(goalId);
 		if (!stored) throw new Error(`找不到工作目标：${goalId}`);
+		return this.#fromStored(stored);
+	}
+
+	#fromStored(stored: StoredWorkAggregate): LoadedAggregate {
 		return {
 			profile: stored.profile,
 			graph: WorkGraph.create(stored.goal, stored.nodes),
 			changes: stored.changes,
+		};
+	}
+
+	#state(aggregate: LoadedAggregate): CommandState {
+		return {
+			aggregate,
+			decisions: this.#decisionEngine.replan(aggregate.graph, aggregate.profile, this.#clock.now()),
 		};
 	}
 
@@ -257,10 +280,9 @@ export class CommandService {
 			changes,
 		};
 		await this.#repository.saveAggregate(stored);
-		const graph = WorkGraph.create(stored.goal, stored.nodes);
+		const state = this.#state(this.#fromStored(stored));
 		return {
-			aggregate: { profile: stored.profile, graph, changes },
-			decisions: this.#decisionEngine.replan(graph, stored.profile, this.#clock.now()),
+			...state,
 			change,
 		};
 	}

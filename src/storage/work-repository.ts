@@ -129,6 +129,19 @@ export class SqliteWorkRepository implements WorkRepository {
 		return { profile, goal, nodes, changes };
 	}
 
+	async loadLatestAggregate(): Promise<StoredWorkAggregate | null> {
+		const row = this.database.prepare(`
+			SELECT id
+			FROM goals
+			ORDER BY COALESCE(
+				(SELECT MAX(rowid) FROM work_changes WHERE goal_id = goals.id),
+				goals.rowid
+			) DESC
+			LIMIT 1
+		`).get() as Row | undefined;
+		return row ? this.loadAggregate(String(row.id)) : null;
+	}
+
 	#saveProfile(profile: WorkProfile): void {
 		this.database.prepare(`
       INSERT INTO profiles (

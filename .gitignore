@@ -4,6 +4,7 @@
 node_modules/
 dist/
 coverage/
+test-results/
 build/
 release/
 artifacts/*.import

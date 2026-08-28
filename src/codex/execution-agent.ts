@@ -44,7 +44,7 @@ interface PendingApproval {
 	readonly sessionEligible: boolean;
 }
 
-type EventListener = (event: ExecutionAgentEvent) => void;
+type EventListener = (event: ExecutionAgentEvent) => void | Promise<void>;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
 	typeof value === "object" && value !== null && !Array.isArray(value);
@@ -119,6 +119,7 @@ export class CodexExecutionAgent {
 	readonly #pending = new Map<string, PendingApproval>();
 	readonly #unsubscribeNotification: () => void;
 	readonly #unsubscribeRequest: () => void;
+	#eventQueue: Promise<void> = Promise.resolve();
 
 	constructor(server: ExecutionAgentAppServer, policy: PermissionPolicy) {
 		this.#server = server;
@@ -272,6 +273,10 @@ export class CodexExecutionAgent {
 	}
 
 	#emit(event: ExecutionAgentEvent): void {
-		for (const listener of this.#listeners) listener(event);
+		const listeners = [...this.#listeners];
+		this.#eventQueue = this.#eventQueue.catch(() => undefined).then(async () => {
+			for (const listener of listeners) await listener(event);
+		});
+		void this.#eventQueue.catch(() => undefined);
 	}
 }

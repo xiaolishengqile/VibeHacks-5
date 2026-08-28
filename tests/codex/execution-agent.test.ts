@@ -211,3 +211,21 @@ test("规划只读并转发流式计划和权威终态", async () => {
 	assert.deepEqual(server.interrupts, [{ threadId: "thread-1", turnId: "turn-1" }]);
 	agent.close();
 });
+
+test("执行事件先等待状态处理完成再通知后续订阅者", async () => {
+	const server = new FakeAppServer();
+	const agent = new CodexExecutionAgent(server, new PermissionPolicy());
+	const order: string[] = [];
+	agent.onEvent(async () => {
+		await Promise.resolve();
+		order.push("状态已保存");
+	});
+	agent.onEvent(() => { order.push("界面已通知"); });
+	await agent.execute(run);
+	server.emit("item/plan/delta", {
+		threadId: "thread-1", turnId: "turn-1", itemId: "plan-1", delta: "执行计划",
+	});
+	await new Promise((resolve) => setImmediate(resolve));
+	assert.deepEqual(order, ["状态已保存", "界面已通知"]);
+	agent.close();
+});

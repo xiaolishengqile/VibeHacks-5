@@ -121,6 +121,21 @@ export class WorkGraph {
 		return this.#replace(nodeId, (workNode) => ({ ...workNode, status: target }));
 	}
 
+	completeNode(nodeId: string): WorkGraph {
+		const completed = this.transitionNode(nodeId, "done");
+		return WorkGraph.create(
+			completed.goal,
+			completed.nodes.map((node) => {
+				if (node.status !== "planned") return node;
+				const dependenciesComplete = node.dependencyIds.every((dependencyId) => {
+					const status = completed.node(dependencyId).status;
+					return status === "done" || status === "stopped";
+				});
+				return dependenciesComplete ? { ...node, status: "ready" } : node;
+			}),
+		);
+	}
+
 	#replace(nodeId: string, mutate: (workNode: WorkNode) => WorkNode): WorkGraph {
 		return WorkGraph.create(
 			this.goal,

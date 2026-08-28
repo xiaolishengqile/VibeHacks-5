@@ -1,4 +1,4 @@
-import type { CommandResult, CommandService } from "../work/command-service.js";
+import type { CommandService, CommandState } from "../work/command-service.js";
 import type { Clock } from "../work/repositories.js";
 import type { WorkProfile } from "../work/types.js";
 import {
@@ -67,6 +67,10 @@ export class FallbackWorkBackend {
 	}
 
 	async getSnapshot(): Promise<ApplicationSnapshot> {
+		const state = this.#snapshot.goal
+			? await this.#commands.read(this.#snapshot.goal.id)
+			: await this.#commands.readLatest();
+		if (state) this.#capture(state, false);
 		return structuredClone(this.#snapshot);
 	}
 
@@ -74,14 +78,14 @@ export class FallbackWorkBackend {
 		return this.#capture(await this.#commands.createFromDraft({ profile: this.#profile, draft }));
 	}
 
-	#capture(result: CommandResult): ApplicationSnapshot {
+	#capture(result: CommandState, clearPendingStop = true): ApplicationSnapshot {
 		this.#snapshot = {
 			...this.#snapshot,
 			goal: result.aggregate.graph.goal,
 			nodes: result.aggregate.graph.nodes,
 			decisions: result.decisions,
 			changes: result.aggregate.changes,
-			pendingStop: null,
+			pendingStop: clearPendingStop ? null : this.#snapshot.pendingStop,
 		};
 		return this.#snapshot;
 	}

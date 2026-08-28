@@ -28,6 +28,15 @@ test("合法文本提交通过固定频道进入应用服务", async () => {
 	assert.equal(text, "完成季度复盘");
 });
 
+test("轻面板关闭请求只隐藏窗口而不退出应用", async () => {
+	let hidden = false;
+	const service = new ApplicationService({ hideMiniPanel: () => { hidden = true; } });
+	const result = await createInvokeHandler(service)(channels.hideMiniPanel);
+
+	assert.deepEqual(result, { ok: true, value: null });
+	assert.equal(hidden, true);
+});
+
 test("执行审批和成果验收命令必须携带精确标识", () => {
 	assert.deepEqual(parseUiCommand({
 		name: "startExecution",

@@ -120,9 +120,11 @@ interface ApplicationServiceOptions {
 	readonly runCommand?: (command: UiCommand) => Promise<ApplicationSnapshot>;
 	readonly chooseDirectory?: () => Promise<readonly string[]>;
 	readonly openWorkbench?: () => void;
+	readonly hideMiniPanel?: () => void;
 }
 
 type EventListener = (event: VisibleApplicationEvent) => void;
+type ChangeListener = () => void;
 
 const eventKinds = new Set<VisibleEventKind>(["info", "progress", "approval", "artifact", "warning", "error"]);
 
@@ -142,6 +144,7 @@ const sanitizeEvent = (input: unknown): VisibleApplicationEvent | null => {
 export class ApplicationService {
 	readonly #options: ApplicationServiceOptions;
 	readonly #listeners = new Set<EventListener>();
+	readonly #changeListeners = new Set<ChangeListener>();
 	#snapshot: ApplicationSnapshot;
 
 	constructor(options: ApplicationServiceOptions = {}) {
@@ -161,23 +164,32 @@ export class ApplicationService {
 		if (!normalized) throw new Error("工作描述不能为空");
 		if (!this.#options.submitText) throw new Error("工作理解服务尚未就绪");
 		this.#snapshot = this.#mergeBusinessSnapshot(await this.#options.submitText(normalized));
-		return this.getSnapshot();
+		await this.getSnapshot();
+		this.#notifyChange();
+		return structuredClone(this.#snapshot);
 	}
 
 	async runCommand(command: UiCommand): Promise<ApplicationSnapshot> {
 		if (!this.#options.runCommand) throw new Error("当前没有可操作的工作计划");
 		this.#snapshot = this.#mergeBusinessSnapshot(await this.#options.runCommand(command));
-		return this.getSnapshot();
+		await this.getSnapshot();
+		this.#notifyChange();
+		return structuredClone(this.#snapshot);
 	}
 
 	openWorkbench(): void {
 		this.#options.openWorkbench?.();
 	}
 
+	hideMiniPanel(): void {
+		this.#options.hideMiniPanel?.();
+	}
+
 	async chooseWorkDirectory(): Promise<string | null> {
 		const selected = await this.#options.chooseDirectory?.() ?? [];
 		const path = selected.find((item) => typeof item === "string" && item.trim())?.trim() ?? null;
 		this.#snapshot = { ...this.#snapshot, workDirectory: path };
+		this.#notifyChange();
 		return path;
 	}
 
@@ -186,11 +198,21 @@ export class ApplicationService {
 		return () => this.#listeners.delete(listener);
 	}
 
+	subscribeChange(listener: ChangeListener): () => void {
+		this.#changeListeners.add(listener);
+		return () => this.#changeListeners.delete(listener);
+	}
+
 	publishEvent(input: unknown): void {
 		const event = sanitizeEvent(input);
 		if (!event) return;
 		this.#snapshot = { ...this.#snapshot, events: [...this.#snapshot.events, event].slice(-200) };
 		for (const listener of this.#listeners) listener(event);
+		this.#notifyChange();
+	}
+
+	#notifyChange(): void {
+		for (const listener of this.#changeListeners) listener();
 	}
 
 	#mergeBusinessSnapshot(next: ApplicationSnapshot): ApplicationSnapshot {

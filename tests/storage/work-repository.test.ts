@@ -103,3 +103,28 @@ test("重复保存会替换聚合而不会累积旧关系", async () => {
 	assert.deepEqual(stored?.goal.milestones, []);
 	database.close();
 });
+
+test("能够恢复最近更新的工作聚合", async () => {
+	const database = openDatabase(":memory:");
+	migrateDatabase(database);
+	const repository = new SqliteWorkRepository(database);
+	const newer: StoredWorkAggregate = {
+		...aggregate,
+		goal: {
+			...aggregate.goal,
+			id: "goal_2",
+			title: "新工作计划",
+			milestones: [],
+			createdAt: "2026-08-29T09:00:00+08:00",
+			updatedAt: "2026-08-29T09:00:00+08:00",
+		},
+		nodes: [],
+		changes: [],
+	};
+
+	await repository.saveAggregate(aggregate);
+	await repository.saveAggregate(newer);
+
+	assert.equal((await repository.loadLatestAggregate())?.goal.id, "goal_2");
+	database.close();
+});

@@ -1,9 +1,11 @@
 import type { ApplicationSnapshot, UiCommand } from "../desktop/application-service.js";
+import { requestText } from "./dialogs.js";
 import { clearElement, createTextElement, renderEmpty, requiredElement, setText } from "./dom.js";
 import { toExecutionView, toGraphView, toTodayActionView } from "./view-models.js";
 
 const text = (id: string, value: string): void => setText(requiredElement(id), value);
 let snapshot: ApplicationSnapshot | null = null;
+let requestSequence = 0;
 
 const actionButton = (label: string, action: () => Promise<void>, danger = false): HTMLButtonElement => {
 	const button = createTextElement("button", danger ? "danger-button" : "text-button", label) as HTMLButtonElement;
@@ -16,7 +18,9 @@ const actionButton = (label: string, action: () => Promise<void>, danger = false
 };
 
 const run = async (command: UiCommand): Promise<void> => {
+	const request = ++requestSequence;
 	const result = await window.startDay.runCommand(command);
+	if (request !== requestSequence) return;
 	if (result.ok) render(result.value);
 	else text("today-reason", result.error);
 };
@@ -129,7 +133,9 @@ const renderArtifacts = (value: ApplicationSnapshot): void => {
 			})));
 			const execution = value.executions.find((entry) => entry.id === artifact.executionId);
 			if (execution?.status === "succeeded") actions.append(actionButton("接受成果", async () => {
-				const value = window.prompt("请输入这项工作的实际耗时（分钟）", "60")?.trim();
+				const value = await requestText({
+					title: "记录实际耗时", message: "请输入这项工作的实际耗时（分钟）", defaultValue: "60", inputType: "number",
+				});
 				const actualMinutes = Number(value);
 				if (!Number.isInteger(actualMinutes) || actualMinutes <= 0) return;
 				await run({
@@ -173,13 +179,15 @@ const render = (value: ApplicationSnapshot): void => {
 		...value.events.map((item) => ({ title: item.message, detail: item.at })),
 	].slice(-20).reverse(), "当前没有历史记录");
 	const start = requiredElement<HTMLButtonElement>("start-today-execution");
-	const nodeId = value.decisions[0]?.nodeId ?? value.nodes.find((node) => node.status === "ready")?.id;
+	const nodeId = value.nodes.find((node) => node.status === "ready")?.id;
 	const active = value.executions.some((entry) => !["succeeded", "failed", "canceled"].includes(entry.status));
 	start.disabled = !value.goal || !nodeId || !value.workDirectory || !value.codex.ready || active;
 };
 
 const reload = async (): Promise<void> => {
+	const request = ++requestSequence;
 	const result = await window.startDay.getSnapshot();
+	if (request !== requestSequence) return;
 	if (result.ok) render(result.value);
 	else text("today-reason", result.error);
 };
@@ -192,7 +200,7 @@ requiredElement<HTMLButtonElement>("codex-login").addEventListener("click", () =
 requiredElement<HTMLButtonElement>("codex-refresh").addEventListener("click", () => void run({ name: "refreshCodex" }));
 requiredElement<HTMLButtonElement>("start-today-execution").addEventListener("click", () => {
 	const goalId = snapshot?.goal?.id;
-	const nodeId = snapshot?.decisions[0]?.nodeId ?? snapshot?.nodes.find((node) => node.status === "ready")?.id;
+	const nodeId = snapshot?.nodes.find((node) => node.status === "ready")?.id;
 	const allowWebResearch = requiredElement<HTMLInputElement>("allow-web-research").checked;
 	if (goalId && nodeId) void run({ name: "startExecution", goalId, nodeId, allowWebResearch });
 });

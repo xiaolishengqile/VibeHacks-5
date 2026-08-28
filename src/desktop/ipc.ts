@@ -111,6 +111,9 @@ export function createInvokeHandler(service: ApplicationService) {
 				case channels.openWorkbench:
 					service.openWorkbench();
 					return ok(null);
+				case channels.hideMiniPanel:
+					service.hideMiniPanel();
+					return ok(null);
 				case channels.chooseDirectory:
 					return ok(await service.chooseWorkDirectory());
 				default:
@@ -133,6 +136,7 @@ export function registerDesktopIpc(
 		channels.submitText,
 		channels.command,
 		channels.openWorkbench,
+		channels.hideMiniPanel,
 		channels.chooseDirectory,
 	];
 	for (const channel of invokeChannels) {
@@ -143,8 +147,14 @@ export function registerDesktopIpc(
 			if (!target.isDestroyed()) target.send(channels.event, event);
 		}
 	});
+	const unsubscribeChange = service.subscribeChange(() => {
+		for (const target of webContents()) {
+			if (!target.isDestroyed()) target.send(channels.changed);
+		}
+	});
 	return () => {
 		unsubscribe();
+		unsubscribeChange();
 		for (const channel of invokeChannels) ipcMain.removeHandler(channel);
 	};
 }
