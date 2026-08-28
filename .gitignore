@@ -1,7 +1,13 @@
 .worktrees/
 .superpowers/
 .godot/
+node_modules/
+dist/
+coverage/
 build/
 artifacts/*.import
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
 *.log
 .DS_Store

@@ -1,0 +1,17 @@
+{
+  "name": "startday-agent",
+  "version": "1.0.0",
+  "private": true,
+  "description": "启动日桌宠智能工作执行系统",
+  "type": "module",
+  "scripts": {
+    "test": "node --test --import tsx tests/**/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc"
+  },
+  "devDependencies": {
+    "@types/node": "26.4.0",
+    "tsx": "4.23.12",
+    "typescript": "7.0.2"
+  }
+}
