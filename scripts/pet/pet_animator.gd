@@ -2,6 +2,7 @@ class_name PetAnimator
 extends Node
 
 const PetConfigScript = preload("res://scripts/config/pet_config.gd")
+const PetStateScript = preload("res://scripts/pet/pet_state.gd")
 const BLINK_DURATION := 0.16
 const REACTION_DURATION := 0.35
 
@@ -12,6 +13,7 @@ var _time_until_blink := 2.8
 var _reaction_elapsed := REACTION_DURATION
 var _mouse_position := Vector2(120, 105)
 var _random := RandomNumberGenerator.new()
+var _status := "idle"
 
 
 func setup(visual: Node3D) -> void:
@@ -29,6 +31,13 @@ func react() -> void:
 	_reaction_elapsed = 0.0
 
 
+func set_status(status: String) -> void:
+	var normalized := PetStateScript.normalize(status)
+	if normalized == "completed" and normalized != _status:
+		react()
+	_status = normalized
+
+
 static func gaze_offset(mouse: Vector2, viewport: Vector2) -> Vector2:
 	var normalized := (mouse - viewport * 0.5) / (viewport * 0.5)
 	return normalized.clamp(Vector2(-1.0, -1.0), Vector2(1.0, 1.0)) * 0.07
@@ -44,12 +53,13 @@ func _process(delta: float) -> void:
 	if _visual == null:
 		return
 
-	_elapsed += delta
-	_update_blink(delta)
+	var parameters := PetStateScript.animation_parameters(_status)
+	_elapsed += delta * float(parameters.speed)
+	_update_blink(delta * float(parameters.speed))
 	_reaction_elapsed = minf(_reaction_elapsed + delta, REACTION_DURATION)
 
-	var breathing := sin(_elapsed * 2.0) * 0.025
-	var idle_y := sin(_elapsed * 1.5) * 0.025
+	var breathing := sin(_elapsed * 2.0) * 0.025 * float(parameters.breath)
+	var idle_y := sin(_elapsed * 1.5) * 0.025 * float(parameters.float) + float(parameters.lift)
 	var reaction_progress := _reaction_elapsed / REACTION_DURATION
 	var reaction := sin(reaction_progress * PI) * 0.09
 	var pose_scale := Vector3(

@@ -372,7 +372,7 @@ Planning uses a read-only turn and returns a Chinese plan plus declared resource
 ```ts
 {
   cwd: run.primaryWorkspace,
-  approvalPolicy: "unlessTrusted",
+  approvalPolicy: "on-request",
   sandboxPolicy: {
     type: "workspaceWrite",
     writableRoots: run.writableRoots,

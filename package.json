@@ -1,0 +1,30 @@
+{
+  "name": "startday-agent",
+  "version": "1.0.0",
+  "private": true,
+  "description": "启动日桌宠智能工作执行系统",
+  "type": "module",
+  "main": "dist/src/desktop/main.js",
+  "scripts": {
+    "test": "node --disable-warning=ExperimentalWarning --test --import tsx tests/**/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc",
+    "demo:core": "tsx src/demo/core-demo.ts",
+    "build:desktop": "node scripts/copy-static.mjs && tsc",
+    "package": "node scripts/package-desktop.mjs",
+    "verify:package": "node scripts/verify-package.mjs",
+    "test:e2e": "playwright test",
+    "start": "npm run build:desktop && electron ."
+  },
+  "devDependencies": {
+    "@electron/packager": "^20.3.0",
+    "@playwright/test": "^1.62.1",
+    "@types/node": "26.4.0",
+    "electron": "44.0.0",
+    "tsx": "4.23.12",
+    "typescript": "7.0.2"
+  },
+  "dependencies": {
+    "@openai/codex": "0.150.1"
+  }
+}

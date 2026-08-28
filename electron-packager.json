@@ -1,0 +1,33 @@
+{
+  "name": "启动日",
+  "platform": "darwin",
+  "arch": "arm64",
+  "appBundleId": "com.startday.desktop",
+  "asar": true,
+  "prune": false,
+  "ignore": [
+    "^/\\.git(?:/|$)",
+    "^/\\.worktrees(?:/|$)",
+    "^/\\.godot(?:/|$)",
+    "^/node_modules(?:/|$)",
+    "^/build(?:/|$)",
+    "^/release(?:/|$)",
+    "^/artifacts(?:/|$)",
+    "^/docs(?:/|$)",
+    "^/tests(?:/|$)",
+    "^/dist/tests(?:/|$)",
+    "^/scripts(?:/|$)",
+    "^/src(?:/|$)",
+    "^/assets(?:/|$)",
+    "^/scenes(?:/|$)",
+    "^/project\\.godot$",
+    "^/export_presets\\.cfg$",
+    "\\.sqlite(?:-shm|-wal)?$",
+    "\\.log$",
+    "^/\\.env(?:\\.|$)"
+  ],
+  "extraResource": [
+    "build/毛球桌宠.app",
+    "node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex"
+  ]
+}

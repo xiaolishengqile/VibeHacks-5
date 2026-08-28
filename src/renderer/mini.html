@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="zh-CN">
+	<head>
+		<meta charset="UTF-8">
+		<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<title>启动日轻面板</title>
+		<link rel="stylesheet" href="styles.css">
+	</head>
+	<body class="mini-body">
+		<main class="shell shell--mini">
+			<button id="close-mini-panel" class="window-close" type="button" aria-label="关闭轻面板" title="关闭轻面板">×</button>
+			<header class="mini-header drag-region">
+				<div>
+					<p class="eyebrow">桌宠助手</p>
+					<p class="mini-kicker">今日行动</p>
+				</div>
+				<span class="status-dot" aria-label="连接状态"></span>
+			</header>
+
+			<section class="action-card" aria-live="polite">
+				<div class="card-heading">
+					<span id="action-risk" class="pill">暂无计划</span>
+					<span id="action-time" class="muted"></span>
+				</div>
+				<h1 id="action-title">告诉我你想完成什么</h1>
+				<p id="action-reason">我会整理目标、依赖、等待时间和最晚开始时间。</p>
+			</section>
+
+			<section class="input-card">
+				<label for="work-input">工作想法</label>
+				<textarea id="work-input" rows="4" placeholder="例如：下周五前完成季度复盘，需要等同事一天的数据"></textarea>
+				<div class="input-actions">
+					<button class="voice-future" type="button" disabled title="语音输入后续开放">◉ 语音 · 后续开放</button>
+					<button id="submit-work" class="primary-button" type="button" disabled>整理计划</button>
+				</div>
+				<p id="submit-message" class="form-message" aria-live="polite"></p>
+			</section>
+
+			<nav class="quick-actions" aria-label="快速调整">
+				<button id="change-owner" type="button">更换协作方</button>
+				<button id="change-deadline" type="button">调整截止时间</button>
+				<button id="stop-work" type="button">停止节点</button>
+			</nav>
+
+			<section class="compact-card">
+				<div class="card-heading"><h2>计划与权限</h2><button id="choose-directory" class="text-button" type="button">选择目录</button></div>
+				<p id="plan-summary">暂无计划。执行前会展示范围并请求确认。</p>
+				<p id="profile-summary" class="muted">提交首个真实工作案例后建立个人工作习惯。</p>
+				<button id="confirm-profile" class="text-button" type="button" hidden>确认工作习惯</button>
+				<p id="directory-summary" class="muted">尚未选择工作目录</p>
+				<p id="approval-summary" class="muted">当前没有待确认操作</p>
+			</section>
+
+			<section class="compact-card">
+				<div class="card-heading"><h2>执行进度</h2><span id="codex-status" class="pill">正在检查代理</span></div>
+				<p id="progress-summary">当前没有执行任务</p>
+				<a id="result-link" class="result-link" href="#" aria-disabled="true">暂无可验收成果</a>
+				<div class="button-row execution-controls">
+					<button id="execution-primary" class="primary-button" type="button" disabled>生成执行计划</button>
+					<button id="execution-secondary" class="danger-button" type="button" hidden>拒绝</button>
+					<button id="codex-login" class="text-button" type="button" hidden>登录执行代理</button>
+				</div>
+			</section>
+
+			<button id="open-workbench" class="secondary-button" type="button">打开完整工作台</button>
+		</main>
+		<script type="module" src="mini-panel.js"></script>
+	</body>
+</html>
