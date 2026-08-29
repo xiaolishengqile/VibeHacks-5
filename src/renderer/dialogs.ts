@@ -4,7 +4,7 @@ interface TextRequest {
 	readonly title: string;
 	readonly message: string;
 	readonly defaultValue?: string;
-	readonly inputType?: "text" | "number" | "datetime-local";
+	readonly inputType?: "text" | "number";
 	readonly confirmLabel?: string;
 }
 
