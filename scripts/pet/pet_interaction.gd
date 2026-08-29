@@ -134,6 +134,7 @@ func _process(_delta: float) -> void:
 
 func _on_menu_button_pressed(event_type: String) -> void:
 	if event_type == "hide_pet":
+		_apply_peek_mode(false)
 		_window_controller.tuck_to_edge()
 	if _integrated_mode:
 		menu_action_requested.emit(event_type)
@@ -149,4 +150,4 @@ func _set_menu_visible(visible: bool) -> void:
 		_window_controller.restore_from_tucked()
 		_hover_menu.update_for_pet_window(get_window())
 	_hover_menu.set_menu_visible(visible)
-	_window_controller.set_menu_expanded(false)
+	_window_controller.set_menu_expanded(visible)

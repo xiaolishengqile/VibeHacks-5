@@ -16,7 +16,7 @@ window/stretch/mode="canvas_items"
 window/size/borderless=true
 window/size/always_on_top=true
 window/size/transparent=true
-window/size/no_focus=true
+window/size/no_focus=false
 window/size/resizable=false
 window/per_pixel_transparency/allowed=true
 

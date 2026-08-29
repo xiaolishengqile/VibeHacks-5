@@ -79,7 +79,6 @@ static func run() -> Array[String]:
 		20,
 	):
 		errors.append("窗口越过桌面右侧时仍必须保持探头状态")
-
 	var window := Window.new()
 	var controller = DesktopWindowControllerScript.new()
 	controller.configure(window)
@@ -87,17 +86,10 @@ static func run() -> Array[String]:
 		errors.append("窗口控制器必须应用二维猫咪的方形尺寸")
 	if not window.borderless or not window.transparent or not window.always_on_top:
 		errors.append("窗口控制器必须启用无边框、透明和置顶")
-	var normal_polygon := window.mouse_passthrough_polygon
-	controller.set_peek_input_region(true)
-	var peek_polygon := window.mouse_passthrough_polygon
-	var normal_center_x := 0.0
-	var peek_center_x := 0.0
-	for point in normal_polygon:
-		normal_center_x += point.x / normal_polygon.size()
-	for point in peek_polygon:
-		peek_center_x += point.x / peek_polygon.size()
-	if peek_center_x <= normal_center_x:
-		errors.append("探头状态的命中区域必须移到窗口右侧")
+	if window.unfocusable:
+		errors.append("桌宠窗口必须可交互，点击才能展开菜单")
+	if not window.mouse_passthrough_polygon.is_empty():
+		errors.append("桌宠窗口不能再用小命中区限制点击范围")
 	controller.begin_drag()
 	if not controller.is_dragging():
 		errors.append("开始拖拽后必须进入拖拽状态")

@@ -8,7 +8,6 @@ const TUCKED_VISIBLE_STRIP := 36
 var _window: Window
 var _dragging := false
 var _drag_offset := Vector2i.ZERO
-var _pet_mouse_polygon := PackedVector2Array()
 var _tucked := false
 var _tuck_edge := "right"
 
@@ -26,7 +25,7 @@ func configure(window: Window) -> void:
 	_window.transparent_bg = true
 	_window.always_on_top = true
 	_window.unresizable = true
-	_window.unfocusable = true
+	_window.unfocusable = false
 	set_peek_input_region(false)
 
 	var usable := DisplayServer.screen_get_usable_rect(screen)
@@ -38,19 +37,8 @@ func configure(window: Window) -> void:
 	)
 
 
-func set_peek_input_region(enabled: bool) -> void:
-	var input_scale := Vector2(_window.size) / Vector2(PetConfigScript.WINDOW_SIZE)
-	var logical_size := Vector2(PetConfigScript.WINDOW_SIZE)
-	var center_ratio := Vector2(0.70, 0.50) if enabled else Vector2(0.50, 0.50)
-	var radii_ratio := Vector2(0.30, 0.48) if enabled else Vector2(0.475, 0.4833)
-	_pet_mouse_polygon = WindowGeometryScript.ellipse_polygon(
-		_window.size,
-		logical_size * center_ratio * input_scale,
-		logical_size * radii_ratio * input_scale,
-		32,
-	)
-	if not _tucked:
-		_window.mouse_passthrough_polygon = _pet_mouse_polygon
+func set_peek_input_region(_enabled: bool) -> void:
+	_window.mouse_passthrough_polygon = PackedVector2Array()
 
 
 static func tucked_position(
@@ -76,18 +64,10 @@ static func visible_position_for_edge(
 	return Vector2i(work_area.position.x + work_area.size.x - window_size.x, y)
 
 
-func set_menu_expanded(expanded: bool) -> void:
+func set_menu_expanded(_expanded: bool) -> void:
 	if _window == null:
 		return
-	if expanded or _tucked:
-		_window.mouse_passthrough_polygon = PackedVector2Array([
-			Vector2.ZERO,
-			Vector2(_window.size.x, 0.0),
-			Vector2(_window.size),
-			Vector2(0.0, _window.size.y),
-		])
-	else:
-		_window.mouse_passthrough_polygon = _pet_mouse_polygon
+	_window.mouse_passthrough_polygon = PackedVector2Array()
 
 
 func tuck_to_edge(edge: String = "right") -> void:

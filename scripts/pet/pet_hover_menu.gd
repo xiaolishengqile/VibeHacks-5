@@ -29,7 +29,7 @@ func setup() -> void:
 		window.transparent_bg = true
 		window.always_on_top = true
 		window.unresizable = true
-		window.unfocusable = true
+		window.unfocusable = false
 
 		var button := Button.new()
 		button.text = String(spec["label"])
