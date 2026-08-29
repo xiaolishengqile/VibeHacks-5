@@ -70,6 +70,12 @@ func set_menu_expanded(_expanded: bool) -> void:
 	_window.mouse_passthrough_polygon = PackedVector2Array()
 
 
+func window_rect() -> Rect2i:
+	if _window == null:
+		return Rect2i()
+	return Rect2i(_window.position, _window.size)
+
+
 func tuck_to_edge(edge: String = "right") -> void:
 	if _window == null:
 		return

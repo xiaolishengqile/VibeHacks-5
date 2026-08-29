@@ -15,7 +15,7 @@ static func run() -> Array[String]:
 	if PetInteractionScript.is_click(Vector2(10, 10), Vector2(20, 10), 4.0) != false:
 		errors.append("超过阈值的移动不能识别为单击")
 	var menu := PetInteractionScript.menu_buttons()
-	if menu.map(func(button): return button["label"]) != ["工作台", "今日", "想法", "隐藏"]:
+	if menu.map(func(button): return button["label"]) != ["工作台", "待办", "输入", "隐藏"]:
 		errors.append("桌宠菜单必须使用确认后的四个短名称")
 	if menu.map(func(button): return button["event"]) != ["open_workbench", "open_today", "open_input", "hide_pet"]:
 		errors.append("桌宠菜单必须发出四个明确事件")
@@ -25,6 +25,14 @@ static func run() -> Array[String]:
 		errors.append("菜单已显示时再次单击桌宠必须收起按钮")
 	if PetInteractionScript.menu_visible_after_pet_click(false, false) != false:
 		errors.append("拖动桌宠不能误触发菜单")
+	var pet_rect := Rect2i(Vector2i(100, 100), Vector2i(200, 200))
+	var button_rects: Array[Rect2i] = [Rect2i(Vector2i(320, 80), Vector2i(58, 58))]
+	if not PetInteractionScript.should_hide_menu_for_pointer(Vector2i(20, 20), pet_rect, button_rects):
+		errors.append("点击桌宠和按钮外的空白区域必须收起菜单")
+	if PetInteractionScript.should_hide_menu_for_pointer(Vector2i(120, 120), pet_rect, button_rects):
+		errors.append("点击桌宠本体不能按空白区域处理")
+	if PetInteractionScript.should_hide_menu_for_pointer(Vector2i(330, 90), pet_rect, button_rects):
+		errors.append("点击菜单按钮不能按空白区域处理")
 	var menu_rects := PetInteractionScript.menu_button_rects(
 		Vector2i(1131, 626),
 		Rect2i(Vector2i(0, 0), Vector2i(1440, 900)),

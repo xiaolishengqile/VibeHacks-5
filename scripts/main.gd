@@ -31,7 +31,7 @@ func _ready() -> void:
 	bridge.name = "PetBridgeClient"
 	add_child(bridge)
 	var integrated := bridge.configure_from_environment()
-	interaction.setup(window_controller, animator, visual, integrated)
+	interaction.setup(window_controller, animator, visual, integrated, get_window())
 	if integrated:
 		bridge.state_changed.connect(animator.set_status)
 		interaction.open_panel_requested.connect(bridge.post_event.bind("open_panel"))

@@ -19,7 +19,7 @@ var _press_position := Vector2.ZERO
 var _hover_menu
 
 
-func setup(window_controller, animator: Node, visual: Node, integrated_mode: bool = false) -> void:
+func setup(window_controller, animator: Node, visual: Node, integrated_mode: bool = false, pet_window: Window = null) -> void:
 	_window_controller = window_controller
 	_animator = animator
 	_visual = visual
@@ -27,8 +27,11 @@ func setup(window_controller, animator: Node, visual: Node, integrated_mode: boo
 	_hover_menu = PetHoverMenuScript.new()
 	_hover_menu.name = "PetHoverMenu"
 	_hover_menu.action_requested.connect(_on_menu_button_pressed)
+	_hover_menu.focus_moved.connect(_on_focus_moved)
 	add_child(_hover_menu)
 	_hover_menu.setup()
+	if pet_window != null:
+		pet_window.focus_exited.connect(_on_focus_moved)
 	set_process(true)
 	set_process_unhandled_input(true)
 	_visual.peek_toggle_requested.connect(toggle_peek_mode)
@@ -44,6 +47,15 @@ static func menu_button_rects(pet_position: Vector2i, work_area: Rect2i) -> Arra
 
 static func menu_visible_after_pet_click(menu_visible: bool, clicked: bool) -> bool:
 	return not menu_visible if clicked else menu_visible
+
+
+static func should_hide_menu_for_pointer(global_position: Vector2i, pet_rect: Rect2i, menu_rects: Array[Rect2i]) -> bool:
+	if pet_rect.has_point(global_position):
+		return false
+	for rect in menu_rects:
+		if rect.has_point(global_position):
+			return false
+	return true
 
 
 static func should_quit_for_button(button_index: MouseButton, pressed: bool) -> bool:
@@ -141,6 +153,21 @@ func _on_menu_button_pressed(event_type: String) -> void:
 	elif event_type in ["open_today", "open_input"]:
 		open_panel_requested.emit()
 	_set_menu_visible(false)
+
+
+func _on_focus_moved() -> void:
+	call_deferred("_hide_menu_if_pointer_left_targets")
+
+
+func _hide_menu_if_pointer_left_targets() -> void:
+	if _hover_menu == null or not _hover_menu.is_menu_visible():
+		return
+	if should_hide_menu_for_pointer(
+		DisplayServer.mouse_get_position(),
+		_window_controller.window_rect(),
+		_hover_menu.global_button_rects(),
+	):
+		_set_menu_visible(false)
 
 
 func _set_menu_visible(visible: bool) -> void:

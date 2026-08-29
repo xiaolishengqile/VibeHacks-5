@@ -2,11 +2,11 @@ class_name PetHoverMenu
 extends Node
 
 signal action_requested(event_type: String)
+signal focus_moved
 
 const BUTTON_SIZE := Vector2i(58, 58)
 const BUTTON_MARGIN := 6
 const TITLE_FONT_SIZE := 13
-const DESCRIPTION_FONT_SIZE := 10
 const CHINESE_FONT_PATHS := [
 	"/System/Library/Fonts/Hiragino Sans GB.ttc",
 	"/System/Library/Fonts/STHeiti Medium.ttc",
@@ -15,7 +15,6 @@ const CHINESE_FONT_PATHS := [
 const BUTTON_SPECS := [
 	{
 		"label": "工作台",
-		"description": "全局",
 		"event": "open_workbench",
 		"offset": Vector2i(-38, 112),
 		"font": Color("17324d"),
@@ -25,8 +24,7 @@ const BUTTON_SPECS := [
 		"border": Color("3d7bb8"),
 	},
 	{
-		"label": "今日",
-		"description": "待办",
+		"label": "待办",
 		"event": "open_today",
 		"offset": Vector2i(30, -54),
 		"font": Color("233b24"),
@@ -36,8 +34,7 @@ const BUTTON_SPECS := [
 		"border": Color("5d9b52"),
 	},
 	{
-		"label": "想法",
-		"description": "输入",
+		"label": "输入",
 		"event": "open_input",
 		"offset": Vector2i(126, -70),
 		"font": Color("3b294d"),
@@ -48,7 +45,6 @@ const BUTTON_SPECS := [
 	},
 	{
 		"label": "隐藏",
-		"description": "收纳",
 		"event": "hide_pet",
 		"offset": Vector2i(222, -42),
 		"font": Color("512126"),
@@ -79,6 +75,7 @@ func setup() -> void:
 		window.always_on_top = true
 		window.unresizable = true
 		window.unfocusable = false
+		window.focus_exited.connect(_on_window_focus_exited)
 
 		var button := Button.new()
 		button.text = ""
@@ -94,7 +91,7 @@ func setup() -> void:
 		button.add_theme_stylebox_override("hover", _button_style(spec["hover"], border_color))
 		button.add_theme_stylebox_override("pressed", _button_style(spec["pressed"], border_color))
 		button.pressed.connect(_on_button_pressed.bind(String(spec["event"])))
-		_add_button_text(button, String(spec["label"]), String(spec["description"]), font_color, text_font)
+		_add_button_text(button, String(spec["label"]), font_color, text_font)
 		window.add_child(button)
 
 		add_child(window)
@@ -153,6 +150,13 @@ func is_menu_visible() -> bool:
 	return _visible
 
 
+func global_button_rects() -> Array[Rect2i]:
+	var rects: Array[Rect2i] = []
+	for window in _button_windows:
+		rects.append(Rect2i(window.position, window.size))
+	return rects
+
+
 func _button_style(fill: Color, border: Color) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = fill
@@ -162,7 +166,7 @@ func _button_style(fill: Color, border: Color) -> StyleBoxFlat:
 	return style
 
 
-func _add_button_text(button: Button, label: String, description: String, font_color: Color, font: Font) -> void:
+func _add_button_text(button: Button, label: String, font_color: Color, font: Font) -> void:
 	var content := VBoxContainer.new()
 	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	content.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -172,7 +176,6 @@ func _add_button_text(button: Button, label: String, description: String, font_c
 	content.offset_right = -BUTTON_MARGIN
 	content.offset_bottom = -BUTTON_MARGIN
 	content.add_child(_button_label(label, font_color, TITLE_FONT_SIZE, font))
-	content.add_child(_button_label(description, font_color, DESCRIPTION_FONT_SIZE, font))
 	button.add_child(content)
 
 
@@ -199,6 +202,10 @@ func _button_font() -> Font:
 
 func _on_button_pressed(event_type: String) -> void:
 	action_requested.emit(event_type)
+
+
+func _on_window_focus_exited() -> void:
+	focus_moved.emit()
 
 
 func _work_area() -> Rect2i:
