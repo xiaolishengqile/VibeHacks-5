@@ -146,16 +146,21 @@ CREATE INDEX IF NOT EXISTS approvals_run_idx ON approvals(run_id, requested_at);
 CREATE INDEX IF NOT EXISTS artifacts_run_idx ON artifacts(run_id, created_at);
 `;
 
+const schemaVersionThree = `
+ALTER TABLE work_nodes ADD COLUMN detail_json TEXT;
+`;
+
 export function migrateDatabase(database: DatabaseSync): void {
 	const row = database.prepare("PRAGMA user_version").get() as { user_version: number };
-	if (row.user_version > 2) throw new Error(`数据库版本 ${row.user_version} 高于当前支持版本 2`);
-	if (row.user_version === 2) return;
+	if (row.user_version > 3) throw new Error(`数据库版本 ${row.user_version} 高于当前支持版本 3`);
+	if (row.user_version === 3) return;
 
 	database.exec("BEGIN IMMEDIATE");
 	try {
 		if (row.user_version < 1) database.exec(schemaVersionOne);
 		if (row.user_version < 2) database.exec(schemaVersionTwo);
-		database.exec("PRAGMA user_version = 2");
+		if (row.user_version < 3) database.exec(schemaVersionThree);
+		database.exec("PRAGMA user_version = 3");
 		database.exec("COMMIT");
 	} catch (error) {
 		database.exec("ROLLBACK");

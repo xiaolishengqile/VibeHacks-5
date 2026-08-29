@@ -8,7 +8,7 @@ test("数据库迁移可重复执行并启用外键", () => {
 	migrateDatabase(database);
 	migrateDatabase(database);
 
-	assert.equal(database.prepare("PRAGMA user_version").get()?.user_version, 2);
+	assert.equal(database.prepare("PRAGMA user_version").get()?.user_version, 3);
 	assert.equal(database.prepare("PRAGMA foreign_keys").get()?.foreign_keys, 1);
 	database.close();
 });
@@ -28,6 +28,7 @@ test("已有第一版数据库可以无损增加执行表", () => {
 	const database = openDatabase(":memory:");
 	database.exec(`
     CREATE TABLE profiles (id TEXT PRIMARY KEY);
+		CREATE TABLE work_nodes (id TEXT PRIMARY KEY);
     PRAGMA user_version = 1;
   `);
 	migrateDatabase(database);
@@ -35,7 +36,36 @@ test("已有第一版数据库可以无损增加执行表", () => {
     SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE 'execution_%' ORDER BY name
   `).all().map((row) => row.name);
 	assert.deepEqual(tables, ["execution_events", "execution_runs"]);
-	assert.equal(database.prepare("PRAGMA user_version").get()?.user_version, 2);
+	assert.equal(database.prepare("PRAGMA user_version").get()?.user_version, 3);
+	database.close();
+});
+
+test("已有第二版数据库可以无损增加任务详情", () => {
+	const database = openDatabase(":memory:");
+	database.exec(`
+		CREATE TABLE work_nodes (
+			id TEXT PRIMARY KEY,
+			goal_id TEXT NOT NULL,
+			title TEXT NOT NULL,
+			owner TEXT NOT NULL,
+			potential_collaborator_json TEXT,
+			work_minutes INTEGER NOT NULL,
+			wait_minutes INTEGER NOT NULL,
+			status TEXT NOT NULL,
+			latest_start TEXT,
+			actual_minutes INTEGER
+		);
+		INSERT INTO work_nodes VALUES (
+			'node-1', 'goal-1', '生成初稿', 'self', NULL, 60, 0, 'ready', NULL, NULL
+		);
+		PRAGMA user_version = 2;
+	`);
+
+	migrateDatabase(database);
+
+	assert.equal(database.prepare("PRAGMA user_version").get()?.user_version, 3);
+	assert.equal(database.prepare("SELECT title FROM work_nodes WHERE id = 'node-1'").get()?.title, "生成初稿");
+	assert.equal(database.prepare("SELECT detail_json FROM work_nodes WHERE id = 'node-1'").get()?.detail_json, null);
 	database.close();
 });
 
@@ -50,7 +80,10 @@ test("清理应用数据会清空业务和执行记录但保留数据库结构",
 			'goal-1', 'profile-1', '季度复盘', '生成初稿', '2026-09-04T18:00:00+08:00',
 			'active', '2026-08-29T09:00:00+08:00', '2026-08-29T09:00:00+08:00'
 		);
-		INSERT INTO work_nodes VALUES (
+		INSERT INTO work_nodes (
+			id, goal_id, title, owner, potential_collaborator_json,
+			work_minutes, wait_minutes, status, latest_start, actual_minutes
+		) VALUES (
 			'node-1', 'goal-1', '生成初稿', 'self', NULL, 60, 0, 'ready', NULL, NULL
 		);
 		INSERT INTO execution_runs VALUES (
@@ -86,7 +119,7 @@ test("清理应用数据会清空业务和执行记录但保留数据库结构",
 		const row = database.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get() as { count: number };
 		assert.equal(row.count, 0, `${table} 应为空`);
 	}
-	assert.equal(database.prepare("PRAGMA user_version").get()?.user_version, 2);
+	assert.equal(database.prepare("PRAGMA user_version").get()?.user_version, 3);
 	database.close();
 });
 

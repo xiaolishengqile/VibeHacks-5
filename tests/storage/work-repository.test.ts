@@ -49,6 +49,20 @@ const aggregate: StoredWorkAggregate = {
 			id: "request_data",
 			goalId: "goal_1",
 			title: "找小王拿数据",
+			detail: {
+				summary: "尽早锁定复盘数据，避免文稿被协作等待卡住。",
+				steps: ["列清数据口径", "向小王发出带截止时间的请求"],
+				deliverables: ["已发送的数据请求", "数据缺口清单"],
+				successCriteria: ["小王确认周三中午前反馈"],
+				suggestions: ["同时准备上一周期数据作为临时占位"],
+				contingencies: [
+					{
+						risk: "协作方未按时反馈",
+						trigger: "周三中午仍未收到数据",
+						action: "二次催办并改用上一周期数据占位",
+					},
+				],
+			},
 			owner: "小王",
 			workMinutes: 5,
 			waitMinutes: 1440,
