@@ -64,7 +64,7 @@ test("桌宠入口事件打开对应轻面板状态", async ({ startDay }) => {
 	await expect(startDay.mini.locator(".compact-card:visible")).toHaveCount(0);
 	await expect(startDay.mini.getByRole("button", { name: "打开完整工作台" })).toBeHidden();
 	const inputWindowHeight = await startDay.mini.evaluate(() => window.innerHeight);
-	expect(inputWindowHeight).toBeLessThanOrEqual(300);
+	expect(inputWindowHeight).toBeGreaterThanOrEqual(500);
 	await expect.poll(() => startDay.mini.evaluate(() => document.activeElement?.id)).toBe("work-input");
 
 	await startDay.hideWorkbench();
@@ -78,6 +78,7 @@ test("轻面板输入框随内容增高并限制最大高度", async ({ startDay
 	await expect.poll(() => startDay.isMiniPanelVisible()).toBe(true);
 	const input = startDay.mini.locator("#work-input");
 	await expect(input).toBeVisible();
+	await expect(startDay.mini.locator("#chat-log")).toBeVisible();
 
 	const initial = await input.evaluate((element: HTMLTextAreaElement) => ({
 		height: element.getBoundingClientRect().height,

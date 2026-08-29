@@ -1,6 +1,7 @@
 export const channels = {
 	snapshot: "work:snapshot",
 	submitText: "work:submit-text",
+	addTodo: "work:add-todo",
 	command: "work:command",
 	openWorkbench: "window:open-workbench",
 	hideMiniPanel: "window:hide-mini-panel",
@@ -14,6 +15,7 @@ export const channels = {
 
 export type InvokeChannel = typeof channels.snapshot
 	| typeof channels.submitText
+	| typeof channels.addTodo
 	| typeof channels.command
 	| typeof channels.openWorkbench
 	| typeof channels.hideMiniPanel

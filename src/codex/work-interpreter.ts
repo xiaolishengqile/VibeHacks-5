@@ -41,14 +41,16 @@ function profileSummary(profile: WorkProfile): Record<string, unknown> {
 	};
 }
 
-function interpretationPrompt(text: string, profile: WorkProfile, retry: boolean): string {
+function interpretationPrompt(text: string, profile: WorkProfile, retry: boolean, existingPlanContext?: string): string {
 	return [
 		"你是启动日的工作理解器。只提取和估算信息，不执行任务。",
 		"必须输出符合给定结构的纯数据。不得计算最晚开始时间，不得修改任何工作记录。",
 		"负责人未知时写“我”。没有明确截止时间时 deadline 写 null，并且只提出一个 blockingQuestion。",
 		"依赖使用从零开始的节点下标；工作量和等待时间使用整数分钟。所有时间使用带时区的标准时间。",
+		"如果用户要求重新安排、插入突发事件或调整已有计划，必须结合现有安排输出一份完整替代草稿，不得遗漏仍需保留的未完成事项。",
 		retry ? "上一次结果格式无效。请修正结构并重新完整输出，不要解释。" : "不要添加解释性文字。",
 		`个人工作背景：${JSON.stringify(profileSummary(profile))}`,
+		existingPlanContext?.trim() ? `现有安排：${existingPlanContext.trim()}` : "现有安排：无",
 		`用户描述：${text.trim()}`,
 	].join("\n");
 }
@@ -87,7 +89,7 @@ export class CodexWorkInterpreter implements WorkInterpreter {
 		this.#turnTimeoutMs = turnTimeoutMs;
 	}
 
-	async interpret(text: string, profileContext: WorkProfile): Promise<WorkDraftInterpretation> {
+	async interpret(text: string, profileContext: WorkProfile, existingPlanContext?: string): Promise<WorkDraftInterpretation> {
 		if (!text.trim()) return this.#failure("工作描述不能为空");
 		const model = await this.#server.chooseModel();
 		if (!model) return this.#failure("执行代理没有可用模型，请先检查账号和模型配置");
@@ -100,7 +102,10 @@ export class CodexWorkInterpreter implements WorkInterpreter {
 		});
 		for (let attempt = 0; attempt < 2; attempt += 1) {
 			try {
-				const output = await this.#runTurn(started.thread.id, interpretationPrompt(text, profileContext, attempt > 0));
+				const output = await this.#runTurn(
+					started.thread.id,
+					interpretationPrompt(text, profileContext, attempt > 0, existingPlanContext),
+				);
 				const parsed = parseInterpretation(output);
 				if (parsed) return parsed;
 			} catch (error) {

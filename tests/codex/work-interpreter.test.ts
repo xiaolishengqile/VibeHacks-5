@@ -100,6 +100,17 @@ test("工作理解返回结构化草稿并保留关键假设", async () => {
 	assert.match(input[0]?.text ?? "", /不得修改任何工作记录/);
 });
 
+test("重新安排时把现有安排交给理解器并要求不遗漏", async () => {
+	const server = new FakeAppServer(validDraft);
+	const interpreter = new CodexWorkInterpreter(server, "/tmp/startday-readonly");
+	await interpreter.interpret("突发客诉现在要先处理，请重新安排", profile, "现有安排：季度复盘，节点：收集数据");
+
+	const input = server.turnCalls[0]?.input as Array<{ text: string }>;
+	assert.match(input[0]?.text ?? "", /现有安排：季度复盘/);
+	assert.match(input[0]?.text ?? "", /重新安排/);
+	assert.match(input[0]?.text ?? "", /不得遗漏/);
+});
+
 test("缺少截止时间时只返回一个关键问题", async () => {
 	const server = new FakeAppServer(JSON.stringify({
 		title: "整理复盘",

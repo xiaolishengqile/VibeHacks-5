@@ -24,5 +24,5 @@ export type WorkDraftInterpretation =
 	};
 
 export interface WorkInterpreter {
-	interpret(text: string, profileContext: WorkProfile): Promise<WorkDraftInterpretation>;
+	interpret(text: string, profileContext: WorkProfile, existingPlanContext?: string): Promise<WorkDraftInterpretation>;
 }

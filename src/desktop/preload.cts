@@ -6,6 +6,7 @@ const { contextBridge, ipcRenderer } = require("electron") as typeof import("ele
 const channels = Object.freeze({
 	snapshot: "work:snapshot",
 	submitText: "work:submit-text",
+	addTodo: "work:add-todo",
 	command: "work:command",
 	openWorkbench: "window:open-workbench",
 	hideMiniPanel: "window:hide-mini-panel",
@@ -22,6 +23,7 @@ const isMiniPanelMode = (value: unknown): value is MiniPanelMode => value === "f
 const desktopApi = {
 	getSnapshot: () => ipcRenderer.invoke(channels.snapshot),
 	submitWorkText: (text) => ipcRenderer.invoke(channels.submitText, { text }),
+	addManualTodo: (todo) => ipcRenderer.invoke(channels.addTodo, todo),
 	runCommand: (command) => ipcRenderer.invoke(channels.command, command),
 	openWorkbench: () => ipcRenderer.invoke(channels.openWorkbench),
 	hideMiniPanel: () => ipcRenderer.invoke(channels.hideMiniPanel),

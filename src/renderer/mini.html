@@ -42,11 +42,12 @@
 				</div>
 			</section>
 
-			<section class="input-card">
-				<label for="work-input">添加日程</label>
-				<textarea id="work-input" rows="3" placeholder="例如：下周五前完成季度复盘，需要等同事一天的数据"></textarea>
+			<section class="input-card" aria-label="安排对话">
+				<div id="chat-log" class="chat-log" aria-live="polite"></div>
+				<textarea id="work-input" rows="3" placeholder="把要安排的事发给我，我会拆解并同步到日历"></textarea>
 				<div class="input-actions">
-					<button id="submit-work" class="primary-button" type="button" disabled>整理计划</button>
+					<button id="manual-todo" class="text-button" type="button">手动待办</button>
+					<button id="submit-work" class="primary-button" type="button" disabled>安排</button>
 				</div>
 				<p id="submit-message" class="form-message" aria-live="polite"></p>
 			</section>

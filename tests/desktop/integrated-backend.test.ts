@@ -24,9 +24,11 @@ class CoreBackend {
 		}],
 	};
 	draft: WorkDraft | null = null;
+	todo: { title: string; at: string } | null = null;
 	async getSnapshot() { return this.snapshot; }
 	async submitText(_text: string) { return this.snapshot; }
 	async createFromDraft(draft: WorkDraft) { this.draft = draft; return this.snapshot; }
+	async addManualTodo(todo: { title: string; at: string }) { this.todo = todo; return this.snapshot; }
 	async runCommand(_command: UiCommand) { return this.snapshot; }
 }
 

@@ -30,7 +30,7 @@ test("桌宠轻面板无边框、默认隐藏且保持置顶", () => {
 test("桌宠拆分入口使用紧凑轻面板窗口", () => {
 	assert.deepEqual(miniPanelSizeForMode("full"), { width: 420, height: 560 });
 	assert.deepEqual(miniPanelSizeForMode("today"), { width: 420, height: 300 });
-	assert.deepEqual(miniPanelSizeForMode("input"), { width: 420, height: 300 });
+	assert.deepEqual(miniPanelSizeForMode("input"), { width: 420, height: 560 });
 });
 
 test("轻面板靠近右下角桌宠且不会超出工作区", () => {

@@ -28,6 +28,25 @@ test("合法文本提交通过固定频道进入应用服务", async () => {
 	assert.equal(text, "完成季度复盘");
 });
 
+test("手动待办通过专用频道同步到应用服务", async () => {
+	let todo: { title: string; at: string } | null = null;
+	const service = new ApplicationService({
+		addManualTodo: async (value) => {
+			todo = value;
+			return emptyApplicationSnapshot();
+		},
+	});
+	const invokeHandler = createInvokeHandler(service);
+	const result = await invokeHandler(channels.addTodo, {
+		title: "处理突发客诉",
+		at: "2026-08-28T15:30:00+08:00",
+	});
+
+	assert.equal(result.ok, true);
+	assert.deepEqual(todo, { title: "处理突发客诉", at: "2026-08-28T15:30:00+08:00" });
+	assert.equal((await invokeHandler(channels.addTodo, { title: "", at: "2026-08-28T15:30:00+08:00" })).ok, false);
+});
+
 test("轻面板关闭请求只隐藏窗口而不退出应用", async () => {
 	let hidden = false;
 	const service = new ApplicationService({ hideMiniPanel: () => { hidden = true; } });

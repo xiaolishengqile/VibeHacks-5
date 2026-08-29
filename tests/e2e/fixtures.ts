@@ -64,12 +64,10 @@ export class StartDayHarness {
 	}
 
 	async submit(text: string): Promise<void> {
-		await this.mini.getByPlaceholder(/例如/).fill(text);
-		await this.mini.getByRole("button", { name: "整理计划" }).click();
+		await this.mini.getByPlaceholder(/把要安排的事/).fill(text);
+		await this.mini.getByRole("button", { name: "安排" }).click();
 		await expect.poll(async () => (await this.snapshot()).goal?.title).toBe("季度复盘");
-		await expect(this.mini.locator("#submit-message")).toHaveText("");
-		await expect(this.mini.getByRole("button", { name: "确认工作习惯" })).toBeVisible();
-		await this.mini.getByRole("button", { name: "确认工作习惯" }).click();
+		await expect(this.mini.locator("#submit-message")).toContainText("同步到日历");
 		await expect.poll(async () => (await this.snapshot()).profile?.confirmed).toBe(true);
 	}
 

@@ -40,7 +40,7 @@ export async function createDesktopExecutionRuntime(
 	const interpreter = new CodexWorkInterpreter(client, options.readOnlyDirectory);
 	const unsubscribe = agent.onEvent((event) => publish(toVisibleAgentEvent(event, options.clock.now())));
 	return {
-		interpreter: { interpret: (text) => interpreter.interpret(text, options.profile) },
+		interpreter: { interpret: (text, existingPlanContext) => interpreter.interpret(text, options.profile, existingPlanContext) },
 		orchestrator,
 		close: async () => {
 			unsubscribe();

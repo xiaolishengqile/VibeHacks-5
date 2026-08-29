@@ -101,6 +101,11 @@ export interface ApplicationSnapshot {
 	readonly codex: CodexSetupState;
 }
 
+export interface ManualTodoInput {
+	readonly title: string;
+	readonly at: string;
+}
+
 export const emptyApplicationSnapshot = (): ApplicationSnapshot => ({
 	goal: null,
 	nodes: [],
@@ -129,6 +134,7 @@ interface ApplicationServiceOptions {
 	readonly initialSnapshot?: ApplicationSnapshot;
 	readonly getSnapshot?: () => Promise<ApplicationSnapshot>;
 	readonly submitText?: (text: string) => Promise<ApplicationSnapshot>;
+	readonly addManualTodo?: (todo: ManualTodoInput) => Promise<ApplicationSnapshot>;
 	readonly runCommand?: (command: UiCommand) => Promise<ApplicationSnapshot>;
 	readonly chooseDirectory?: () => Promise<readonly string[]>;
 	readonly openWorkbench?: () => void;
@@ -181,6 +187,19 @@ export class ApplicationService {
 			if (!normalized) throw new Error("工作描述不能为空");
 			if (!this.#options.submitText) throw new Error("工作理解服务尚未就绪");
 			this.#snapshot = this.#mergeBusinessSnapshot(await this.#options.submitText(normalized));
+			await this.getSnapshot();
+			this.#notifyChange();
+			return structuredClone(this.#snapshot);
+		});
+	}
+
+	async addManualTodo(todo: ManualTodoInput): Promise<ApplicationSnapshot> {
+		return this.#runChange(async () => {
+			const title = todo.title.trim();
+			if (!title) throw new Error("待办内容不能为空");
+			if (Number.isNaN(Date.parse(todo.at))) throw new Error("待办时间无效");
+			if (!this.#options.addManualTodo) throw new Error("手动待办服务尚未就绪");
+			this.#snapshot = this.#mergeBusinessSnapshot(await this.#options.addManualTodo({ title, at: todo.at }));
 			await this.getSnapshot();
 			this.#notifyChange();
 			return structuredClone(this.#snapshot);

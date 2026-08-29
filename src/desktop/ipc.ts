@@ -106,6 +106,12 @@ export function createInvokeHandler(service: ApplicationService) {
 					if (!text) return err("工作描述不能为空");
 					return ok(await service.submitWorkText(text));
 				}
+				case channels.addTodo: {
+					const title = isRecord(payload) ? requiredText(payload, "title") : null;
+					const at = isRecord(payload) ? requiredText(payload, "at") : null;
+					if (!title || !at) return err("待办参数无效");
+					return ok(await service.addManualTodo({ title, at }));
+				}
 				case channels.command: {
 					const command = parseUiCommand(payload);
 					return command.ok ? ok(await service.runCommand(command.value)) : command;
@@ -139,6 +145,7 @@ export function registerDesktopIpc(
 	const invokeChannels: readonly InvokeChannel[] = [
 		channels.snapshot,
 		channels.submitText,
+		channels.addTodo,
 		channels.command,
 		channels.openWorkbench,
 		channels.hideMiniPanel,

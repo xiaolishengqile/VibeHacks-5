@@ -100,7 +100,8 @@ export function miniPanelWindowOptions(): SecureWindowOptions {
 }
 
 export function miniPanelSizeForMode(mode: MiniPanelMode): WindowSize {
-	return mode === "full" ? { width: 420, height: 560 } : { width: 420, height: 300 };
+	if (mode === "today") return { width: 420, height: 300 };
+	return { width: 420, height: 560 };
 }
 
 export function createWorkbenchWindow(Window: BrowserWindowConstructor): BrowserWindow {

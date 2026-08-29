@@ -182,6 +182,24 @@ test("修改里程碑时间后重新排期", async () => {
 	assert.match(result.change.reason, /老板审核/);
 });
 
+test("手动待办会追加到当前目标并用指定时间进入日历", async () => {
+	const { service } = setup();
+	const result = await service.addManualTodo({
+		profile,
+		goalId: "goal_1",
+		title: "处理突发客诉",
+		at: "2026-08-28T15:30:00+08:00",
+	});
+
+	const todo = result.aggregate.graph.nodes.find((node) => node.title === "处理突发客诉");
+	assert.ok(todo);
+	assert.equal(todo.status, "ready");
+	assert.equal(todo.latestStart, "2026-08-28T15:30:00+08:00");
+	assert.equal(result.aggregate.graph.goal.milestones.at(-1)?.nodeIds[0], todo.id);
+	assert.equal(result.decisions.find((decision) => decision.nodeId === todo.id)?.latestStart, "2026-08-28T15:30:00+08:00");
+	assert.equal(result.change.kind, "todoAdded");
+});
+
 test("停止任务必须确认全部受影响节点且令牌只能使用一次", async () => {
 	const { service } = setup();
 	const prepared = await service.prepareStop({ goalId: "goal_1", nodeId: "request_data" });

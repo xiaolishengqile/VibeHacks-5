@@ -2,7 +2,7 @@ import type { ApplicationSnapshot, UiCommand } from "../desktop/application-serv
 import type { MiniPanelMode } from "../desktop/preload.js";
 import { toWeekCalendarView } from "./calendar-view.js";
 import { confirmAction, requestText } from "./dialogs.js";
-import { isSubmitDisabled, requiredElement, setText } from "./dom.js";
+import { clearElement, createTextElement, isSubmitDisabled, requiredElement, setText } from "./dom.js";
 import { toExecutionView, toMiniExecutionControl, toTodayActionView } from "./view-models.js";
 
 const actionRisk = requiredElement<HTMLSpanElement>("action-risk");
@@ -10,8 +10,10 @@ const actionTime = requiredElement<HTMLTimeElement>("action-time");
 const actionTitle = requiredElement<HTMLHeadingElement>("action-title");
 const actionReason = requiredElement<HTMLParagraphElement>("action-reason");
 const shell = requiredElement<HTMLElement>("mini-shell");
+const chatLog = requiredElement<HTMLDivElement>("chat-log");
 const input = requiredElement<HTMLTextAreaElement>("work-input");
 const submit = requiredElement<HTMLButtonElement>("submit-work");
+const manualTodo = requiredElement<HTMLButtonElement>("manual-todo");
 const message = requiredElement<HTMLParagraphElement>("submit-message");
 const planSummary = requiredElement<HTMLParagraphElement>("plan-summary");
 const profileSummary = requiredElement<HTMLParagraphElement>("profile-summary");
@@ -27,6 +29,27 @@ const executionSecondary = requiredElement<HTMLButtonElement>("execution-seconda
 let busy = false;
 let snapshot: ApplicationSnapshot | null = null;
 let requestSequence = 0;
+let chatInitialized = false;
+
+type ChatRole = "assistant" | "user";
+
+const appendChat = (role: ChatRole, value: string): void => {
+	const bubble = createTextElement("p", `chat-message chat-message--${role}`, value);
+	chatLog.append(bubble);
+	chatLog.scrollTop = chatLog.scrollHeight;
+};
+
+const planSummaryText = (value: ApplicationSnapshot): string =>
+	value.goal
+		? `已安排「${value.goal.title}」，共 ${value.nodes.length} 个事项，已经同步到日历。后续有突发情况，直接告诉我“重新安排”即可。`
+		: "把要安排的事发给我，我会拆解任务、依赖和时间，并同步到日历。";
+
+const ensureChat = (value: ApplicationSnapshot): void => {
+	if (chatInitialized) return;
+	chatInitialized = true;
+	clearElement(chatLog);
+	appendChat("assistant", planSummaryText(value));
+};
 
 const setMessage = (value: string, error = false): void => {
 	setText(message, value);
@@ -35,7 +58,7 @@ const setMessage = (value: string, error = false): void => {
 
 const updateSubmitState = (): void => {
 	submit.disabled = isSubmitDisabled(input.value, busy);
-	setText(submit, busy ? "正在整理…" : "整理计划");
+	setText(submit, busy ? "安排中…" : "安排");
 };
 
 const resizeWorkInput = (): void => {
@@ -73,6 +96,7 @@ const run = async (command: UiCommand): Promise<void> => {
 
 const render = (value: ApplicationSnapshot): void => {
 	snapshot = value;
+	ensureChat(value);
 	const calendar = toWeekCalendarView(value);
 	const focusDay = calendar.days.find((day) => day.key === calendar.focusDayKey) ?? calendar.days[0];
 	setText(requiredElement("mini-calendar-range"), calendar.rangeLabel);
@@ -146,10 +170,12 @@ window.startDay.onMiniPanelMode(setMiniPanelMode);
 window.startDay.onFocusInput(() => setMiniPanelMode("input"));
 submit.addEventListener("click", async () => {
 	const request = ++requestSequence;
+	const userText = input.value.trim();
 	busy = true;
 	updateSubmitState();
-	setMessage("正在理解目标并生成计划…");
-	const result = await window.startDay.submitWorkText(input.value);
+	appendChat("user", userText);
+	setMessage("正在拆解并同步到日历…");
+	const result = await window.startDay.submitWorkText(userText);
 	busy = false;
 	updateSubmitState();
 	if (request !== requestSequence) {
@@ -159,9 +185,52 @@ submit.addEventListener("click", async () => {
 	}
 	if (result.ok) {
 		render(result.value);
-		setMessage("");
+		input.value = "";
+		handleWorkInput();
+		appendChat("assistant", planSummaryText(result.value));
+		setMessage("已拆解并同步到日历");
 	} else {
 		setMessage(result.error, true);
+		appendChat("assistant", result.error);
+	}
+});
+
+const localDateTimeValue = (date = new Date()): string => {
+	const next = new Date(date);
+	next.setMinutes(Math.ceil(next.getMinutes() / 15) * 15, 0, 0);
+	const pad = (value: number): string => String(value).padStart(2, "0");
+	return `${next.getFullYear()}-${pad(next.getMonth() + 1)}-${pad(next.getDate())}T${pad(next.getHours())}:${pad(next.getMinutes())}`;
+};
+
+manualTodo.addEventListener("click", async () => {
+	const title = await requestText({
+		title: "手动待办",
+		message: "要添加什么待办？",
+		confirmLabel: "下一步",
+	});
+	if (!title) return;
+	const at = await requestText({
+		title: "安排时间",
+		message: "选择这个待办出现在日历里的时间",
+		defaultValue: localDateTimeValue(),
+		inputType: "datetime-local",
+		confirmLabel: "同步到日历",
+	});
+	if (!at) return;
+	const instant = new Date(at);
+	if (Number.isNaN(instant.getTime())) return setMessage("待办时间无效", true);
+	manualTodo.disabled = true;
+	setMessage("正在同步手动待办…");
+	const result = await window.startDay.addManualTodo({ title, at: instant.toISOString() });
+	manualTodo.disabled = false;
+	if (result.ok) {
+		render(result.value);
+		appendChat("user", `手动添加：${title}`);
+		appendChat("assistant", `已把「${title}」同步到日历。`);
+		setMessage("手动待办已同步到日历");
+	} else {
+		setMessage(result.error, true);
+		appendChat("assistant", result.error);
 	}
 });
 

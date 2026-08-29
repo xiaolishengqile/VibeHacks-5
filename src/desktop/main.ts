@@ -146,6 +146,7 @@ const startDesktop = async (): Promise<void> => {
 	const applicationService = new ApplicationService({
 		getSnapshot: () => backend.getSnapshot(),
 		submitText: (text) => updatePetState(backend.submitText(text)),
+		addManualTodo: (todo) => updatePetState(backend.addManualTodo(todo)),
 		runCommand: (command) => updatePetState(backend.runCommand(command)),
 		chooseDirectory: async () => {
 			const selection = await dialog.showOpenDialog({ properties: ["openDirectory", "createDirectory"] });

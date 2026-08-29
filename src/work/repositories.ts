@@ -11,6 +11,7 @@ export type WorkChangeKind =
 	| "artifactReady"
 	| "executionFailed"
 	| "artifactAccepted"
+	| "todoAdded"
 	| "profileConfirmed";
 
 export interface WorkChange {

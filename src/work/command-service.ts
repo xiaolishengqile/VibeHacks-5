@@ -32,6 +32,16 @@ interface StopConfirmation {
 	readonly expiresAt: number;
 }
 
+const normalizeManualTodo = (input: { readonly title: string; readonly at: string }): {
+	readonly title: string;
+	readonly at: string;
+} => {
+	const title = input.title.trim();
+	if (!title) throw new Error("待办内容不能为空");
+	if (Number.isNaN(Date.parse(input.at))) throw new Error("待办时间无效");
+	return { title, at: input.at };
+};
+
 export class CommandService {
 	readonly #stopConfirmations = new Map<string, StopConfirmation>();
 	readonly #repository: WorkRepository;
@@ -132,6 +142,46 @@ export class CommandService {
 			`${current.title}由 ${current.at} 变更为 ${input.at}`,
 		);
 		return this.#save({ ...aggregate, graph: WorkGraph.create(goal, aggregate.graph.nodes) }, change);
+	}
+
+	async addManualTodo(input: {
+		readonly profile: WorkProfile;
+		readonly goalId?: string | null;
+		readonly title: string;
+		readonly at: string;
+	}): Promise<CommandResult> {
+		const todo = normalizeManualTodo(input);
+		const aggregate = input.goalId
+			? await this.#load(input.goalId)
+			: this.#manualTodoAggregate(input.profile, todo);
+		const nodeId = this.#ids.next("node");
+		const milestoneId = this.#ids.next("milestone");
+		const now = this.#clock.now();
+		const node: WorkNode = {
+			id: nodeId,
+			goalId: aggregate.graph.goal.id,
+			title: todo.title,
+			owner: "self",
+			workMinutes: 0,
+			waitMinutes: 0,
+			dependencyIds: [],
+			status: "ready",
+			latestStart: todo.at,
+		};
+		const goal: WorkGoal = {
+			...aggregate.graph.goal,
+			deadline: Date.parse(todo.at) > Date.parse(aggregate.graph.goal.deadline) ? todo.at : aggregate.graph.goal.deadline,
+			milestones: [...aggregate.graph.goal.milestones, {
+				id: milestoneId,
+				title: todo.title,
+				at: todo.at,
+				nodeIds: [nodeId],
+			}],
+			updatedAt: now,
+		};
+		const graph = WorkGraph.create(goal, [...aggregate.graph.nodes, node]);
+		const change = this.#change("todoAdded", `添加手动待办：${todo.title}`);
+		return this.#save({ ...aggregate, graph }, change);
 	}
 
 	async changeOwner(input: {
@@ -263,6 +313,25 @@ export class CommandService {
 			profile: stored.profile,
 			graph: WorkGraph.create(stored.goal, stored.nodes),
 			changes: stored.changes,
+		};
+	}
+
+	#manualTodoAggregate(profile: WorkProfile, todo: { readonly title: string; readonly at: string }): LoadedAggregate {
+		const now = this.#clock.now();
+		const goal: WorkGoal = {
+			id: this.#ids.next("goal"),
+			title: "手动待办",
+			description: "用户手动添加到日历的待办",
+			deadline: todo.at,
+			milestones: [],
+			status: "active",
+			createdAt: now,
+			updatedAt: now,
+		};
+		return {
+			profile,
+			graph: WorkGraph.create(goal, []),
+			changes: [],
 		};
 	}
 

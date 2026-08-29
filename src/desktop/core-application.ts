@@ -5,6 +5,7 @@ import { isProfileConfirmed } from "../work/profile.js";
 import {
 	emptyApplicationSnapshot,
 	type ApplicationSnapshot,
+	type ManualTodoInput,
 	type UiCommand,
 } from "./application-service.js";
 
@@ -67,6 +68,17 @@ export class FallbackWorkBackend {
 			default:
 				throw new Error("该命令不属于基础工作计划");
 		}
+	}
+
+	async addManualTodo(todo: ManualTodoInput): Promise<ApplicationSnapshot> {
+		const state = await this.#commands.readLatest();
+		const goalId = state?.aggregate.graph.goal.status === "active" ? state.aggregate.graph.goal.id : null;
+		return this.#capture(await this.#commands.addManualTodo({
+			profile: state?.aggregate.profile ?? this.#profile,
+			goalId,
+			title: todo.title,
+			at: todo.at,
+		}));
 	}
 
 	async getSnapshot(): Promise<ApplicationSnapshot> {
