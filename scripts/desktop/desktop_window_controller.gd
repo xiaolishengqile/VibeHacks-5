@@ -2,13 +2,11 @@ class_name DesktopWindowController
 extends RefCounted
 
 const PetConfigScript = preload("res://scripts/config/pet_config.gd")
-const WindowGeometryScript = preload("res://scripts/desktop/window_geometry.gd")
 const TUCKED_VISIBLE_STRIP := 36
 
 var _window: Window
 var _dragging := false
 var _drag_offset := Vector2i.ZERO
-var _pet_mouse_polygon := PackedVector2Array()
 var _tucked := false
 var _tuck_edge := "right"
 
@@ -21,15 +19,8 @@ func configure(window: Window) -> void:
 	_window.transparent_bg = true
 	_window.always_on_top = true
 	_window.unresizable = true
-	_window.unfocusable = true
-	var window_scale := Vector2(PetConfigScript.WINDOW_SIZE) / Vector2(240, 210)
-	_pet_mouse_polygon = WindowGeometryScript.ellipse_polygon(
-		PetConfigScript.WINDOW_SIZE,
-		Vector2(120, 115) * window_scale,
-		Vector2(92.5, 72.5) * window_scale,
-		32,
-	)
-	_window.mouse_passthrough_polygon = _pet_mouse_polygon
+	_window.unfocusable = false
+	_window.mouse_passthrough_polygon = PackedVector2Array()
 
 	var screen := DisplayServer.window_get_current_screen()
 	var usable := DisplayServer.screen_get_usable_rect(screen)
@@ -59,18 +50,10 @@ static func visible_position_for_edge(
 	return Vector2i(work_area.position.x + work_area.size.x - window_size.x, y)
 
 
-func set_menu_expanded(expanded: bool) -> void:
+func set_menu_expanded(_expanded: bool) -> void:
 	if _window == null:
 		return
-	if expanded or _tucked:
-		_window.mouse_passthrough_polygon = PackedVector2Array([
-			Vector2.ZERO,
-			Vector2(_window.size.x, 0.0),
-			Vector2(_window.size),
-			Vector2(0.0, _window.size.y),
-		])
-	else:
-		_window.mouse_passthrough_polygon = _pet_mouse_polygon
+	_window.mouse_passthrough_polygon = PackedVector2Array()
 
 
 func tuck_to_edge(edge: String = "right") -> void:

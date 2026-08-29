@@ -50,6 +50,14 @@ static func run() -> Array[String]:
 	if opened_panel:
 		errors.append("单击桌宠不能再直接打开轻面板")
 	var menu = interaction.get_node("PetHoverMenu")
+	var menu_window_count := 0
+	for child in menu.get_children():
+		if child is Window:
+			menu_window_count += 1
+			if child.unfocusable:
+				errors.append("菜单按钮窗口必须可交互，点击按钮才能触发入口")
+	if menu_window_count != 4:
+		errors.append("桌宠菜单必须创建四个独立按钮窗口")
 	if not menu.is_menu_visible():
 		errors.append("单击桌宠必须显示四个菜单按钮")
 	press.pressed = true

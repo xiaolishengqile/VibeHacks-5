@@ -20,6 +20,8 @@ static func run() -> Array[String]:
 		errors.append("项目内部渲染宽度必须为 855")
 	if ProjectSettings.get_setting("display/window/size/viewport_height") != 750:
 		errors.append("项目内部渲染高度必须为 750")
+	if ProjectSettings.get_setting("display/window/size/no_focus") != false:
+		errors.append("桌宠主窗口必须允许鼠标点击交互")
 	if PetConfigScript.TARGET_FPS != 60:
 		errors.append("目标帧率必须为 60")
 	return errors

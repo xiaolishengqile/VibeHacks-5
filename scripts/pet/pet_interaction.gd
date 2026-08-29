@@ -106,7 +106,7 @@ func _set_menu_visible(visible: bool) -> void:
 		_window_controller.restore_from_tucked()
 		_hover_menu.update_for_pet_window(get_window())
 	_hover_menu.set_menu_visible(visible)
-	_window_controller.set_menu_expanded(false)
+	_window_controller.set_menu_expanded(visible)
 
 
 func _local_mouse_position() -> Vector2:
