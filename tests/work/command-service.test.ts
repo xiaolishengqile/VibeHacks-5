@@ -313,23 +313,64 @@ test("修改里程碑时间后重新排期", async () => {
 	assert.match(result.change.reason, /老板审核/);
 });
 
-test("手动待办会追加到当前目标并用指定时间进入日历", async () => {
+test("手动待办会以指定时长占用固定日历时间", async () => {
 	const { service } = setup();
 	const result = await service.addManualTodo({
 		profile,
 		goalId: "goal_1",
 		title: "处理突发客诉",
 		at: "2026-08-28T15:30:00+08:00",
-	});
+		durationMinutes: 45,
+	} as never);
 
 	const todo = result.aggregate.graph.nodes.find((node) => node.title === "处理突发客诉");
 	assert.ok(todo);
 	assert.equal(todo.status, "ready");
-	assert.equal(todo.latestStart, "2026-08-28T15:30:00+08:00");
+	assert.equal(todo.workMinutes, 45);
+	assert.equal(todo.fixedStart, "2026-08-28T15:30:00+08:00");
 	assert.match(todo.detail?.summary ?? "", /处理突发客诉/);
 	assert.equal(result.aggregate.graph.goal.milestones.at(-1)?.nodeIds[0], todo.id);
-	assert.equal(result.decisions.find((decision) => decision.nodeId === todo.id)?.latestStart, "2026-08-28T15:30:00+08:00");
+	assert.equal(result.decisions.find((decision) => decision.nodeId === todo.id)?.scheduledEnd, "2026-08-28T16:15:00+08:00");
 	assert.equal(result.change.kind, "todoAdded");
+});
+
+test("手动待办命令拒绝越界和非整数时长", async () => {
+	const { repository, service } = setup();
+	const before = structuredClone(repository.aggregate);
+
+	for (const durationMinutes of [0, 30.5, 541]) {
+		await assert.rejects(() => service.addManualTodo({
+			profile,
+			goalId: "goal_1",
+			title: "整理会议纪要",
+			at: "2026-08-28T10:00:00+08:00",
+			durationMinutes,
+		} as never), /待办时长/);
+	}
+
+	assert.deepEqual(repository.aggregate, before);
+});
+
+test("冲突的手动固定待办不会改变原计划", async () => {
+	const { repository, service } = setup();
+	await service.addManualTodo({
+		profile,
+		goalId: "goal_1",
+		title: "处理突发客诉",
+		at: "2026-08-28T10:00:00+08:00",
+		durationMinutes: 45,
+	} as never);
+	const before = structuredClone(repository.aggregate);
+
+	await assert.rejects(() => service.addManualTodo({
+		profile,
+		goalId: "goal_1",
+		title: "重复安排的客诉",
+		at: "2026-08-28T10:30:00+08:00",
+		durationMinutes: 30,
+	} as never), /固定事项冲突/);
+
+	assert.deepEqual(repository.aggregate, before);
 });
 
 test("手动待办不能安排在周末", async () => {
@@ -338,9 +379,10 @@ test("手动待办不能安排在周末", async () => {
 	await assert.rejects(
 		() => service.addManualTodo({
 			profile,
-			goalId: "goal_1",
-			title: "周末整理材料",
-			at: "2026-08-29T10:00:00+08:00",
+		goalId: "goal_1",
+		title: "周末整理材料",
+		at: "2026-08-29T10:00:00+08:00",
+		durationMinutes: 30,
 		}),
 		/周六周日不安排工作/,
 	);
@@ -353,6 +395,7 @@ test("手动待办不能安排在个人工作时段外", async () => {
 		goalId: "goal_1",
 		title: "深夜整理材料",
 		at: "2026-08-31T13:00:00Z",
+		durationMinutes: 30,
 	}), /工作时段/);
 });
 
@@ -371,6 +414,7 @@ test("首次使用时未确认每日容量也能添加工作时段内的待办",
 		profile: inferredProfile,
 		title: "整理会议纪要",
 		at: "2026-08-31T10:00:00+08:00",
+		durationMinutes: 30,
 	});
 
 	assert.equal(result.aggregate.graph.nodes[0]?.title, "整理会议纪要");

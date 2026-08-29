@@ -79,6 +79,7 @@ export class FallbackWorkBackend {
 			goalId,
 			title: todo.title,
 			at: todo.at,
+			durationMinutes: todo.durationMinutes,
 		}));
 	}
 

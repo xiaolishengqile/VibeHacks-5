@@ -111,7 +111,7 @@ const showTaskDetail = (detail: TaskDetailView): void => {
 	card.append(createTextElement(
 		"p",
 		"task-detail-meta",
-		`${detail.scheduledLabel} · ${detail.owner} · ${detail.status}`,
+		`${detail.scheduleTypeLabel} · ${detail.scheduledLabel} · ${detail.owner} · ${detail.status}`,
 	));
 	card.append(createTextElement(
 		"p",
@@ -454,6 +454,18 @@ const addManualTodo = requiredElement<HTMLButtonElement>("add-manual-todo");
 addManualTodo.addEventListener("click", async () => {
 	const title = await requestText({ title: "添加待办", message: "要添加什么待办？", confirmLabel: "下一步" });
 	if (!title) return;
+	const duration = await requestText({
+		title: "预计时长",
+		message: "这项安排会占用多少分钟？",
+		defaultValue: "30",
+		inputType: "number",
+		confirmLabel: "下一步",
+	});
+	if (!duration) return;
+	const durationMinutes = Number(duration);
+	if (!Number.isInteger(durationMinutes) || durationMinutes < 1 || durationMinutes > 540) {
+		return text("today-reason", "待办时长必须是 1 到 540 分钟的整数");
+	}
 	const at = await requestText({
 		title: "安排时间",
 		message: "选择工作日时间，周六周日不安排工作",
@@ -466,7 +478,7 @@ addManualTodo.addEventListener("click", async () => {
 	if (Number.isNaN(instant.getTime())) return text("today-reason", "待办时间无效");
 	addManualTodo.disabled = true;
 	try {
-		const result = await window.startDay.addManualTodo({ title, at: instant.toISOString() });
+		const result = await window.startDay.addManualTodo({ title, at: instant.toISOString(), durationMinutes });
 		if (result.ok) {
 			render(result.value);
 			text("today-reason", `已把「${title}」加入工作日历`);

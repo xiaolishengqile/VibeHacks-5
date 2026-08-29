@@ -12,6 +12,9 @@ const requiredText = (record: Record<string, unknown>, key: string): string | nu
 	return typeof value === "string" && value.trim() ? value.trim() : null;
 };
 
+const validManualTodoDuration = (value: unknown): value is number =>
+	typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= 540;
+
 export function parseUiCommand(input: unknown): Result<UiCommand, string> {
 	if (!isRecord(input) || typeof input.name !== "string") return err("不支持的工作命令");
 	const goalId = requiredText(input, "goalId");
@@ -109,8 +112,11 @@ export function createInvokeHandler(service: ApplicationService) {
 				case channels.addTodo: {
 					const title = isRecord(payload) ? requiredText(payload, "title") : null;
 					const at = isRecord(payload) ? requiredText(payload, "at") : null;
-					if (!title || !at) return err("待办参数无效");
-					return ok(await service.addManualTodo({ title, at }));
+					const durationMinutes = isRecord(payload) ? payload.durationMinutes : null;
+					if (!title || !at || !validManualTodoDuration(durationMinutes)) {
+						return err("待办参数无效");
+					}
+					return ok(await service.addManualTodo({ title, at, durationMinutes }));
 				}
 				case channels.command: {
 					const command = parseUiCommand(payload);

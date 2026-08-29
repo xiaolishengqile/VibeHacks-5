@@ -59,6 +59,29 @@ test("任务详情保留生成排期时的专业建议和兜底", () => {
 	assert.equal(full?.contingencies[0]?.trigger, "周三中午仍未拿到数据");
 	assert.deepEqual(full?.dependencies, ["回收项目数据"]);
 	assert.equal(full?.scheduledLabel, "9月1日 13:30—15:30");
+	assert.equal((full as { scheduleTypeLabel?: string } | null)?.scheduleTypeLabel, "智能安排");
+});
+
+test("固定时间任务在详情中明确标识其排期类型", () => {
+	const snapshot = {
+		...emptyApplicationSnapshot(),
+		nodes: [{
+			id: "notes",
+			goalId: "goal_1",
+			title: "整理会议纪要",
+			owner: "self",
+			workMinutes: 45,
+			waitMinutes: 0,
+			dependencyIds: [],
+			status: "ready" as const,
+			fixedStart: "2026-09-01T10:00:00+08:00",
+		}],
+		decisions: [{ ...decision, nodeId: "notes", title: "整理会议纪要", scheduledStart: "2026-09-01T10:00:00+08:00", scheduledEnd: "2026-09-01T10:45:00+08:00" }],
+	};
+
+	const detail = toTaskDetailView(snapshot, "notes");
+
+	assert.equal((detail as { scheduleTypeLabel?: string } | null)?.scheduleTypeLabel, "固定时间");
 });
 
 test("旧任务没有智能详情时仍生成可执行的基础说明", () => {

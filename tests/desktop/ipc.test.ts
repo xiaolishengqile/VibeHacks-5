@@ -29,7 +29,7 @@ test("合法文本提交通过固定频道进入应用服务", async () => {
 });
 
 test("手动待办通过专用频道同步到应用服务", async () => {
-	let todo: { title: string; at: string } | null = null;
+	let todo: { title: string; at: string; durationMinutes: number } | null = null;
 	const service = new ApplicationService({
 		addManualTodo: async (value) => {
 			todo = value;
@@ -40,11 +40,18 @@ test("手动待办通过专用频道同步到应用服务", async () => {
 	const result = await invokeHandler(channels.addTodo, {
 		title: "处理突发客诉",
 		at: "2026-08-28T15:30:00+08:00",
+		durationMinutes: 45,
 	});
 
 	assert.equal(result.ok, true);
-	assert.deepEqual(todo, { title: "处理突发客诉", at: "2026-08-28T15:30:00+08:00" });
+	assert.deepEqual(todo, { title: "处理突发客诉", at: "2026-08-28T15:30:00+08:00", durationMinutes: 45 });
 	assert.equal((await invokeHandler(channels.addTodo, { title: "", at: "2026-08-28T15:30:00+08:00" })).ok, false);
+	assert.equal((await invokeHandler(channels.addTodo, {
+		title: "处理突发客诉", at: "2026-08-28T15:30:00+08:00", durationMinutes: 0,
+	})).ok, false);
+	assert.equal((await invokeHandler(channels.addTodo, {
+		title: "处理突发客诉", at: "2026-08-28T15:30:00+08:00", durationMinutes: 30.5,
+	})).ok, false);
 });
 
 test("轻面板关闭请求只隐藏窗口而不退出应用", async () => {

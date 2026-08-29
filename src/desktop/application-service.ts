@@ -104,6 +104,7 @@ export interface ApplicationSnapshot {
 export interface ManualTodoInput {
 	readonly title: string;
 	readonly at: string;
+	readonly durationMinutes: number;
 }
 
 export const emptyApplicationSnapshot = (): ApplicationSnapshot => ({
@@ -198,8 +199,15 @@ export class ApplicationService {
 			const title = todo.title.trim();
 			if (!title) throw new Error("待办内容不能为空");
 			if (Number.isNaN(Date.parse(todo.at))) throw new Error("待办时间无效");
+			if (!Number.isInteger(todo.durationMinutes) || todo.durationMinutes < 1 || todo.durationMinutes > 540) {
+				throw new Error("待办时长必须是 1 到 540 分钟的整数");
+			}
 			if (!this.#options.addManualTodo) throw new Error("手动待办服务尚未就绪");
-			this.#snapshot = this.#mergeBusinessSnapshot(await this.#options.addManualTodo({ title, at: todo.at }));
+			this.#snapshot = this.#mergeBusinessSnapshot(await this.#options.addManualTodo({
+				title,
+				at: todo.at,
+				durationMinutes: todo.durationMinutes,
+			}));
 			await this.getSnapshot();
 			this.#notifyChange();
 			return structuredClone(this.#snapshot);

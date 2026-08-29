@@ -146,6 +146,9 @@ test("手动待办只在完整工作台添加并同步日历", async ({ startDay
 	await dialog.getByLabel("添加待办").fill("整理会议纪要");
 	await dialog.getByRole("button", { name: "下一步" }).click();
 	dialog = startDay.workbench.locator("dialog.app-dialog");
+	await dialog.getByLabel("预计时长").fill("45");
+	await dialog.getByRole("button", { name: "下一步" }).click();
+	dialog = startDay.workbench.locator("dialog.app-dialog");
 	const nextWorkday = await startDay.workbench.evaluate(() => {
 		const date = new Date();
 		do date.setDate(date.getDate() + 1); while ([0, 6].includes(date.getDay()));
@@ -158,9 +161,24 @@ test("手动待办只在完整工作台添加并同步日历", async ({ startDay
 	await expect.poll(async () => (await startDay.snapshot()).nodes.some((node) => node.title === "整理会议纪要")).toBe(true);
 	await startDay.workbench.getByRole("button", { name: /整理会议纪要/ }).click();
 	dialog = startDay.workbench.getByRole("dialog", { name: /整理会议纪要/ });
+	await expect(dialog).toContainText("固定时间");
+	await expect(dialog).toContainText("10:00—10:45");
 	await expect(dialog).toContainText("执行步骤");
 	await expect(dialog).toContainText("风险与兜底");
 	await dialog.press("Escape");
+	const beforeConflict = await startDay.snapshot();
+	await startDay.workbench.getByRole("button", { name: "添加待办" }).click();
+	dialog = startDay.workbench.locator("dialog.app-dialog");
+	await dialog.getByLabel("添加待办").fill("冲突待办");
+	await dialog.getByRole("button", { name: "下一步" }).click();
+	dialog = startDay.workbench.locator("dialog.app-dialog");
+	await dialog.getByLabel("预计时长").fill("30");
+	await dialog.getByRole("button", { name: "下一步" }).click();
+	dialog = startDay.workbench.locator("dialog.app-dialog");
+	await dialog.getByLabel("安排时间").fill(nextWorkday);
+	await dialog.getByRole("button", { name: "加入日历" }).click();
+	await expect(startDay.workbench.locator("#today-reason")).toContainText("固定事项冲突");
+	expect(await startDay.snapshot()).toEqual(beforeConflict);
 });
 
 test("完整工作台周日历切换时有横向滑动动画", async ({ startDay }) => {

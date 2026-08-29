@@ -16,6 +16,28 @@ test("空白工作描述不会进入业务处理", async () => {
 	assert.equal(submitted, false);
 });
 
+test("手动待办时长必须是 1 到 540 的整数", async () => {
+	let submitted = false;
+	const service = new ApplicationService({
+		addManualTodo: async () => {
+			submitted = true;
+			return emptyApplicationSnapshot();
+		},
+	});
+
+	for (const durationMinutes of [0, 30.5, 541]) {
+		await assert.rejects(
+			() => service.addManualTodo({
+				title: "整理会议纪要",
+				at: "2026-08-31T10:00:00+08:00",
+				durationMinutes,
+			} as never),
+			/时长/,
+		);
+	}
+	assert.equal(submitted, false);
+});
+
 test("工作目录只能来自系统选择结果", async () => {
 	const service = new ApplicationService({
 		chooseDirectory: async () => ["/Users/demo/季度复盘"],

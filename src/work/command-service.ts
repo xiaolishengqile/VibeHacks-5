@@ -10,7 +10,8 @@ import type {
 	WorkRepository,
 } from "./repositories.js";
 import { basicWorkNodeDetail, type WorkDraft, type WorkGoal, type WorkNode, type WorkProfile } from "./types.js";
-import { isWithinWorkday } from "./schedule.js";
+import { validateFixedSchedule } from "./forward-schedule.js";
+import { addCalendarMinutes, isWithinWorkday } from "./schedule.js";
 
 export interface LoadedAggregate {
 	readonly profile: WorkProfile;
@@ -33,14 +34,18 @@ interface StopConfirmation {
 	readonly expiresAt: number;
 }
 
-const normalizeManualTodo = (input: { readonly title: string; readonly at: string }): {
+const normalizeManualTodo = (input: { readonly title: string; readonly at: string; readonly durationMinutes: number }): {
 	readonly title: string;
 	readonly at: string;
+	readonly durationMinutes: number;
 } => {
 	const title = input.title.trim();
 	if (!title) throw new Error("待办内容不能为空");
 	if (Number.isNaN(Date.parse(input.at))) throw new Error("待办时间无效");
-	return { title, at: input.at };
+	if (!Number.isInteger(input.durationMinutes) || input.durationMinutes < 1 || input.durationMinutes > 540) {
+		throw new Error("待办时长必须是 1 到 540 分钟的整数");
+	}
+	return { title, at: input.at, durationMinutes: input.durationMinutes };
 };
 
 export class CommandService {
@@ -207,6 +212,7 @@ export class CommandService {
 		readonly goalId?: string | null;
 		readonly title: string;
 		readonly at: string;
+		readonly durationMinutes: number;
 	}): Promise<CommandResult> {
 		const todo = normalizeManualTodo(input);
 		const aggregate = input.goalId
@@ -218,30 +224,32 @@ export class CommandService {
 		const nodeId = this.#ids.next("node");
 		const milestoneId = this.#ids.next("milestone");
 		const now = this.#clock.now();
+		const endsAt = addCalendarMinutes(todo.at, todo.durationMinutes);
 		const node: WorkNode = {
 			id: nodeId,
 			goalId: aggregate.graph.goal.id,
 			title: todo.title,
 			owner: "self",
-			workMinutes: 0,
+			workMinutes: todo.durationMinutes,
 			waitMinutes: 0,
 			dependencyIds: [],
 			status: "ready",
-			latestStart: todo.at,
+			fixedStart: todo.at,
 			detail: basicWorkNodeDetail(todo.title),
 		};
 		const goal: WorkGoal = {
 			...aggregate.graph.goal,
-			deadline: Date.parse(todo.at) > Date.parse(aggregate.graph.goal.deadline) ? todo.at : aggregate.graph.goal.deadline,
+			deadline: Date.parse(endsAt) > Date.parse(aggregate.graph.goal.deadline) ? endsAt : aggregate.graph.goal.deadline,
 			milestones: [...aggregate.graph.goal.milestones, {
 				id: milestoneId,
 				title: todo.title,
-				at: todo.at,
+				at: endsAt,
 				nodeIds: [nodeId],
 			}],
 			updatedAt: now,
 		};
 		const graph = WorkGraph.create(goal, [...aggregate.graph.nodes, node]);
+		validateFixedSchedule(graph.nodes, aggregate.profile);
 		const change = this.#change("todoAdded", `添加手动待办：${todo.title}`);
 		return this.#save({ ...aggregate, graph }, change);
 	}
@@ -378,7 +386,7 @@ export class CommandService {
 		};
 	}
 
-	#manualTodoAggregate(profile: WorkProfile, todo: { readonly title: string; readonly at: string }): LoadedAggregate {
+	#manualTodoAggregate(profile: WorkProfile, todo: { readonly title: string; readonly at: string; readonly durationMinutes: number }): LoadedAggregate {
 		const now = this.#clock.now();
 		const goal: WorkGoal = {
 			id: this.#ids.next("goal"),

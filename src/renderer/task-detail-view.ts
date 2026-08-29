@@ -7,6 +7,7 @@ export interface TaskDetailView {
 	readonly title: string;
 	readonly owner: string;
 	readonly status: string;
+	readonly scheduleTypeLabel: "固定时间" | "智能安排";
 	readonly scheduledLabel: string;
 	readonly latestStartLabel: string;
 	readonly workMinutes: number;
@@ -74,6 +75,7 @@ export function toTaskDetailView(snapshot: ApplicationSnapshot, nodeId: string):
 		title: node.title,
 		owner: node.owner === "self" ? "自己" : node.owner,
 		status: statusLabels[node.status],
+		scheduleTypeLabel: node.fixedStart ? "固定时间" : "智能安排",
 		scheduledLabel: schedule,
 		latestStartLabel: decision?.latestStart
 			? `${instantParts(decision.latestStart).date} ${instantParts(decision.latestStart).time}`
