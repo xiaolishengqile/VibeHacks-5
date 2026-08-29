@@ -33,6 +33,15 @@ static func run() -> Array[String]:
 	else:
 		if peek_artwork.texture.get_size() != Vector2(1254, 1254):
 			errors.append("探头立绘必须保留高分辨率细节")
+		var texture_scale := peek_artwork.scale.x
+		var visible_right_edge := (
+			Vector2(PetConfigScript.RENDER_SIZE).x * 0.5
+			+ peek_artwork.position.x
+			+ (PetVisualScript.PEEK_CONTENT_RIGHT_X - peek_artwork.texture.get_width() * 0.5)
+			* texture_scale
+		)
+		if not is_equal_approx(visible_right_edge, float(PetConfigScript.RENDER_SIZE.x)):
+			errors.append("探头立绘的抓握边缘必须贴齐窗口右侧")
 		if peek_artwork.visible:
 			errors.append("探头立绘默认必须隐藏")
 		if peek_artwork.material == null:

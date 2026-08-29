@@ -12,6 +12,8 @@ static func run() -> Array[String]:
 		errors.append("右键按下必须请求退出")
 	if PetInteractionScript.should_quit_for_button(MOUSE_BUTTON_LEFT, true):
 		errors.append("左键不能请求退出")
+	if not is_equal_approx(PetInteractionScript.click_threshold_for_scale(2.0), 8.0):
+		errors.append("二倍高分屏的点击容差必须同步放大")
 
 	var visual := PetVisualScript.new()
 	visual.build()

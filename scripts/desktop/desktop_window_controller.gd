@@ -23,13 +23,7 @@ func configure(window: Window) -> void:
 	_window.always_on_top = true
 	_window.unresizable = true
 	_window.unfocusable = true
-	var input_scale := Vector2(_window.size) / Vector2(PetConfigScript.WINDOW_SIZE)
-	_window.mouse_passthrough_polygon = WindowGeometryScript.ellipse_polygon(
-		_window.size,
-		Vector2(PetConfigScript.WINDOW_SIZE) * 0.5 * input_scale,
-		Vector2(PetConfigScript.WINDOW_SIZE) * Vector2(0.475, 0.4833) * input_scale,
-		32,
-	)
+	set_peek_input_region(false)
 
 	var usable := DisplayServer.screen_get_usable_rect(screen)
 	_window.position = WindowGeometryScript.bottom_right_position(
@@ -37,6 +31,19 @@ func configure(window: Window) -> void:
 		_window.size,
 		PetConfigScript.WINDOW_MARGIN,
 		screen_scale,
+	)
+
+
+func set_peek_input_region(enabled: bool) -> void:
+	var input_scale := Vector2(_window.size) / Vector2(PetConfigScript.WINDOW_SIZE)
+	var logical_size := Vector2(PetConfigScript.WINDOW_SIZE)
+	var center_ratio := Vector2(0.70, 0.50) if enabled else Vector2(0.50, 0.50)
+	var radii_ratio := Vector2(0.30, 0.48) if enabled else Vector2(0.475, 0.4833)
+	_window.mouse_passthrough_polygon = WindowGeometryScript.ellipse_polygon(
+		_window.size,
+		logical_size * center_ratio * input_scale,
+		logical_size * radii_ratio * input_scale,
+		32,
 	)
 
 

@@ -33,6 +33,10 @@ static func is_click(press_position: Vector2, release_position: Vector2, thresho
 	return press_position.distance_to(release_position) <= threshold
 
 
+static func click_threshold_for_scale(screen_scale: float) -> float:
+	return CLICK_THRESHOLD * maxf(screen_scale, 1.0)
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if not event is InputEventMouseButton:
 		return
@@ -52,9 +56,16 @@ func _unhandled_input(event: InputEvent) -> void:
 	else:
 		var release_position := Vector2(DisplayServer.mouse_get_position())
 		_window_controller.update_drag()
-		_sync_edge_peek_mode()
+		var should_peek: bool = _window_controller.is_near_right_edge()
 		_window_controller.end_drag()
-		if _left_pressed and not _drag_started and is_click(_press_position, release_position):
+		_apply_peek_mode(should_peek)
+		if should_peek:
+			_window_controller.snap_to_right_edge()
+		if _left_pressed and not _drag_started and is_click(
+			_press_position,
+			release_position,
+			_current_click_threshold(),
+		):
 			open_panel_requested.emit()
 		_left_pressed = false
 	_animator.react()
@@ -66,18 +77,32 @@ func toggle_peek_mode() -> void:
 	var enabled: bool = not _visual.is_peek_mode()
 	if enabled:
 		_window_controller.snap_to_right_edge()
-	_visual.set_peek_mode(enabled)
+	_apply_peek_mode(enabled)
 
 
 func _sync_edge_peek_mode() -> void:
 	if _visual != null:
-		_visual.set_peek_mode(_window_controller.is_near_right_edge())
+		_apply_peek_mode(_window_controller.is_near_right_edge())
+
+
+func _apply_peek_mode(enabled: bool) -> void:
+	_visual.set_peek_mode(enabled)
+	_window_controller.set_peek_input_region(enabled)
+
+
+func _current_click_threshold() -> float:
+	var screen := DisplayServer.window_get_current_screen()
+	return click_threshold_for_scale(DisplayServer.screen_get_scale(screen))
 
 
 func _process(_delta: float) -> void:
 	if _window_controller == null or _animator == null:
 		return
-	if _left_pressed and not is_click(_press_position, Vector2(DisplayServer.mouse_get_position())):
+	if _left_pressed and not is_click(
+		_press_position,
+		Vector2(DisplayServer.mouse_get_position()),
+		_current_click_threshold(),
+	):
 		_drag_started = true
 	_window_controller.update_drag()
 	if _window_controller.is_dragging():

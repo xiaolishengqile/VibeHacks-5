@@ -73,6 +73,12 @@ static func run() -> Array[String]:
 		20,
 	):
 		errors.append("窗口远离桌面右侧时不能进入探头范围")
+	if not WindowGeometryScript.is_near_right_edge(
+		Rect2i(830, 300, 120, 120),
+		Rect2i(0, 0, 940, 700),
+		20,
+	):
+		errors.append("窗口越过桌面右侧时仍必须保持探头状态")
 
 	var window := Window.new()
 	var controller = DesktopWindowControllerScript.new()
@@ -81,6 +87,17 @@ static func run() -> Array[String]:
 		errors.append("窗口控制器必须应用二维猫咪的方形尺寸")
 	if not window.borderless or not window.transparent or not window.always_on_top:
 		errors.append("窗口控制器必须启用无边框、透明和置顶")
+	var normal_polygon := window.mouse_passthrough_polygon
+	controller.set_peek_input_region(true)
+	var peek_polygon := window.mouse_passthrough_polygon
+	var normal_center_x := 0.0
+	var peek_center_x := 0.0
+	for point in normal_polygon:
+		normal_center_x += point.x / normal_polygon.size()
+	for point in peek_polygon:
+		peek_center_x += point.x / peek_polygon.size()
+	if peek_center_x <= normal_center_x:
+		errors.append("探头状态的命中区域必须移到窗口右侧")
 	controller.begin_drag()
 	if not controller.is_dragging():
 		errors.append("开始拖拽后必须进入拖拽状态")

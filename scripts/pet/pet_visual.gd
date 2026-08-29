@@ -8,6 +8,7 @@ const ARTWORK_TEXTURE = preload("res://assets/pet/crystal_cat_2d.png")
 const PEEK_ARTWORK_TEXTURE = preload("res://assets/pet/crystal_cat_peek_2d.png")
 const CHROMA_KEY_SHADER = preload("res://shaders/chroma_key.gdshader")
 const ARTWORK_SIZE := 870.0
+const PEEK_CONTENT_RIGHT_X := 947.0
 
 var _body_root: Node2D
 var _artwork: Sprite2D
@@ -26,6 +27,11 @@ func build() -> void:
 	_artwork = _create_artwork("Artwork", ARTWORK_TEXTURE)
 	_body_root.add_child(_artwork)
 	_peek_artwork = _create_artwork("PeekArtwork", PEEK_ARTWORK_TEXTURE)
+	var content_right := (
+		(PEEK_CONTENT_RIGHT_X - PEEK_ARTWORK_TEXTURE.get_width() * 0.5)
+		* _peek_artwork.scale.x
+	)
+	_peek_artwork.position.x = PetConfigScript.RENDER_SIZE.x * 0.5 - content_right
 	_peek_artwork.visible = false
 	_body_root.add_child(_peek_artwork)
 
@@ -33,7 +39,7 @@ func build() -> void:
 	toggle.name = "PeekToggle"
 	toggle.text = "↔"
 	toggle.tooltip_text = "切换探头状态"
-	toggle.position = Vector2(260.0, 80.0)
+	toggle.position = Vector2(430.0, 100.0)
 	toggle.size = Vector2(150.0, 150.0)
 	toggle.flat = true
 	toggle.focus_mode = Control.FOCUS_NONE

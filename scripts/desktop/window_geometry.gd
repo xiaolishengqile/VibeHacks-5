@@ -25,7 +25,7 @@ static func is_near_right_edge(
 	threshold: int,
 ) -> bool:
 	var distance := usable_rect.end.x - window_rect.end.x
-	return absi(distance) <= maxi(threshold, 0)
+	return distance <= maxi(threshold, 0)
 
 
 static func ellipse_polygon(
