@@ -87,7 +87,7 @@ button:focus-visible, textarea:focus-visible, input:focus-visible, a:focus-visib
 	will-change: transform;
 }
 .calendar-slider-track.is-sliding {
-	transition: transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
+	transition: transform 560ms cubic-bezier(0.32, 0.72, 0, 1);
 }
 .calendar-week {
 	display: grid;

@@ -13,6 +13,7 @@ let calendarSlideToken = 0;
 let calendarSliding = false;
 let touchStartX: number | null = null;
 let lastWheelShiftAt = 0;
+const calendarSlideMs = 560;
 
 const actionButton = (label: string, action: () => Promise<void>, danger = false): HTMLButtonElement => {
 	const button = createTextElement("button", danger ? "danger-button" : "text-button", label) as HTMLButtonElement;
@@ -268,12 +269,12 @@ const shiftCalendarWeek = (delta: number): void => {
 	const next = toWeekCalendarView(snapshot, new Date().toISOString(), calendarWeekOffset + 1);
 	target.setAttribute("aria-busy", "true");
 	clearElement(target);
-	const track = renderCalendarTrack([previous, current, next], true);
+	const track = renderCalendarTrack([previous, current, next]);
 	track.style.transform = "translate3d(-100%, 0, 0)";
 	target.append(track);
-	requestAnimationFrame(() => {
-		track.style.transform = delta > 0 ? "translate3d(-200%, 0, 0)" : "translate3d(0%, 0, 0)";
-	});
+	track.getBoundingClientRect();
+	track.classList.add("is-sliding");
+	track.style.transform = delta > 0 ? "translate3d(-200%, 0, 0)" : "translate3d(0%, 0, 0)";
 	let finished = false;
 	const finish = (): void => {
 		if (finished || token !== calendarSlideToken) return;
@@ -283,7 +284,7 @@ const shiftCalendarWeek = (delta: number): void => {
 		if (snapshot) renderCalendar(snapshot);
 	};
 	track.addEventListener("transitionend", finish, { once: true });
-	window.setTimeout(finish, 420);
+	window.setTimeout(finish, calendarSlideMs + 180);
 };
 
 const calendarTarget = requiredElement<HTMLDivElement>("week-calendar");
