@@ -40,16 +40,38 @@ const riskLabels: Record<DecisionRisk, string> = {
 	high: "高风险",
 };
 
-const instantParts = (value: string): { readonly date: string; readonly time: string } => {
-	const match = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/.exec(value);
-	return match
-		? { date: `${Number(match[2])}月${Number(match[3])}日`, time: `${match[4]}:${match[5]}` }
-		: { date: "", time: value };
+const timeZoneFor = (snapshot: ApplicationSnapshot): string => {
+	const fallback = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+	const candidate = snapshot.profile?.timezone ?? fallback;
+	try {
+		new Intl.DateTimeFormat("en", { timeZone: candidate }).format();
+		return candidate;
+	} catch {
+		return fallback;
+	}
 };
 
-const scheduledLabel = (start: string, end: string): string => {
-	const startParts = instantParts(start);
-	const endParts = instantParts(end);
+const instantParts = (value: string, timeZone: string): { readonly date: string; readonly time: string } => {
+	const instant = new Date(value);
+	if (Number.isNaN(instant.getTime())) return { date: "", time: value };
+	const parts = new Map(new Intl.DateTimeFormat("en-CA", {
+		timeZone,
+		year: "numeric",
+		month: "2-digit",
+		day: "2-digit",
+		hour: "2-digit",
+		minute: "2-digit",
+		hourCycle: "h23",
+	}).formatToParts(instant).map((part) => [part.type, part.value]));
+	return {
+		date: `${Number(parts.get("month"))}月${Number(parts.get("day"))}日`,
+		time: `${parts.get("hour")}:${parts.get("minute")}`,
+	};
+};
+
+const scheduledLabel = (start: string, end: string, timeZone: string): string => {
+	const startParts = instantParts(start, timeZone);
+	const endParts = instantParts(end, timeZone);
 	if (start === end) return `${startParts.date} ${startParts.time}`.trim();
 	if (startParts.date === endParts.date) {
 		return `${startParts.date} ${startParts.time}—${endParts.time}`.trim();
@@ -65,11 +87,12 @@ export function toTaskDetailView(snapshot: ApplicationSnapshot, nodeId: string):
 	const nodeById = new Map(snapshot.nodes.map((item) => [item.id, item]));
 	const start = decision?.scheduledStart ?? node.latestStart ?? "";
 	const end = decision?.scheduledEnd ?? start;
+	const timeZone = timeZoneFor(snapshot);
 	const schedule = decision?.scheduledSegments?.length
 		? decision.scheduledSegments
-			.map((segment) => scheduledLabel(segment.scheduledStart, segment.scheduledEnd))
+			.map((segment) => scheduledLabel(segment.scheduledStart, segment.scheduledEnd, timeZone))
 			.join("、")
-		: start ? scheduledLabel(start, end) : "待安排";
+		: start ? scheduledLabel(start, end, timeZone) : "待安排";
 	return {
 		id: node.id,
 		title: node.title,
@@ -78,7 +101,7 @@ export function toTaskDetailView(snapshot: ApplicationSnapshot, nodeId: string):
 		scheduleTypeLabel: node.fixedStart ? "固定时间" : "智能安排",
 		scheduledLabel: schedule,
 		latestStartLabel: decision?.latestStart
-			? `${instantParts(decision.latestStart).date} ${instantParts(decision.latestStart).time}`
+			? `${instantParts(decision.latestStart, timeZone).date} ${instantParts(decision.latestStart, timeZone).time}`
 			: "未设置",
 		workMinutes: node.workMinutes,
 		waitMinutes: node.waitMinutes,

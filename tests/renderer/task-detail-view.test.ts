@@ -84,6 +84,40 @@ test("固定时间任务在详情中明确标识其排期类型", () => {
 	assert.equal((detail as { scheduleTypeLabel?: string } | null)?.scheduleTypeLabel, "固定时间");
 });
 
+test("任务详情按个人时区显示 UTC 固定时间", () => {
+	const snapshot = {
+		...emptyApplicationSnapshot(),
+		profile: {
+			timezone: "Asia/Shanghai",
+			workdayStart: "09:00",
+			workdayEnd: "18:00",
+			dailyCapacityMinutes: 360,
+			bufferPercent: 20,
+			confirmed: true,
+		},
+		nodes: [{
+			id: "notes",
+			goalId: "goal_1",
+			title: "整理会议纪要",
+			owner: "self",
+			workMinutes: 45,
+			waitMinutes: 0,
+			dependencyIds: [],
+			status: "ready" as const,
+			fixedStart: "2026-09-01T02:00:00.000Z",
+		}],
+		decisions: [{
+			...decision,
+			nodeId: "notes",
+			title: "整理会议纪要",
+			scheduledStart: "2026-09-01T02:00:00.000Z",
+			scheduledEnd: "2026-09-01T02:45:00.000Z",
+		}],
+	};
+
+	assert.equal(toTaskDetailView(snapshot, "notes")?.scheduledLabel, "9月1日 10:00—10:45");
+});
+
 test("旧任务没有智能详情时仍生成可执行的基础说明", () => {
 	const snapshot = {
 		...emptyApplicationSnapshot(),
