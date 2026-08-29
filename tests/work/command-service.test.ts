@@ -225,6 +225,37 @@ test("手动待办不能安排在周末", async () => {
 	);
 });
 
+test("手动待办不能安排在个人工作时段外", async () => {
+	const { service } = setup();
+	await assert.rejects(() => service.addManualTodo({
+		profile,
+		goalId: "goal_1",
+		title: "深夜整理材料",
+		at: "2026-08-31T13:00:00Z",
+	}), /工作时段/);
+});
+
+test("首次使用时未确认每日容量也能添加工作时段内的待办", async () => {
+	const repository = new MemoryRepository(null);
+	const service = new CommandService(repository, new DecisionEngine(), new SequenceIds(), new MutableClock());
+	const inferredProfile = createProfile({
+		id: "profile_first_todo",
+		timezone: "Asia/Shanghai",
+		dailyCapacityMinutes: 420,
+		bufferPercent: 20,
+		source: "inferred",
+	}, "2026-08-28T09:00:00+08:00");
+
+	const result = await service.addManualTodo({
+		profile: inferredProfile,
+		title: "整理会议纪要",
+		at: "2026-08-31T10:00:00+08:00",
+	});
+
+	assert.equal(result.aggregate.graph.nodes[0]?.title, "整理会议纪要");
+	assert.deepEqual(result.decisions, []);
+});
+
 test("停止任务必须确认全部受影响节点且令牌只能使用一次", async () => {
 	const { service } = setup();
 	const prepared = await service.prepareStop({ goalId: "goal_1", nodeId: "request_data" });

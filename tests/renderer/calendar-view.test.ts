@@ -102,6 +102,50 @@ test("没有计划时日历显示当前周并聚焦今天", () => {
 	assert.equal(calendar.days[5]?.reservedMinutes, 0);
 });
 
+test("跨工作日任务按逐日时段统计留白", () => {
+	const snapshot = {
+		...emptyApplicationSnapshot(),
+		profile: shanghaiProfile,
+		nodes: [{
+			id: "large_task",
+			goalId: "goal_1",
+			title: "集中制作材料",
+			owner: "self",
+			workMinutes: 600,
+			waitMinutes: 0,
+			dependencyIds: [],
+			status: "ready" as const,
+		}],
+		decisions: [{
+			nodeId: "large_task",
+			title: "集中制作材料",
+			latestStart: "2026-09-04T09:00:00+08:00",
+			scheduledStart: "2026-08-31T09:00:00+08:00",
+			scheduledEnd: "2026-09-01T14:00:00+08:00",
+			scheduledSegments: [{
+				scheduledStart: "2026-08-31T09:00:00+08:00",
+				scheduledEnd: "2026-08-31T16:00:00+08:00",
+			}, {
+				scheduledStart: "2026-09-01T09:00:00+08:00",
+				scheduledEnd: "2026-09-01T14:00:00+08:00",
+			}],
+			targetAt: "2026-09-04T18:00:00+08:00",
+			recommendedAction: "start" as const,
+			risk: "low" as const,
+			reason: "跨日排期验证",
+		}],
+	};
+
+	const calendar = toWeekCalendarView(snapshot, "2026-08-31T08:00:00+08:00");
+
+	assert.equal(calendar.days[0]?.items[0]?.timeLabel, "09:00—16:00");
+	assert.equal(calendar.days[0]?.scheduledMinutes, 420);
+	assert.equal(calendar.days[0]?.reservedMinutes, 120);
+	assert.equal(calendar.days[1]?.items[0]?.timeLabel, "09:00—14:00");
+	assert.equal(calendar.days[1]?.scheduledMinutes, 300);
+	assert.equal(calendar.days[1]?.reservedMinutes, 240);
+});
+
 test("日历按用户时区处理跨日和夏令时", () => {
 	const snapshot = {
 		...emptyApplicationSnapshot(),

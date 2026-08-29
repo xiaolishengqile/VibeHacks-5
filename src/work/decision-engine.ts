@@ -1,5 +1,5 @@
 import type { WorkGraph } from "./graph.js";
-import { buildForwardSchedule } from "./forward-schedule.js";
+import { buildForwardSchedule, type ScheduledSegment } from "./forward-schedule.js";
 import { subtractCalendarMinutes, subtractWorkingMinutes } from "./schedule.js";
 import type { Milestone, WorkNode, WorkProfile } from "./types.js";
 
@@ -12,6 +12,7 @@ export interface WorkDecision {
 	readonly latestStart: string;
 	readonly scheduledStart: string;
 	readonly scheduledEnd: string;
+	readonly scheduledSegments?: readonly ScheduledSegment[];
 	readonly targetAt: string;
 	readonly recommendedAction: RecommendedAction;
 	readonly risk: DecisionRisk;

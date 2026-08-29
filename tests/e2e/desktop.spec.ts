@@ -156,6 +156,11 @@ test("手动待办只在完整工作台添加并同步日历", async ({ startDay
 	await dialog.getByLabel("安排时间").fill(nextWorkday);
 	await dialog.getByRole("button", { name: "加入日历" }).click();
 	await expect.poll(async () => (await startDay.snapshot()).nodes.some((node) => node.title === "整理会议纪要")).toBe(true);
+	await startDay.workbench.getByRole("button", { name: /整理会议纪要/ }).click();
+	dialog = startDay.workbench.getByRole("dialog", { name: /整理会议纪要/ });
+	await expect(dialog).toContainText("执行步骤");
+	await expect(dialog).toContainText("风险与兜底");
+	await dialog.press("Escape");
 });
 
 test("完整工作台周日历切换时有横向滑动动画", async ({ startDay }) => {
@@ -252,12 +257,22 @@ test("日历任务点击后立即展开助理详情并显示每日留白", async
 		await expect(calendar.locator(".calendar-day", { hasText: label }).locator(".calendar-event")).toHaveCount(0);
 	}
 
+	const events = calendar.locator(".calendar-event");
+	const eventCount = await events.count();
+	expect(eventCount).toBeGreaterThan(0);
+	for (let index = 0; index < eventCount; index += 1) {
+		await events.nth(index).click();
+		const card = startDay.workbench.locator("dialog.app-dialog");
+		await expect(card).toContainText("执行步骤");
+		await expect(card).toContainText("交付物与完成标准");
+		await expect(card).toContainText("助理建议");
+		await expect(card).toContainText("风险与兜底");
+		await card.press("Escape");
+		await expect(card).toHaveCount(0);
+	}
+
 	await startDay.workbench.getByRole("button", { name: /搭建复盘框架/ }).click();
 	const detail = startDay.workbench.getByRole("dialog", { name: /搭建复盘框架/ });
-	await expect(detail).toContainText("执行步骤");
-	await expect(detail).toContainText("交付物与完成标准");
-	await expect(detail).toContainText("助理建议");
-	await expect(detail).toContainText("风险与兜底");
 	await expect(detail).toContainText("先写完整叙事文稿，再制作演示页面");
 	await detail.press("Escape");
 	await expect(detail).toHaveCount(0);

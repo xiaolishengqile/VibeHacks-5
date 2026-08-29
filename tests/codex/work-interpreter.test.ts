@@ -119,6 +119,7 @@ test("工作理解返回结构化草稿并保留关键假设", async () => {
 	assert.match(input[0]?.text ?? "", /当前时间：\d{4}-\d{2}-\d{2}T/);
 	assert.match(input[0]?.text ?? "", /周六、周日不安排工作/);
 	assert.match(input[0]?.text ?? "", /演示文稿.*先写.*叙事/);
+	assert.match(input[0]?.text ?? "", /原样保留已有有效详情/);
 	assert.match(input[0]?.text ?? "", /风险.*触发条件.*兜底/);
 });
 

@@ -5,6 +5,7 @@ import { createProfile } from "../../src/work/profile.js";
 import {
 	addWorkingMinutes,
 	alignToWorkingTime,
+	isWithinWorkday,
 	subtractWorkingMinutes,
 } from "../../src/work/schedule.js";
 
@@ -65,4 +66,35 @@ test("周末当前时间推进到下一个工作日并对齐刻度", () => {
 		),
 		"2026-08-31T13:15:00+08:00",
 	);
+});
+
+test("排期始终使用个人时区而不是截止时间偏移", () => {
+	assert.equal(
+		alignToWorkingTime("2026-08-31T13:00:00Z", profile, "2026-09-04T18:00:00Z"),
+		"2026-09-01T09:00:00+08:00",
+	);
+});
+
+test("跨夏令时后使用新日期的真实偏移", () => {
+	const losAngeles = createProfile(
+		{
+			id: "profile_la",
+			timezone: "America/Los_Angeles",
+			workdayStart: "09:00",
+			workdayEnd: "18:00",
+			dailyCapacityMinutes: 420,
+			bufferPercent: 20,
+		},
+		"2026-10-30T09:00:00-07:00",
+	);
+	assert.equal(
+		addWorkingMinutes("2026-10-30T15:30:00-07:00", 90, losAngeles),
+		"2026-11-02T10:00:00-08:00",
+	);
+});
+
+test("工作时段校验包含个人时区、上下班和周末边界", () => {
+	assert.equal(isWithinWorkday("2026-08-31T02:00:00Z", profile), true);
+	assert.equal(isWithinWorkday("2026-08-31T13:00:00Z", profile), false);
+	assert.equal(isWithinWorkday("2026-08-30T02:00:00Z", profile), false);
 });

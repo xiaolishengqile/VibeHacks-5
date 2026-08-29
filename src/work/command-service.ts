@@ -10,6 +10,7 @@ import type {
 	WorkRepository,
 } from "./repositories.js";
 import { basicWorkNodeDetail, type WorkDraft, type WorkGoal, type WorkNode, type WorkProfile } from "./types.js";
+import { isWithinWorkday } from "./schedule.js";
 
 export interface LoadedAggregate {
 	readonly profile: WorkProfile;
@@ -40,11 +41,6 @@ const normalizeManualTodo = (input: { readonly title: string; readonly at: strin
 	if (!title) throw new Error("待办内容不能为空");
 	if (Number.isNaN(Date.parse(input.at))) throw new Error("待办时间无效");
 	return { title, at: input.at };
-};
-
-const isWeekendAt = (at: string, timeZone: string): boolean => {
-	const weekday = new Intl.DateTimeFormat("en-US", { timeZone, weekday: "short" }).format(new Date(at));
-	return weekday === "Sat" || weekday === "Sun";
 };
 
 export class CommandService {
@@ -160,7 +156,9 @@ export class CommandService {
 		const aggregate = input.goalId
 			? await this.#load(input.goalId)
 			: this.#manualTodoAggregate(input.profile, todo);
-		if (isWeekendAt(todo.at, aggregate.profile.timezone.value)) throw new Error("周六周日不安排工作，请选择工作日");
+		if (!isWithinWorkday(todo.at, aggregate.profile)) {
+			throw new Error("周六周日不安排工作，待办只能放在个人工作时段内");
+		}
 		const nodeId = this.#ids.next("node");
 		const milestoneId = this.#ids.next("milestone");
 		const now = this.#clock.now();

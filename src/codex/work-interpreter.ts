@@ -52,7 +52,7 @@ function interpretationPrompt(text: string, profile: WorkProfile, retry: boolean
 		"跨人协作要明确反馈截止和二次跟进时间；方案类工作先交最小可审版本，并为被驳回后的修改预留工作日。",
 		"负责人未知时写“我”。没有明确截止时间时 deadline 写 null，并且只提出一个 blockingQuestion。",
 		"依赖使用从零开始的节点下标；工作量和等待时间使用整数分钟。所有时间使用带时区的标准时间。",
-		"如果用户要求重新安排、插入突发事件或调整已有计划，必须结合现有安排输出一份完整替代草稿，不得遗漏仍需保留的未完成事项。",
+		"如果用户要求重新安排、插入突发事件或调整已有计划，必须结合现有安排输出一份完整替代草稿，不得遗漏仍需保留的未完成事项；仍需保留且用户未明确要求修改的节点，必须原样保留已有有效详情。",
 		retry ? "上一次结果格式无效。请修正结构并重新完整输出，不要解释。" : "不要添加解释性文字。",
 		`个人工作背景：${JSON.stringify(profileSummary(profile))}`,
 		existingPlanContext?.trim() ? `现有安排：${existingPlanContext.trim()}` : "现有安排：无",

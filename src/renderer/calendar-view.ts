@@ -180,37 +180,44 @@ export function toCalendarWindowView(
 
 	for (const node of snapshot.nodes) {
 		const decision = decisionByNode.get(node.id);
-		const dateTime = decision?.scheduledStart ?? node.latestStart ?? "";
-		const endDateTime = decision?.scheduledEnd ?? dateTime;
-		const date = zonedInstant(dateTime, formatter);
-		const endDate = zonedInstant(endDateTime, formatter);
-		if (!date || !endDate) continue;
-		const key = dateKey(date);
-		const weekday = asUtcDate(date).getUTCDay();
-		if (weekday === 0 || weekday === 6) continue;
-		if (!windowKeys.has(key)) {
-			outsideWindowCount += 1;
-			continue;
+		const fallbackStart = decision?.scheduledStart ?? node.latestStart ?? "";
+		const fallbackEnd = decision?.scheduledEnd ?? fallbackStart;
+		const segments = decision?.scheduledSegments?.length
+			? decision.scheduledSegments
+			: [{ scheduledStart: fallbackStart, scheduledEnd: fallbackEnd }];
+		for (const segment of segments) {
+			const dateTime = segment.scheduledStart;
+			const endDateTime = segment.scheduledEnd;
+			const date = zonedInstant(dateTime, formatter);
+			const endDate = zonedInstant(endDateTime, formatter);
+			if (!date || !endDate) continue;
+			const key = dateKey(date);
+			const weekday = asUtcDate(date).getUTCDay();
+			if (weekday === 0 || weekday === 6) continue;
+			if (!windowKeys.has(key)) {
+				outsideWindowCount += 1;
+				continue;
+			}
+			const items = itemsByDay.get(key) ?? [];
+			const durationMinutes = Math.max(0, Math.floor(
+				(Date.parse(endDateTime) - Date.parse(dateTime)) / 60_000,
+			));
+			const startLabel = timeLabel(date);
+			const endLabel = timeLabel(endDate);
+			items.push({
+				id: node.id,
+				title: node.title,
+				dateTime,
+				endDateTime,
+				timeLabel: startLabel === endLabel ? startLabel : `${startLabel}—${endLabel}`,
+				owner: node.owner === "self" ? "自己" : node.owner,
+				status: statusLabels[node.status],
+				tone: toneFor(node.status, decision?.risk),
+				risk: decision?.risk ?? null,
+				durationMinutes,
+			});
+			itemsByDay.set(key, items);
 		}
-		const items = itemsByDay.get(key) ?? [];
-		const durationMinutes = Math.max(0, Math.floor(
-			(Date.parse(endDateTime) - Date.parse(dateTime)) / 60_000,
-		));
-		const startLabel = timeLabel(date);
-		const endLabel = timeLabel(endDate);
-		items.push({
-			id: node.id,
-			title: node.title,
-			dateTime,
-			endDateTime,
-			timeLabel: startLabel === endLabel ? startLabel : `${startLabel}—${endLabel}`,
-			owner: node.owner === "self" ? "自己" : node.owner,
-			status: statusLabels[node.status],
-			tone: toneFor(node.status, decision?.risk),
-			risk: decision?.risk ?? null,
-			durationMinutes,
-		});
-		itemsByDay.set(key, items);
 	}
 
 	const days = windowDates.map((date): CalendarDayView => {

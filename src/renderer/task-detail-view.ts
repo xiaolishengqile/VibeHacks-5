@@ -64,12 +64,17 @@ export function toTaskDetailView(snapshot: ApplicationSnapshot, nodeId: string):
 	const nodeById = new Map(snapshot.nodes.map((item) => [item.id, item]));
 	const start = decision?.scheduledStart ?? node.latestStart ?? "";
 	const end = decision?.scheduledEnd ?? start;
+	const schedule = decision?.scheduledSegments?.length
+		? decision.scheduledSegments
+			.map((segment) => scheduledLabel(segment.scheduledStart, segment.scheduledEnd))
+			.join("、")
+		: start ? scheduledLabel(start, end) : "待安排";
 	return {
 		id: node.id,
 		title: node.title,
 		owner: node.owner === "self" ? "自己" : node.owner,
 		status: statusLabels[node.status],
-		scheduledLabel: start ? scheduledLabel(start, end) : "待安排",
+		scheduledLabel: schedule,
 		latestStartLabel: decision?.latestStart
 			? `${instantParts(decision.latestStart).date} ${instantParts(decision.latestStart).time}`
 			: "未设置",
