@@ -3,7 +3,7 @@ extends RefCounted
 
 const PetConfigScript = preload("res://scripts/config/pet_config.gd")
 const WindowGeometryScript = preload("res://scripts/desktop/window_geometry.gd")
-const TUCKED_VISIBLE_STRIP := 36
+const TUCKED_VISIBLE_STRIP := 72
 
 var _window: Window
 var _dragging := false

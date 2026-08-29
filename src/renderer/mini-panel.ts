@@ -1,4 +1,5 @@
 import type { ApplicationSnapshot, UiCommand } from "../desktop/application-service.js";
+import type { MiniPanelMode } from "../desktop/preload.js";
 import { toWeekCalendarView } from "./calendar-view.js";
 import { confirmAction, requestText } from "./dialogs.js";
 import { isSubmitDisabled, requiredElement, setText } from "./dom.js";
@@ -8,6 +9,7 @@ const actionRisk = requiredElement<HTMLSpanElement>("action-risk");
 const actionTime = requiredElement<HTMLTimeElement>("action-time");
 const actionTitle = requiredElement<HTMLHeadingElement>("action-title");
 const actionReason = requiredElement<HTMLParagraphElement>("action-reason");
+const shell = requiredElement<HTMLElement>("mini-shell");
 const input = requiredElement<HTMLTextAreaElement>("work-input");
 const submit = requiredElement<HTMLButtonElement>("submit-work");
 const message = requiredElement<HTMLParagraphElement>("submit-message");
@@ -34,6 +36,11 @@ const setMessage = (value: string, error = false): void => {
 const updateSubmitState = (): void => {
 	submit.disabled = isSubmitDisabled(input.value, busy);
 	setText(submit, busy ? "正在整理…" : "整理计划");
+};
+
+const setMiniPanelMode = (mode: MiniPanelMode): void => {
+	shell.dataset.miniMode = mode;
+	if (mode === "input") requestAnimationFrame(() => input.focus());
 };
 
 const run = async (command: UiCommand): Promise<void> => {
@@ -119,7 +126,8 @@ const reload = async (): Promise<void> => {
 };
 
 input.addEventListener("input", updateSubmitState);
-window.startDay.onFocusInput(() => input.focus());
+window.startDay.onMiniPanelMode(setMiniPanelMode);
+window.startDay.onFocusInput(() => setMiniPanelMode("input"));
 submit.addEventListener("click", async () => {
 	const request = ++requestSequence;
 	busy = true;

@@ -51,10 +51,14 @@ test("桌宠悬浮菜单事件打开对应入口", async ({ startDay }) => {
 	await startDay.hideMiniPanel();
 	await startDay.triggerPetEvent("open_today");
 	await expect.poll(() => startDay.isMiniPanelVisible()).toBe(true);
+	await expect(startDay.mini.getByRole("region", { name: "当日日程" })).toBeVisible();
+	await expect(startDay.mini.locator(".input-card")).toBeHidden();
 
 	await startDay.hideMiniPanel();
 	await startDay.triggerPetEvent("open_input");
 	await expect.poll(() => startDay.isMiniPanelVisible()).toBe(true);
+	await expect(startDay.mini.locator(".input-card")).toBeVisible();
+	await expect(startDay.mini.getByRole("region", { name: "当日日程" })).toBeHidden();
 	await expect.poll(() => startDay.mini.evaluate(() => document.activeElement?.id)).toBe("work-input");
 
 	await startDay.hideWorkbench();

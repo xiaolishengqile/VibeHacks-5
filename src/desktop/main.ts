@@ -19,6 +19,7 @@ import { IntegratedDesktopBackend } from "./integrated-backend.js";
 import { CommandWorkExecutionPort } from "../work/execution-port.js";
 import { registerDesktopIpc } from "./ipc.js";
 import { channels } from "./channels.js";
+import type { MiniPanelMode } from "./preload.js";
 import { PetBridge } from "./pet-bridge.js";
 import { PetProcess } from "./pet-process.js";
 import { runApplicationReset } from "./reset-application-data.js";
@@ -53,6 +54,11 @@ const openMiniPanelNearCursor = (): void => {
 	showMiniPanelNearPet(miniPanel, workArea, screenCornerForPoint(cursor, workArea));
 };
 
+const openMiniPanelModeNearCursor = (mode: MiniPanelMode): void => {
+	openMiniPanelNearCursor();
+	miniPanel?.webContents.send(channels.miniMode, mode);
+};
+
 const openWorkbenchWindow = (): void => {
 	createWindows();
 	workbench?.show();
@@ -60,7 +66,7 @@ const openWorkbenchWindow = (): void => {
 };
 
 const openMiniInputNearCursor = (): void => {
-	openMiniPanelNearCursor();
+	openMiniPanelModeNearCursor("input");
 	miniPanel?.webContents.send(channels.focusInput);
 };
 
@@ -74,7 +80,7 @@ const startDesktop = async (): Promise<void> => {
 	closePetEvents = bridge.onEvent((event) => {
 		if (event.type === "quit_requested") return app.quit();
 		if (event.type === "open_panel") openMiniPanelNearCursor();
-		if (event.type === "open_today") openMiniPanelNearCursor();
+		if (event.type === "open_today") openMiniPanelModeNearCursor("today");
 		if (event.type === "open_input") openMiniInputNearCursor();
 		if (event.type === "open_workbench") openWorkbenchWindow();
 	});

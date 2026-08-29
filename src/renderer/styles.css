@@ -273,6 +273,8 @@ button:focus-visible, textarea:focus-visible, input:focus-visible, a:focus-visib
 .mini-menu summary:active, .window-close:active { transform: scale(0.96); }
 
 .mini-calendar { padding: 16px; border-radius: 19px; }
+.shell--mini[data-mini-mode="today"] .input-card,
+.shell--mini[data-mini-mode="input"] .mini-calendar { display: none; }
 .mini-day-heading { align-items: flex-start; padding-bottom: 13px; border-bottom: 1px solid var(--line); }
 .mini-day-heading div { display: grid; gap: 2px; }
 .mini-day-heading strong { font-size: 20px; letter-spacing: -0.02em; }

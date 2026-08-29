@@ -1,4 +1,4 @@
-import type { DesktopApi } from "./preload.js";
+import type { DesktopApi, MiniPanelMode } from "./preload.js";
 
 const { contextBridge, ipcRenderer } = require("electron") as typeof import("electron");
 
@@ -10,11 +10,14 @@ const channels = Object.freeze({
 	openWorkbench: "window:open-workbench",
 	hideMiniPanel: "window:hide-mini-panel",
 	focusInput: "window:focus-input",
+	miniMode: "window:mini-mode",
 	resetApplicationData: "application:reset-data",
 	chooseDirectory: "workspace:choose-directory",
 	event: "application:event",
 	changed: "application:changed",
 });
+
+const isMiniPanelMode = (value: unknown): value is MiniPanelMode => value === "today" || value === "input";
 
 const desktopApi = {
 	getSnapshot: () => ipcRenderer.invoke(channels.snapshot),
@@ -26,6 +29,13 @@ const desktopApi = {
 		const wrapped = () => listener();
 		ipcRenderer.on(channels.focusInput, wrapped);
 		return () => ipcRenderer.removeListener(channels.focusInput, wrapped);
+	},
+	onMiniPanelMode: (listener) => {
+		const wrapped = (_event: unknown, mode: unknown) => {
+			if (isMiniPanelMode(mode)) listener(mode);
+		};
+		ipcRenderer.on(channels.miniMode, wrapped);
+		return () => ipcRenderer.removeListener(channels.miniMode, wrapped);
 	},
 	resetApplicationData: () => ipcRenderer.invoke(channels.resetApplicationData),
 	chooseWorkDirectory: () => ipcRenderer.invoke(channels.chooseDirectory),

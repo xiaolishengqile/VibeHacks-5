@@ -100,10 +100,8 @@ static func run() -> Array[String]:
 	var tucked_position := DesktopWindowControllerScript.tucked_position(
 		Rect2i(Vector2i(0, 0), Vector2i(1440, 900)),
 		Vector2i(285, 250),
-		"right",
-		36,
 	)
-	if tucked_position != Vector2i(1404, 626):
-		errors.append("贴边隐藏必须保留可唤回的边缘区域")
+	if tucked_position != Vector2i(1368, 626):
+		errors.append("贴边隐藏必须保留更宽的可唤回区域")
 	window.free()
 	return errors

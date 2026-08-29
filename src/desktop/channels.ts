@@ -5,6 +5,7 @@ export const channels = {
 	openWorkbench: "window:open-workbench",
 	hideMiniPanel: "window:hide-mini-panel",
 	focusInput: "window:focus-input",
+	miniMode: "window:mini-mode",
 	resetApplicationData: "application:reset-data",
 	chooseDirectory: "workspace:choose-directory",
 	event: "application:event",
