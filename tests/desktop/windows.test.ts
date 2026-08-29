@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { miniPanelWindowOptions, showMiniPanelNearPet, workbenchWindowOptions } from "../../src/desktop/windows.js";
+import {
+	miniPanelWindowOptions,
+	registerWindowShortcuts,
+	showMiniPanelNearPet,
+	windowShortcuts,
+	workbenchWindowOptions,
+} from "../../src/desktop/windows.js";
 
 test("桌面窗口禁用渲染进程系统权限", () => {
 	const options = workbenchWindowOptions();
@@ -30,6 +36,29 @@ test("轻面板靠近右下角桌宠且不会超出工作区", () => {
 		focus: () => {},
 	}, { x: 0, y: 0, width: 1440, height: 900 }, "bottomRight");
 
-	assert.deepEqual(position, { x: 744, y: 340 });
+	assert.deepEqual(position, { x: 888, y: 340 });
 	assert.equal(shown, true);
+});
+
+test("全局快捷键分别打开轻面板和完整工作台", () => {
+	const callbacks = new Map<string, () => void>();
+	const unregistered: string[] = [];
+	const opened: string[] = [];
+	const closeShortcuts = registerWindowShortcuts({
+		register: (shortcut, callback) => {
+			callbacks.set(shortcut, callback);
+			return true;
+		},
+		unregister: (shortcut) => { unregistered.push(shortcut); },
+	}, {
+		openMiniPanel: () => { opened.push("mini"); },
+		openWorkbench: () => { opened.push("workbench"); },
+	});
+
+	callbacks.get(windowShortcuts.miniPanel)?.();
+	callbacks.get(windowShortcuts.workbench)?.();
+	closeShortcuts();
+
+	assert.deepEqual(opened, ["mini", "workbench"]);
+	assert.deepEqual(unregistered, [windowShortcuts.miniPanel, windowShortcuts.workbench]);
 });

@@ -3,7 +3,15 @@ extends Node
 
 const PetStateScript = preload("res://scripts/pet/pet_state.gd")
 const POLL_SECONDS := 0.5
-const ALLOWED_EVENTS := ["open_panel", "quit_requested", "pet_ready"]
+const ALLOWED_EVENTS := [
+	"open_panel",
+	"open_workbench",
+	"open_today",
+	"open_input",
+	"hide_pet",
+	"quit_requested",
+	"pet_ready",
+]
 
 signal state_changed(state: String)
 

@@ -116,6 +116,16 @@ const rangeLabel = (start: CalendarDate, end: CalendarDate): string => start.yea
 	? `${dateLabel(start)}—${dateLabel(end)}`
 	: `${start.year}年${dateLabel(start)}—${end.year}年${dateLabel(end)}`;
 
+export const weekOffsetDeltaFromSwipe = (
+	startX: number,
+	endX: number,
+	threshold = 48,
+): -1 | 0 | 1 => {
+	const distance = startX - endX;
+	if (Math.abs(distance) < threshold) return 0;
+	return distance > 0 ? 1 : -1;
+};
+
 const toneFor = (
 	status: ApplicationSnapshot["nodes"][number]["status"],
 	risk: ApplicationSnapshot["decisions"][number]["risk"] | undefined,
@@ -131,6 +141,7 @@ const toneFor = (
 export function toWeekCalendarView(
 	snapshot: ApplicationSnapshot,
 	now = new Date().toISOString(),
+	weekOffset = 0,
 ): WeekCalendarView {
 	const timeZone = calendarTimeZone(snapshot);
 	const formatter = new Intl.DateTimeFormat("en-CA", {
@@ -146,8 +157,8 @@ export function toWeekCalendarView(
 	if (!current) throw new Error("无法读取当前日历日期");
 	const firstDecision = snapshot.decisions[0];
 	const firstDecisionDate = firstDecision ? zonedInstant(firstDecision.latestStart, formatter) : null;
-	const focus = firstDecisionDate ?? current;
-	const weekStart = startOfWeek(focus);
+	const anchor = firstDecisionDate ?? current;
+	const weekStart = addDays(startOfWeek(anchor), weekOffset * 7);
 	const weekDates = weekdays.map((_, index) => addDays(weekStart, index));
 	const weekKeys = new Set(weekDates.map(dateKey));
 	const todayKey = dateKey(current);
@@ -189,11 +200,17 @@ export function toWeekCalendarView(
 		};
 	});
 	const weekEnd = weekDates[6] ?? weekStart;
+	const focusDayKey = weekOffset === 0
+		? dateKey(anchor)
+		: [...itemsByDay.keys()].sort()[0] ?? dateKey(weekStart);
+	const focusItemId = weekOffset === 0
+		? firstDecision?.nodeId ?? null
+		: itemsByDay.get(focusDayKey)?.[0]?.id ?? null;
 
 	return {
 		rangeLabel: rangeLabel(weekStart, weekEnd),
-		focusDayKey: dateKey(focus),
-		focusItemId: firstDecision?.nodeId ?? null,
+		focusDayKey,
+		focusItemId,
 		outsideWeekCount,
 		days,
 	};

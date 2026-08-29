@@ -13,6 +13,7 @@ const executablePath = join(projectRoot, "release", "启动日.app", "Contents",
 const fakeCodex = join(projectRoot, "tests", "e2e", "fake-codex.mjs");
 
 type FakeMode = "success" | "slow" | "failure";
+type PetEventType = "open_panel" | "open_workbench" | "open_today" | "open_input" | "hide_pet";
 type Snapshot = {
 	goal: { id: string; title: string } | null;
 	profile: { confirmed: boolean } | null;
@@ -28,7 +29,7 @@ export class StartDayHarness {
 	workbench!: Page;
 	mini!: Page;
 	readonly profile: string;
-	readonly workspace: string;
+	workspace: string;
 	readonly authState: string;
 	readonly fakeMode: FakeMode;
 
@@ -66,23 +67,26 @@ export class StartDayHarness {
 		await this.mini.getByPlaceholder(/例如/).fill(text);
 		await this.mini.getByRole("button", { name: "整理计划" }).click();
 		await expect.poll(async () => (await this.snapshot()).goal?.title).toBe("季度复盘");
-		await expect(this.mini.locator("#submit-message")).toHaveText("计划已更新，请检查后再开始执行。");
+		await expect(this.mini.locator("#submit-message")).toHaveText("");
 		await expect(this.mini.getByRole("button", { name: "确认工作习惯" })).toBeVisible();
 		await this.mini.getByRole("button", { name: "确认工作习惯" }).click();
 		await expect.poll(async () => (await this.snapshot()).profile?.confirmed).toBe(true);
 	}
 
+	async openMoreMenu(): Promise<void> {
+		const menu = this.mini.locator(".mini-menu");
+		if (!await menu.evaluate((element) => (element as HTMLDetailsElement).open)) {
+			await this.mini.locator("#mini-more").click();
+		}
+	}
+
 	async changeFirstCollaborator(owner: string): Promise<void> {
+		await this.openMoreMenu();
 		await this.mini.getByRole("button", { name: "更换协作方" }).click();
 		const dialog = this.mini.locator("dialog.app-dialog");
 		await dialog.getByLabel("更换协作方").fill(owner);
 		await dialog.getByRole("button", { name: "确认" }).click();
 		await expect.poll(async () => (await this.snapshot()).nodes[0]?.owner).toBe(owner);
-	}
-
-	async chooseFixtureWorkspace(): Promise<void> {
-		await this.mini.getByRole("button", { name: "选择目录" }).click();
-		await expect(this.mini.getByText(`工作目录：${this.workspace}`)).toBeVisible();
 	}
 
 	async startAndConfirmExecution(): Promise<void> {
@@ -111,6 +115,7 @@ export class StartDayHarness {
 	}
 
 	async stopCurrentAndConfirm(): Promise<void> {
+		await this.openMoreMenu();
 		await this.mini.getByRole("button", { name: "停止节点" }).click();
 		await this.mini.locator("dialog.app-dialog").getByRole("button", { name: "确认停止" }).click();
 	}
@@ -133,6 +138,12 @@ export class StartDayHarness {
 		});
 	}
 
+	async hideWorkbench(): Promise<void> {
+		await this.app.evaluate(({ BrowserWindow }) => {
+			BrowserWindow.getAllWindows().find((window) => window.getTitle() === "启动日工作台")?.hide();
+		});
+	}
+
 	async focusMiniPanel(): Promise<void> {
 		await this.app.evaluate(({ BrowserWindow }) => {
 			BrowserWindow.getAllWindows().find((window) => window.getTitle() === "启动日轻面板")?.focus();
@@ -150,6 +161,7 @@ export class StartDayHarness {
 		});
 		const process = this.app.process();
 		const exited = new Promise<void>((resolve) => process.once("exit", () => resolve()));
+		await this.openMoreMenu();
 		await this.mini.getByRole("button", { name: "清理数据" }).click();
 		await this.mini.locator("dialog.app-dialog").getByRole("button", { name: "清理并重新开始" }).click();
 		await exited;
@@ -246,7 +258,12 @@ export class StartDayHarness {
 			BrowserWindow.getAllWindows().find((window) => window.getTitle() === "启动日轻面板")?.isVisible() ?? false);
 	}
 
-	async triggerPetOpenPanel(): Promise<void> {
+	async isWorkbenchVisible(): Promise<boolean> {
+		return this.app.evaluate(({ BrowserWindow }) =>
+			BrowserWindow.getAllWindows().find((window) => window.getTitle() === "启动日工作台")?.isVisible() ?? false);
+	}
+
+	async triggerPetEvent(type: PetEventType): Promise<void> {
 		const process = this.app.process();
 		const { stdout: children } = await run("pgrep", ["-P", String(process.pid)]);
 		for (const pid of children.trim().split(/\s+/)) {
@@ -258,12 +275,16 @@ export class StartDayHarness {
 			const response = await fetch(`http://127.0.0.1:${port}/event`, {
 				method: "POST",
 				headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
-				body: JSON.stringify({ type: "open_panel" }),
+				body: JSON.stringify({ type }),
 			});
 			if (!response.ok) throw new Error("桌宠入口事件发送失败");
 			return;
 		}
 		throw new Error("找不到端到端桌宠进程");
+	}
+
+	async triggerPetOpenPanel(): Promise<void> {
+		await this.triggerPetEvent("open_panel");
 	}
 
 	async snapshot(): Promise<Snapshot> {
@@ -296,6 +317,7 @@ export class StartDayHarness {
 		if (!workbench || !mini) throw new Error("找不到启动日桌面窗口");
 		this.workbench = workbench;
 		this.mini = mini;
+		this.workspace = join(await this.app.evaluate(({ app }) => app.getPath("userData")), "generated-work");
 		await this.app.evaluate(({ BrowserWindow, dialog }, workspace) => {
 			dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [workspace] });
 			for (const window of BrowserWindow.getAllWindows()) window.show();

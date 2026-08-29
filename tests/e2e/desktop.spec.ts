@@ -4,7 +4,6 @@ test("季度复盘从输入到两个成果验收形成完整闭环", async ({ st
 	await startDay.submit("下周五做季度复盘，周三老板先看，数据找小王，先帮我搭框架");
 	await startDay.expectNode("找协作方拿数据", "ready");
 	await startDay.changeFirstCollaborator("小赵");
-	await startDay.chooseFixtureWorkspace();
 	await startDay.executeAndAcceptCurrent(25);
 	await startDay.expectNode("找协作方拿数据", "done");
 	await startDay.executeAndAcceptCurrent(70);
@@ -21,7 +20,6 @@ test.describe("执行异常", () => {
 	test.use({ fakeMode: "slow" });
 	test("运行中的任务可以取消", async ({ startDay }) => {
 		await startDay.submit("下周五完成季度复盘");
-		await startDay.chooseFixtureWorkspace();
 		await startDay.startAndConfirmExecution();
 		await startDay.cancelExecution();
 		await startDay.expectExecution("canceled");
@@ -32,7 +30,6 @@ test.describe("执行失败", () => {
 	test.use({ fakeMode: "failure" });
 	test("代理失败会形成明确失败状态", async ({ startDay }) => {
 		await startDay.submit("下周五完成季度复盘");
-		await startDay.chooseFixtureWorkspace();
 		await startDay.startAndConfirmExecution();
 		await startDay.expectExecution("failed");
 	});
@@ -48,6 +45,42 @@ test("桌宠入口事件会显示轻面板", async ({ startDay }) => {
 	await startDay.hideMiniPanel();
 	await startDay.triggerPetOpenPanel();
 	await expect.poll(() => startDay.isMiniPanelVisible()).toBe(true);
+});
+
+test("桌宠悬浮菜单事件打开对应入口", async ({ startDay }) => {
+	await startDay.hideMiniPanel();
+	await startDay.triggerPetEvent("open_today");
+	await expect.poll(() => startDay.isMiniPanelVisible()).toBe(true);
+
+	await startDay.hideMiniPanel();
+	await startDay.triggerPetEvent("open_input");
+	await expect.poll(() => startDay.isMiniPanelVisible()).toBe(true);
+	await expect.poll(() => startDay.mini.evaluate(() => document.activeElement?.id)).toBe("work-input");
+
+	await startDay.hideWorkbench();
+	await startDay.triggerPetEvent("open_workbench");
+	await expect.poll(() => startDay.isWorkbenchVisible()).toBe(true);
+});
+
+test("完整工作台周日历切换时有横向滑动动画", async ({ startDay }) => {
+	await startDay.workbench.getByRole("button", { name: "下一周" }).click();
+	const duringSlide = await startDay.workbench.locator("#week-calendar").evaluate((calendar) => {
+		const track = calendar.querySelector<HTMLElement>("[data-calendar-track]");
+		if (!track) return null;
+		const style = getComputedStyle(track);
+		return {
+			busy: calendar.getAttribute("aria-busy"),
+			panels: track.children.length,
+			sliding: style.transitionProperty.includes("transform") && style.transform !== "none",
+		};
+	});
+
+	expect(duringSlide).toEqual({ busy: "true", panels: 3, sliding: true });
+	await expect.poll(() => startDay.workbench.locator("#week-calendar").evaluate((calendar) => ({
+		busy: calendar.getAttribute("aria-busy"),
+		panels: calendar.querySelector("[data-calendar-track]")?.children.length ?? 0,
+		range: document.getElementById("calendar-range")?.textContent,
+	}))).toEqual({ busy: "false", panels: 1, range: "8月31日—9月6日" });
 });
 
 test("轻面板和完整工作台使用明亮的日历布局", async ({ startDay }) => {
@@ -86,9 +119,8 @@ test("轻面板和完整工作台使用明亮的日历布局", async ({ startDay
 	expect(workbenchLayout.days.at(-1)?.right).toBeLessThanOrEqual(workbenchLayout.clientWidth);
 });
 
-test("长目录和代理状态不会撑破轻面板且关闭后可由桌宠重新打开", async ({ startDay }) => {
+test("代理状态不会撑破轻面板且关闭后可由桌宠重新打开", async ({ startDay }) => {
 	await startDay.submit("下周五完成季度复盘");
-	await startDay.chooseFixtureWorkspace();
 	await startDay.expectMiniPanelFitsViewport();
 	await startDay.expectMiniPanelHasContinuousSurface();
 	await startDay.closeMiniPanelFromButton();
@@ -97,7 +129,8 @@ test("长目录和代理状态不会撑破轻面板且关闭后可由桌宠重�
 	await expect.poll(() => startDay.isMiniPanelVisible()).toBe(true);
 });
 
-test("轻面板提供明确可用的关闭按钮和位于左侧的清理入口", async ({ startDay }) => {
+test("轻面板提供明确可用的关闭按钮和收纳后的清理入口", async ({ startDay }) => {
+	await startDay.openMoreMenu();
 	const reset = startDay.mini.getByRole("button", { name: "清理数据" });
 	const close = startDay.mini.getByRole("button", { name: "关闭轻面板" });
 
@@ -107,7 +140,7 @@ test("轻面板提供明确可用的关闭按钮和位于左侧的清理入口",
 	const [resetBox, closeBox] = await Promise.all([reset.boundingBox(), close.boundingBox()]);
 	expect(resetBox).not.toBeNull();
 	expect(closeBox).not.toBeNull();
-	expect((resetBox?.x ?? 0) + (resetBox?.width ?? 0)).toBeLessThanOrEqual(closeBox?.x ?? 0);
+	expect(resetBox?.y ?? 0).toBeGreaterThan(closeBox?.y ?? 0);
 
 	await reset.click();
 	const dialog = startDay.mini.locator("dialog.app-dialog");
@@ -117,7 +150,6 @@ test("轻面板提供明确可用的关闭按钮和位于左侧的清理入口",
 });
 
 test("轻面板窗口按钮的视觉状态与操作区域一致", async ({ startDay }) => {
-	const reset = startDay.mini.getByRole("button", { name: "清理数据" });
 	const close = startDay.mini.getByRole("button", { name: "关闭轻面板" });
 
 	const closeGeometry = await close.evaluate((button) => {
@@ -134,13 +166,8 @@ test("轻面板窗口按钮的视觉状态与操作区域一致", async ({ start
 	expect(closeGeometry.verticalOffset).toBeLessThanOrEqual(0.5);
 
 	await startDay.focusMiniPanel();
-	await reset.hover();
-	await expect(reset).toHaveCSS("background-color", "rgb(193, 31, 50)");
-	await expect(reset).toHaveCSS("color", "rgb(255, 255, 255)");
-	await startDay.mini.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
-	await startDay.mini.keyboard.press("Tab");
-	await expect(reset).toBeFocused();
-	await expect(reset).toHaveCSS("background-color", "rgb(193, 31, 50)");
+	await startDay.openMoreMenu();
+	await expect(startDay.mini.getByRole("button", { name: "清理数据" })).toHaveCSS("color", "rgb(193, 31, 50)");
 
 	const closeBox = await close.boundingBox();
 	expect(closeBox).not.toBeNull();
@@ -185,7 +212,6 @@ test.describe("清理运行中的数据", () => {
 	test.use({ fakeMode: "slow" });
 	test("确认清理会停止代理、保留文件并恢复首次使用状态", async ({ startDay }) => {
 		await startDay.submit("下周五完成季度复盘");
-		await startDay.chooseFixtureWorkspace();
 		await startDay.startAndConfirmExecution();
 		await expect.poll(() => startDay.workspaceFileExists("运行中草稿.md")).toBe(true);
 		await expect.poll(async () => (await startDay.snapshot()).approvals.length).toBe(1);

@@ -20,6 +20,7 @@ export interface GraphNodeView {
 	readonly owner: string;
 	readonly status: string;
 	readonly dependencies: readonly string[];
+	readonly waitLabel: string | null;
 	readonly latestStart: string | null;
 }
 
@@ -76,28 +77,58 @@ const executionStatusLabels: Record<ExecutionSummary["status"], string> = {
 	canceled: "已取消",
 };
 
-const compactInstant = (value: string): string => value.slice(0, 16).replace("T", " ");
+const durationLabel = (minutes: number): string => {
+	if (minutes > 0 && minutes % 1440 === 0) return `${minutes / 1440} 天`;
+	if (minutes > 0 && minutes % 60 === 0) return `${minutes / 60} 小时`;
+	return `${minutes} 分钟`;
+};
+
+export const formatHumanInstant = (value: string): string => {
+	const match = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/.exec(value);
+	if (!match) return value.slice(0, 16).replace("T", " ");
+	return `${Number(match[2])}月${Number(match[3])}日 ${match[4]}:${match[5]}`;
+};
+
+const readableDecisionReason = (reason: string, latestStart: string): string => {
+	if (!/目标为|预计工作|外部等待|安全缓冲|最晚开始/.test(reason)) return reason;
+	const waitMinutes = Number(/外部等待\s+(\d+)\s*分钟/.exec(reason)?.[1] ?? 0);
+	const workMinutes = Number(/预计工作\s+(\d+)\s*分钟/.exec(reason)?.[1] ?? 0);
+	const dependency = /依赖\s+([^；]+)\s+尚未完成/.exec(reason)?.[1];
+	const capacity = /所需时间超过每日容量\s+(\d+)\s*分钟/.exec(reason)?.[1];
+	const parts = [
+		waitMinutes > 0 ? `需要等待 ${durationLabel(waitMinutes)}` : null,
+		workMinutes > 0 ? `预计工作 ${workMinutes} 分钟` : null,
+		dependency ? `等待 ${dependency} 完成` : null,
+		capacity ? `超过每日容量 ${durationLabel(Number(capacity))}` : null,
+	].filter((part): part is string => Boolean(part));
+	parts.push(`最晚 ${formatHumanInstant(latestStart)} 开始。`);
+	return parts.join("；");
+};
 
 export function toTodayActionView(decision: WorkDecision | null): TodayActionView | null {
 	if (!decision) return null;
 	return {
 		title: decision.title,
-		latestStart: compactInstant(decision.latestStart),
+		latestStart: formatHumanInstant(decision.latestStart),
 		risk: riskLabels[decision.risk],
 		action: actionLabels[decision.recommendedAction],
-		reason: decision.reason,
+		reason: readableDecisionReason(decision.reason, decision.latestStart),
 	};
 }
 
 export function toGraphView(snapshot: ApplicationSnapshot): readonly GraphNodeView[] {
 	const decisionByNode = new Map(snapshot.decisions.map((decision) => [decision.nodeId, decision]));
+	const nodeById = new Map(snapshot.nodes.map((node) => [node.id, node]));
 	return snapshot.nodes.map((node) => ({
 		id: node.id,
 		title: node.title,
 		owner: node.owner === "self" ? "自己" : node.owner,
 		status: nodeStatusLabels[node.status],
-		dependencies: node.dependencyIds,
-		latestStart: decisionByNode.get(node.id)?.latestStart ?? node.latestStart ?? null,
+		dependencies: node.dependencyIds.map((id) => nodeById.get(id)?.title ?? id),
+		waitLabel: node.waitMinutes > 0 ? durationLabel(node.waitMinutes) : null,
+		latestStart: decisionByNode.get(node.id)?.latestStart || node.latestStart
+			? formatHumanInstant(decisionByNode.get(node.id)?.latestStart ?? node.latestStart ?? "")
+			: null,
 	}));
 }
 
@@ -107,7 +138,7 @@ export function toExecutionView(execution: ExecutionSummary): ExecutionView {
 		title: execution.title,
 		status: executionStatusLabels[execution.status],
 		progress: execution.progress,
-		updatedAt: compactInstant(execution.updatedAt),
+		updatedAt: formatHumanInstant(execution.updatedAt),
 	};
 }
 

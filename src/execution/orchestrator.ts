@@ -39,7 +39,7 @@ export class ExecutionOrchestrator {
 	async create(request: CreateExecutionRequest): Promise<ExecutionRun> {
 		if (!request.goal.trim()) throw new Error("执行目标不能为空");
 		if (!request.model.trim()) throw new Error("执行模型不能为空");
-		if (request.workspaceRoots.length === 0) throw new Error("至少选择一个工作目录");
+		if (request.workspaceRoots.length === 0) throw new Error("至少需要一个产物空间");
 		const now = this.clock.now();
 		const run: ExecutionRun = {
 			id: this.ids.next("run"),
@@ -83,7 +83,7 @@ export class ExecutionOrchestrator {
 	async confirmPlan(runId: string, scope: ConfirmedExecutionScope): Promise<ExecutionRun> {
 		let run = await this.#requiredRun(runId);
 		if (run.status !== "awaitingApproval" || run.startedAt !== null) throw new Error("当前没有等待确认的执行计划");
-		if (scope.workspaceRoots.length === 0) throw new Error("确认范围必须包含工作目录");
+		if (scope.workspaceRoots.length === 0) throw new Error("确认范围必须包含产物空间");
 		run = transitionExecution({
 			...run,
 			workspaceRoots: [...scope.workspaceRoots],

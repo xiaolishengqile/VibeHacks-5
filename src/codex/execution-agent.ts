@@ -87,12 +87,12 @@ function filePermissions(params: Record<string, unknown>): PermissionRequest[] {
 	if (permissions.length === 0 && typeof params.grantRoot === "string") {
 		permissions.push({ kind: "file", operation: "overwrite", path: params.grantRoot });
 	}
-	if (permissions.length === 0) {
-		permissions.push({
-			kind: "workspacePatch",
-			reason: typeof params.reason === "string" ? params.reason : "修改已授权工作目录内的文件",
-		});
-	}
+		if (permissions.length === 0) {
+			permissions.push({
+				kind: "workspacePatch",
+				reason: typeof params.reason === "string" ? params.reason : "修改应用产物空间内的文件",
+			});
+		}
 	return permissions;
 }
 
@@ -149,7 +149,7 @@ export class CodexExecutionAgent {
 			threadId: thread.thread.id,
 			input: [{
 				type: "text",
-				text: `请为以下目标生成中文执行计划，只规划不修改文件：${run.goal}\n声明需要读取和写入的文件、工具、网络资源及风险。`,
+				text: `请为以下目标生成中文执行计划，只规划不修改文件：${run.goal}\n声明需要创建或修改的成果、工具、网络资源及风险。`,
 				text_elements: [],
 			}],
 			effort: "medium",
@@ -288,7 +288,7 @@ export class CodexExecutionAgent {
 
 	#primaryWorkspace(run: ExecutionRun): string {
 		const workspace = run.workspaceRoots[0];
-		if (!workspace) throw new Error("执行任务没有用户选择的工作目录");
+		if (!workspace) throw new Error("执行任务缺少应用产物空间");
 		return workspace;
 	}
 

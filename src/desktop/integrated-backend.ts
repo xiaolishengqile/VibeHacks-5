@@ -44,6 +44,7 @@ interface IntegratedBackendOptions {
 	readonly core: CoreBackend;
 	readonly setup: SetupBackend;
 	readonly executionRepository: ExecutionRepository;
+	readonly defaultWorkDirectory?: string;
 	readonly createRuntime: (publish: (event: VisibleApplicationEvent) => void) => Promise<DesktopExecutionRuntime>;
 	readonly openArtifact: (path: string) => Promise<void>;
 	readonly clock: Clock;
@@ -67,10 +68,11 @@ export class IntegratedDesktopBackend {
 	readonly #options: IntegratedBackendOptions;
 	readonly #listeners = new Set<VisibleListener>();
 	#runtime: DesktopExecutionRuntime | null = null;
-	#workDirectory: string | null = null;
+	#workDirectory: string | null;
 
 	constructor(options: IntegratedBackendOptions) {
 		this.#options = options;
+		this.#workDirectory = options.defaultWorkDirectory?.trim() || null;
 	}
 
 	setWorkDirectory(path: string | null): void {
@@ -202,7 +204,7 @@ export class IntegratedDesktopBackend {
 	}
 
 	async #startExecution(goalId: string, nodeId: string, allowWebResearch: boolean): Promise<void> {
-		if (!this.#workDirectory) throw new Error("请先选择执行工作目录");
+		if (!this.#workDirectory) throw new Error("执行产物空间未就绪，请重启应用后重试");
 		const snapshot = await this.#options.core.getSnapshot();
 		if (snapshot.goal?.id !== goalId) throw new Error("工作目标已经变化，请刷新后重试");
 		const node = snapshot.nodes.find((entry) => entry.id === nodeId);
@@ -217,8 +219,8 @@ export class IntegratedDesktopBackend {
 			workspaceRoots: [this.#workDirectory],
 			networkEnabled: allowWebResearch,
 			allowedTools: allowWebResearch
-				? ["读取文件", "创建文件", "运行测试", "公开网页调研"]
-				: ["读取文件", "创建文件", "运行测试"],
+				? ["创建文件", "运行测试", "公开网页调研"]
+				: ["创建文件", "运行测试"],
 			risk: "medium",
 		};
 		const orchestrator = (await this.#ensureRuntime()).orchestrator;

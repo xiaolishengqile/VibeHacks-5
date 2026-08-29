@@ -1,8 +1,11 @@
 class_name PetInteraction
 extends Node
 
+const PetHoverMenuScript = preload("res://scripts/pet/pet_hover_menu.gd")
+
 signal open_panel_requested
 signal quit_requested
+signal menu_action_requested(event_type: String)
 
 const CLICK_THRESHOLD := 4.0
 
@@ -13,6 +16,7 @@ var _integrated_mode := false
 var _left_pressed := false
 var _drag_started := false
 var _press_position := Vector2.ZERO
+var _hover_menu
 
 
 func setup(window_controller, animator: Node, visual: Node, integrated_mode: bool = false) -> void:
@@ -20,9 +24,26 @@ func setup(window_controller, animator: Node, visual: Node, integrated_mode: boo
 	_animator = animator
 	_visual = visual
 	_integrated_mode = integrated_mode
+	_hover_menu = PetHoverMenuScript.new()
+	_hover_menu.name = "PetHoverMenu"
+	_hover_menu.action_requested.connect(_on_menu_button_pressed)
+	add_child(_hover_menu)
+	_hover_menu.setup()
 	set_process(true)
 	set_process_unhandled_input(true)
 	_visual.peek_toggle_requested.connect(toggle_peek_mode)
+
+
+static func menu_buttons() -> Array[Dictionary]:
+	return PetHoverMenuScript.buttons()
+
+
+static func menu_button_rects(pet_position: Vector2i, work_area: Rect2i) -> Array[Rect2i]:
+	return PetHoverMenuScript.button_rects(pet_position, work_area)
+
+
+static func menu_visible_after_pet_click(menu_visible: bool, clicked: bool) -> bool:
+	return not menu_visible if clicked else menu_visible
 
 
 static func should_quit_for_button(button_index: MouseButton, pressed: bool) -> bool:
@@ -66,7 +87,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			release_position,
 			_current_click_threshold(),
 		):
-			open_panel_requested.emit()
+			_set_menu_visible(menu_visible_after_pet_click(_hover_menu.is_menu_visible(), true))
 		_left_pressed = false
 	_animator.react()
 
@@ -105,5 +126,27 @@ func _process(_delta: float) -> void:
 	):
 		_drag_started = true
 	_window_controller.update_drag()
+	_hover_menu.update_for_pet_window(get_window())
 	if _window_controller.is_dragging():
 		_sync_edge_peek_mode()
+		_set_menu_visible(false)
+
+
+func _on_menu_button_pressed(event_type: String) -> void:
+	if event_type == "hide_pet":
+		_window_controller.tuck_to_edge()
+	if _integrated_mode:
+		menu_action_requested.emit(event_type)
+	elif event_type in ["open_today", "open_input"]:
+		open_panel_requested.emit()
+	_set_menu_visible(false)
+
+
+func _set_menu_visible(visible: bool) -> void:
+	if _hover_menu == null or _hover_menu.is_menu_visible() == visible:
+		return
+	if visible:
+		_window_controller.restore_from_tucked()
+		_hover_menu.update_for_pet_window(get_window())
+	_hover_menu.set_menu_visible(visible)
+	_window_controller.set_menu_expanded(false)

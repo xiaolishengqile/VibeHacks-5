@@ -9,6 +9,7 @@ const channels = Object.freeze({
 	command: "work:command",
 	openWorkbench: "window:open-workbench",
 	hideMiniPanel: "window:hide-mini-panel",
+	focusInput: "window:focus-input",
 	resetApplicationData: "application:reset-data",
 	chooseDirectory: "workspace:choose-directory",
 	event: "application:event",
@@ -21,6 +22,11 @@ const desktopApi = {
 	runCommand: (command) => ipcRenderer.invoke(channels.command, command),
 	openWorkbench: () => ipcRenderer.invoke(channels.openWorkbench),
 	hideMiniPanel: () => ipcRenderer.invoke(channels.hideMiniPanel),
+	onFocusInput: (listener) => {
+		const wrapped = () => listener();
+		ipcRenderer.on(channels.focusInput, wrapped);
+		return () => ipcRenderer.removeListener(channels.focusInput, wrapped);
+	},
 	resetApplicationData: () => ipcRenderer.invoke(channels.resetApplicationData),
 	chooseWorkDirectory: () => ipcRenderer.invoke(channels.chooseDirectory),
 	subscribe: (listener) => {

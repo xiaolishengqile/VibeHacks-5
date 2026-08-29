@@ -1,12 +1,18 @@
 import type { ApplicationSnapshot, UiCommand } from "../desktop/application-service.js";
-import { toWeekCalendarView } from "./calendar-view.js";
+import type { CalendarDayView, WeekCalendarView } from "./calendar-view.js";
+import { toWeekCalendarView, weekOffsetDeltaFromSwipe } from "./calendar-view.js";
 import { requestText } from "./dialogs.js";
 import { clearElement, createTextElement, renderEmpty, requiredElement, setText } from "./dom.js";
-import { toExecutionView, toGraphView, toTodayActionView } from "./view-models.js";
+import { formatHumanInstant, toExecutionView, toGraphView, toTodayActionView } from "./view-models.js";
 
 const text = (id: string, value: string): void => setText(requiredElement(id), value);
 let snapshot: ApplicationSnapshot | null = null;
 let requestSequence = 0;
+let calendarWeekOffset = 0;
+let calendarSlideToken = 0;
+let calendarSliding = false;
+let touchStartX: number | null = null;
+let lastWheelShiftAt = 0;
 
 const actionButton = (label: string, action: () => Promise<void>, danger = false): HTMLButtonElement => {
 	const button = createTextElement("button", danger ? "danger-button" : "text-button", label) as HTMLButtonElement;
@@ -49,51 +55,77 @@ const renderCards = (
 };
 
 const renderCodex = (value: ApplicationSnapshot): void => {
-	text("codex-readiness", value.codex.reason);
-	text("codex-account", value.codex.account);
-	text("codex-model", value.codex.model ?? "不可用");
-	text("codex-rate-limit", value.codex.rateLimit);
+	text("readiness-summary", [
+		value.codex.reason,
+		value.codex.ready && value.codex.model ? `模型：${value.codex.model}` : null,
+		value.codex.account,
+		value.codex.rateLimit,
+		"成果自动保存",
+	].filter((item): item is string => Boolean(item)).join(" · "));
 	const login = requiredElement<HTMLButtonElement>("codex-login");
 	login.hidden = !value.codex.canStartBrowserLogin;
 };
 
-const renderCalendar = (value: ApplicationSnapshot): void => {
-	const calendar = toWeekCalendarView(value);
+const renderCalendarDay = (day: CalendarDayView): HTMLElement => {
+	const column = document.createElement("article");
+	column.className = `calendar-day${day.isToday ? " is-today" : ""}`;
+	const heading = document.createElement("header");
+	heading.append(createTextElement("strong", "", day.weekday));
+	heading.append(createTextElement("span", "", day.dateLabel));
+	column.append(heading);
+	for (const item of day.items) {
+		const event = document.createElement("div");
+		event.className = `calendar-event calendar-event--${item.tone}`;
+		const time = createTextElement("time", "", item.timeLabel);
+		time.setAttribute("datetime", item.dateTime);
+		event.append(time);
+		event.append(createTextElement("strong", "", item.title));
+		event.append(createTextElement("span", "", `${item.owner} · ${item.status}`));
+		column.append(event);
+	}
+	return column;
+};
+
+const renderCalendarWeek = (calendar: WeekCalendarView): HTMLElement => {
+	const week = document.createElement("div");
+	week.className = "calendar-week";
+	for (const day of calendar.days) {
+		const column = renderCalendarDay(day);
+		column.classList.toggle("is-focus", day.key === calendar.focusDayKey);
+		week.append(column);
+	}
+	return week;
+};
+
+const renderCalendarTrack = (calendars: readonly WeekCalendarView[], sliding = false): HTMLDivElement => {
+	const track = document.createElement("div");
+	track.className = `calendar-slider-track${sliding ? " is-sliding" : ""}`;
+	track.dataset.calendarTrack = "";
+	for (const calendar of calendars) track.append(renderCalendarWeek(calendar));
+	return track;
+};
+
+const updateCalendarHeading = (calendar: WeekCalendarView): void => {
 	text("calendar-range", calendar.rangeLabel);
 	const outside = requiredElement<HTMLParagraphElement>("calendar-outside");
 	setText(outside, calendar.outsideWeekCount > 0 ? `另有 ${calendar.outsideWeekCount} 项安排在其他周` : "");
 	outside.hidden = calendar.outsideWeekCount === 0;
-	const target = requiredElement<HTMLDivElement>("week-calendar");
-	clearElement(target);
-	for (const day of calendar.days) {
-		const column = document.createElement("article");
-		column.className = `calendar-day${day.isToday ? " is-today" : ""}${day.key === calendar.focusDayKey ? " is-focus" : ""}`;
-		const heading = document.createElement("header");
-		heading.append(createTextElement("strong", "", day.weekday));
-		heading.append(createTextElement("span", "", day.dateLabel));
-		column.append(heading);
-		if (day.items.length === 0) {
-			column.append(createTextElement("span", "calendar-empty", "暂无安排"));
-		} else {
-			for (const item of day.items) {
-				const event = document.createElement("div");
-				event.className = `calendar-event calendar-event--${item.tone}`;
-				const time = createTextElement("time", "", item.timeLabel);
-				time.setAttribute("datetime", item.dateTime);
-				event.append(time);
-				event.append(createTextElement("strong", "", item.title));
-				event.append(createTextElement("span", "", `${item.owner} · ${item.status}`));
-				column.append(event);
-			}
-		}
-		target.append(column);
-	}
 };
 
-const renderExecutions = (value: ApplicationSnapshot): void => {
-	const target = requiredElement<HTMLDivElement>("execution-list");
+const renderCalendar = (value: ApplicationSnapshot): void => {
+	const calendar = toWeekCalendarView(value, new Date().toISOString(), calendarWeekOffset);
+	updateCalendarHeading(calendar);
+	const target = requiredElement<HTMLDivElement>("week-calendar");
+	target.setAttribute("aria-busy", "false");
 	clearElement(target);
-	if (value.executions.length === 0) return renderEmpty(target, "当前没有执行任务");
+	target.append(renderCalendarTrack([calendar]));
+};
+
+const renderExecutionState = (value: ApplicationSnapshot): void => {
+	const target = requiredElement<HTMLDivElement>("execution-state-list");
+	clearElement(target);
+	target.classList.remove("empty-state");
+	let count = 0;
 	for (const execution of [...value.executions].reverse()) {
 		const view = toExecutionView(execution);
 		const card = document.createElement("article");
@@ -103,7 +135,7 @@ const renderExecutions = (value: ApplicationSnapshot): void => {
 		card.append(createTextElement(
 			"p",
 			"",
-			`模型：${execution.model} · 网络：${execution.networkEnabled ? "允许" : "关闭"} · 目录：${execution.workspaceRoots.join("、")}`,
+			`模型：${execution.model} · 网络：${execution.networkEnabled ? "允许" : "关闭"} · 成果自动保存`,
 		));
 		const actions = document.createElement("div");
 		actions.className = "button-row";
@@ -119,13 +151,8 @@ const renderExecutions = (value: ApplicationSnapshot): void => {
 		}
 		if (actions.childElementCount > 0) card.append(actions);
 		target.append(card);
+		count += 1;
 	}
-};
-
-const renderApprovals = (value: ApplicationSnapshot): void => {
-	const target = requiredElement<HTMLDivElement>("approval-list");
-	clearElement(target);
-	if (value.approvals.length === 0) return renderEmpty(target, "当前没有待确认操作");
 	for (const approval of value.approvals) {
 		const card = document.createElement("article");
 		card.className = "list-card";
@@ -147,13 +174,8 @@ const renderApprovals = (value: ApplicationSnapshot): void => {
 		}), true));
 		card.append(actions);
 		target.append(card);
+		count += 1;
 	}
-};
-
-const renderArtifacts = (value: ApplicationSnapshot): void => {
-	const target = requiredElement<HTMLDivElement>("artifact-list");
-	clearElement(target);
-	if (value.artifacts.length === 0) return renderEmpty(target, "当前没有可验收成果");
 	for (const artifact of value.artifacts) {
 		const card = document.createElement("article");
 		card.className = "list-card";
@@ -182,6 +204,11 @@ const renderArtifacts = (value: ApplicationSnapshot): void => {
 		}
 		if (actions.childElementCount > 0) card.append(actions);
 		target.append(card);
+		count += 1;
+	}
+	if (count === 0) {
+		target.classList.add("empty-state");
+		renderEmpty(target, "当前没有执行任务或待确认操作");
 	}
 };
 
@@ -190,33 +217,32 @@ const render = (value: ApplicationSnapshot): void => {
 	renderCodex(value);
 	renderCalendar(value);
 	text("goal-title", value.goal?.title ?? "把想法变成今天能推进的工作");
-	text("goal-deadline", value.goal ? `目标截止：${value.goal.deadline}` : "输入工作想法后，这里会展示完整计划。");
+	text("goal-deadline", value.goal ? `目标截止：${formatHumanInstant(value.goal.deadline)}` : "输入工作想法后，这里会展示完整计划。");
 	const today = toTodayActionView(value.decisions[0] ?? null);
 	text("today-title", today?.title ?? "暂无当前行动");
 	text("today-risk", today?.risk ?? "等待输入");
 	text("today-time", today ? `最晚 ${today.latestStart}` : "");
 	text("today-reason", today?.reason ?? "从桌宠打开轻面板，输入你想完成的工作。");
-	text("decision-explanation", today?.reason ?? "暂无可解释的排期决策");
 	const graph = toGraphView(value);
 	text("graph-count", `${graph.length} 个节点`);
 	renderCards("graph-list", graph.map((node) => ({
 		title: `${node.title} · ${node.status}`,
-		detail: `负责人：${node.owner} · 依赖 ${node.dependencies.length} 项${node.latestStart ? ` · 最晚 ${node.latestStart}` : ""}`,
+		detail: [
+			`负责人：${node.owner}`,
+			node.dependencies.length > 0 ? `依赖：${node.dependencies.join("、")}` : "无依赖",
+			node.waitLabel ? `等待：${node.waitLabel}` : null,
+			node.latestStart ? `最晚 ${node.latestStart}` : null,
+		].filter((item): item is string => Boolean(item)).join(" · "),
 	})), "暂无工作节点");
-	renderCards("waiting-list", value.nodes
-		.filter((node) => node.owner !== "self" && node.status !== "done" && node.status !== "stopped")
-		.map((node) => ({ title: node.title, detail: `等待 ${node.owner} · 预计 ${node.waitMinutes} 分钟` })), "暂无等待事项");
-	renderExecutions(value);
-	renderApprovals(value);
-	renderArtifacts(value);
+	renderExecutionState(value);
 	renderCards("history-list", [
-		...value.changes.map((item) => ({ title: item.reason, detail: item.createdAt })),
-		...value.events.map((item) => ({ title: item.message, detail: item.at })),
+		...value.changes.map((item) => ({ title: item.reason, detail: formatHumanInstant(item.createdAt) })),
+		...value.events.map((item) => ({ title: item.message, detail: formatHumanInstant(item.at) })),
 	].slice(-20).reverse(), "当前没有历史记录");
 	const start = requiredElement<HTMLButtonElement>("start-today-execution");
 	const nodeId = value.nodes.find((node) => node.status === "ready")?.id;
 	const active = value.executions.some((entry) => !["succeeded", "failed", "canceled"].includes(entry.status));
-	start.disabled = !value.goal || !value.profile?.confirmed || !nodeId || !value.workDirectory || !value.codex.ready || active;
+	start.disabled = !value.goal || !value.profile?.confirmed || !nodeId || !value.codex.ready || active;
 };
 
 const reload = async (): Promise<void> => {
@@ -227,10 +253,60 @@ const reload = async (): Promise<void> => {
 	else text("today-reason", result.error);
 };
 
-requiredElement<HTMLButtonElement>("workbench-directory").addEventListener("click", async () => {
-	await window.startDay.chooseWorkDirectory();
-	await reload();
-});
+const shiftCalendarWeek = (delta: number): void => {
+	if (!snapshot || delta === 0 || calendarSliding) return;
+	if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+		calendarWeekOffset += delta;
+		renderCalendar(snapshot);
+		return;
+	}
+	calendarSliding = true;
+	const token = ++calendarSlideToken;
+	const target = requiredElement<HTMLDivElement>("week-calendar");
+	const previous = toWeekCalendarView(snapshot, new Date().toISOString(), calendarWeekOffset - 1);
+	const current = toWeekCalendarView(snapshot, new Date().toISOString(), calendarWeekOffset);
+	const next = toWeekCalendarView(snapshot, new Date().toISOString(), calendarWeekOffset + 1);
+	target.setAttribute("aria-busy", "true");
+	clearElement(target);
+	const track = renderCalendarTrack([previous, current, next], true);
+	track.style.transform = "translate3d(-100%, 0, 0)";
+	target.append(track);
+	requestAnimationFrame(() => {
+		track.style.transform = delta > 0 ? "translate3d(-200%, 0, 0)" : "translate3d(0%, 0, 0)";
+	});
+	let finished = false;
+	const finish = (): void => {
+		if (finished || token !== calendarSlideToken) return;
+		finished = true;
+		calendarWeekOffset += delta;
+		calendarSliding = false;
+		if (snapshot) renderCalendar(snapshot);
+	};
+	track.addEventListener("transitionend", finish, { once: true });
+	window.setTimeout(finish, 420);
+};
+
+const calendarTarget = requiredElement<HTMLDivElement>("week-calendar");
+requiredElement<HTMLButtonElement>("calendar-prev-week").addEventListener("click", () => shiftCalendarWeek(-1));
+requiredElement<HTMLButtonElement>("calendar-next-week").addEventListener("click", () => shiftCalendarWeek(1));
+calendarTarget.addEventListener("touchstart", (event) => {
+	touchStartX = event.changedTouches[0]?.clientX ?? null;
+}, { passive: true });
+calendarTarget.addEventListener("touchend", (event) => {
+	if (touchStartX === null) return;
+	const delta = weekOffsetDeltaFromSwipe(touchStartX, event.changedTouches[0]?.clientX ?? touchStartX);
+	touchStartX = null;
+	if (delta !== 0) shiftCalendarWeek(delta);
+}, { passive: true });
+calendarTarget.addEventListener("wheel", (event) => {
+	if (Math.abs(event.deltaX) <= Math.abs(event.deltaY)) return;
+	const delta = weekOffsetDeltaFromSwipe(0, -event.deltaX, 36);
+	if (delta === 0 || event.timeStamp - lastWheelShiftAt < 350) return;
+	event.preventDefault();
+	lastWheelShiftAt = event.timeStamp;
+	shiftCalendarWeek(delta);
+}, { passive: false });
+
 requiredElement<HTMLButtonElement>("codex-login").addEventListener("click", () => void run({ name: "startCodexLogin" }));
 requiredElement<HTMLButtonElement>("codex-refresh").addEventListener("click", () => void run({ name: "refreshCodex" }));
 requiredElement<HTMLButtonElement>("start-today-execution").addEventListener("click", () => {
