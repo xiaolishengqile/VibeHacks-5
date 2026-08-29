@@ -37,6 +37,18 @@ test("轻面板关闭请求只隐藏窗口而不退出应用", async () => {
 	assert.equal(hidden, true);
 });
 
+test("清理数据只能通过专用桌面频道执行", async () => {
+	let resets = 0;
+	const service = new ApplicationService({
+		resetApplicationData: async () => { resets += 1; },
+	} as never);
+	const result = await createInvokeHandler(service)("application:reset-data");
+
+	assert.deepEqual(result, { ok: true, value: null });
+	assert.equal(resets, 1);
+	assert.equal(parseUiCommand({ name: "resetApplicationData" }).ok, false);
+});
+
 test("执行审批和成果验收命令必须携带精确标识", () => {
 	assert.deepEqual(parseUiCommand({ name: "confirmProfile", goalId: "goal-1" }), {
 		ok: true,

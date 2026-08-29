@@ -57,7 +57,7 @@ const readyState = {
 	rateLimit: "额度可用",
 } as const;
 
-function setup() {
+function setup(options: { readonly failClose?: boolean } = {}) {
 	const core = new CoreBackend();
 	const repository = new MemoryExecutionRepository();
 	const calls: string[] = [];
@@ -91,21 +91,31 @@ function setup() {
 			resume: async (id) => { calls.push(`resume:${id}`); return repository.run!; },
 			acceptArtifact: async (_id, artifactId, minutes) => { calls.push(`accept:${artifactId}:${minutes}`); },
 		},
-		close: () => { calls.push("close"); },
+		close: () => {
+			calls.push("close");
+			if (options.failClose) throw new Error("模拟停止失败");
+		},
 	};
 	const setupService = {
 		readiness: async () => readyState,
 		startBrowserLogin: async () => { calls.push("login"); },
 	};
+	let publishRuntimeEvent: ((event: Parameters<Parameters<IntegratedDesktopBackend["subscribe"]>[0]>[0]) => void) | null = null;
 	const backend = new IntegratedDesktopBackend({
 		core,
 		setup: setupService,
 		executionRepository: repository,
-		createRuntime: async () => runtime,
+		createRuntime: async (publish) => {
+			publishRuntimeEvent = publish;
+			return runtime;
+		},
 		openArtifact: async (path) => { calls.push(`open:${path}`); },
 		clock: { now: () => "2026-08-29T09:00:00+08:00" },
 	});
-	return { backend, core, repository, calls };
+	return {
+		backend, core, repository, calls,
+		publish: (event: Parameters<Parameters<IntegratedDesktopBackend["subscribe"]>[0]>[0]) => publishRuntimeEvent?.(event),
+	};
 }
 
 test("执行代理就绪时使用结构化理解结果创建工作", async () => {
@@ -166,4 +176,32 @@ test("审批、登录、成果打开和验收通过统一命令入口", async ()
 		"accept:artifact-1:90",
 		"login",
 	]);
+});
+
+test("停止失败时保留事件订阅并允许后续重建运行时", async () => {
+	const context = setup({ failClose: true });
+	const received: string[] = [];
+	context.backend.subscribe((event) => received.push(event.message));
+	await context.backend.submitText("下周五完成季度复盘");
+
+	await assert.rejects(context.backend.close(), /模拟停止失败/);
+	context.publish({ kind: "warning", message: "停止失败但界面仍可收到通知", at: "2026-08-29T09:00:00+08:00" });
+	assert.deepEqual(received, ["停止失败但界面仍可收到通知"]);
+
+	await context.backend.submitText("重新建立执行通道");
+	assert.equal(context.core.draft?.title, "季度复盘");
+});
+
+test("仅停止执行通道时保留订阅并可重建运行时", async () => {
+	const context = setup();
+	const received: string[] = [];
+	context.backend.subscribe((event) => received.push(event.message));
+	await context.backend.submitText("下周五完成季度复盘");
+
+	await context.backend.stopExecutionRuntime();
+	await context.backend.submitText("重新建立执行通道");
+	context.publish({ kind: "info", message: "重建后继续刷新", at: "2026-08-29T09:00:00+08:00" });
+
+	assert.deepEqual(received, ["重建后继续刷新"]);
+	assert.equal(context.calls.filter((call) => call === "close").length, 1);
 });

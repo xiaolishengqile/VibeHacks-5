@@ -156,8 +156,9 @@ export class ExecutionOrchestrator {
 		await this.#processor.append(run.id, "artifact", `用户已接受成果：${artifact.name}`);
 	}
 
-	close(): void {
+	async close(): Promise<void> {
 		this.#unsubscribe();
+		await this.#processor.drain();
 		this.#processor.clearRules();
 	}
 

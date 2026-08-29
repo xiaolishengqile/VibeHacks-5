@@ -1,6 +1,6 @@
 import { DatabaseSync } from "node:sqlite";
 
-export { migrateDatabase } from "./migrations.js";
+export { clearApplicationData, migrateDatabase } from "./migrations.js";
 
 export function openDatabase(path: string): DatabaseSync {
 	const database = new DatabaseSync(path);

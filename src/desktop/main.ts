@@ -3,7 +3,7 @@ import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 
 import { RandomIdGenerator } from "../shared/ids.js";
-import { migrateDatabase, openDatabase } from "../storage/database.js";
+import { clearApplicationData, migrateDatabase, openDatabase } from "../storage/database.js";
 import { SqliteWorkRepository } from "../storage/work-repository.js";
 import { SqliteExecutionRepository } from "../storage/execution-repository.js";
 import { CommandService } from "../work/command-service.js";
@@ -20,6 +20,7 @@ import { CommandWorkExecutionPort } from "../work/execution-port.js";
 import { registerDesktopIpc } from "./ipc.js";
 import { PetBridge } from "./pet-bridge.js";
 import { PetProcess } from "./pet-process.js";
+import { runApplicationReset } from "./reset-application-data.js";
 import { toPetStatus } from "../renderer/view-models.js";
 
 import {
@@ -123,6 +124,13 @@ const startDesktop = async (): Promise<void> => {
 			workbench?.focus();
 		},
 		hideMiniPanel: () => miniPanel?.hide(),
+		resetApplicationData: () => runApplicationReset({
+			closeBackend: () => backend.stopExecutionRuntime(),
+			closeCodex: () => codexSetup.close(),
+			clearData: () => clearApplicationData(database),
+			relaunch: () => app.relaunch(),
+			quit: () => app.quit(),
+		}),
 	});
 	const closeBackendEvents = backend.subscribe((event) => {
 		applicationService.publishEvent(event);

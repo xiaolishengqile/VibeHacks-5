@@ -185,10 +185,20 @@ export class IntegratedDesktopBackend {
 	}
 
 	async close(): Promise<void> {
-		const runtime = this.#runtime;
-		this.#runtime = null;
-		if (runtime) await runtime.close();
+		await this.stopExecutionRuntime();
 		this.#listeners.clear();
+	}
+
+	async stopExecutionRuntime(): Promise<void> {
+		const runtime = this.#runtime;
+		try {
+			if (runtime) await runtime.close();
+		} catch (error) {
+			// 失败的运行时可能已经部分关闭；丢弃它，但保留界面和桌宠订阅供下次重建。
+			if (this.#runtime === runtime) this.#runtime = null;
+			throw error;
+		}
+		if (this.#runtime === runtime) this.#runtime = null;
 	}
 
 	async #startExecution(goalId: string, nodeId: string, allowWebResearch: boolean): Promise<void> {

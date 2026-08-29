@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { chmod, mkdir, mkdtemp, rm } from "node:fs/promises";
+import { access, chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -20,6 +20,7 @@ type Snapshot = {
 	executions: ReadonlyArray<{ id: string; status: string }>;
 	approvals: ReadonlyArray<{ executionId: string; requestId: string }>;
 	artifacts: ReadonlyArray<{ id: string; executionId: string; verified: boolean }>;
+	codex: { ready: boolean; account: string };
 };
 
 export class StartDayHarness {
@@ -28,18 +29,25 @@ export class StartDayHarness {
 	mini!: Page;
 	readonly profile: string;
 	readonly workspace: string;
+	readonly authState: string;
 	readonly fakeMode: FakeMode;
 
 	private constructor(profile: string, workspace: string, fakeMode: FakeMode) {
 		this.profile = profile;
 		this.workspace = workspace;
+		this.authState = join(dirname(profile), "fake-codex-auth.json");
 		this.fakeMode = fakeMode;
 	}
 
 	static async launch(fakeMode: FakeMode): Promise<StartDayHarness> {
 		const root = await mkdtemp(join(tmpdir(), "startday-e2e-"));
 		const harness = new StartDayHarness(join(root, "profile"), join(root, "workspace"), fakeMode);
-		await Promise.all([mkdir(harness.profile), mkdir(harness.workspace), chmod(fakeCodex, 0o755)]);
+		await Promise.all([
+			mkdir(harness.profile),
+			mkdir(harness.workspace),
+			writeFile(harness.authState, '{"account":"test@example.com"}', "utf8"),
+			chmod(fakeCodex, 0o755),
+		]);
 		await harness.#launchApplication();
 		return harness;
 	}
@@ -129,6 +137,54 @@ export class StartDayHarness {
 		await this.mini.getByRole("button", { name: "关闭轻面板" }).click();
 	}
 
+	async resetApplicationDataAndRestart(): Promise<void> {
+		await this.app.evaluate(({ app }) => {
+			Object.defineProperty(app, "relaunch", { configurable: true, value: () => undefined });
+		});
+		const process = this.app.process();
+		const exited = new Promise<void>((resolve) => process.once("exit", () => resolve()));
+		await this.mini.getByRole("button", { name: "清理数据" }).click();
+		await this.mini.locator("dialog.app-dialog").getByRole("button", { name: "清理并重新开始" }).click();
+		await exited;
+		await this.#launchApplication();
+	}
+
+	async executionAgentProcessId(): Promise<number> {
+		const { stdout } = await run("pgrep", ["-P", String(this.app.process().pid)]);
+		for (const value of stdout.trim().split(/\s+/)) {
+			const { stdout: command } = await run("ps", ["-p", value, "-o", "command="]);
+			if (command.includes("fake-codex.mjs")) return Number(value);
+		}
+		throw new Error("找不到执行代理进程");
+	}
+
+	async isProcessRunning(pid: number): Promise<boolean> {
+		try {
+			process.kill(pid, 0);
+			return true;
+		} catch {
+			return false;
+		}
+	}
+
+	async workspaceFileExists(name: string): Promise<boolean> {
+		try {
+			await access(join(this.workspace, name));
+			return true;
+		} catch {
+			return false;
+		}
+	}
+
+	async loginStateExists(): Promise<boolean> {
+		try {
+			await access(this.authState);
+			return true;
+		} catch {
+			return false;
+		}
+	}
+
 	async expectMiniPanelFitsViewport(): Promise<void> {
 		await expect.poll(() => this.mini.evaluate(() => ({
 			clientWidth: document.documentElement.clientWidth,
@@ -213,7 +269,12 @@ export class StartDayHarness {
 		this.app = await electron.launch({
 			executablePath,
 			args: [`--user-data-dir=${this.profile}`],
-			env: { ...process.env, STARTDAY_CODEX_PATH: fakeCodex, STARTDAY_FAKE_MODE: this.fakeMode },
+			env: {
+				...process.env,
+				STARTDAY_CODEX_PATH: fakeCodex,
+				STARTDAY_FAKE_MODE: this.fakeMode,
+				STARTDAY_FAKE_AUTH_PATH: this.authState,
+			},
 		});
 		await expect.poll(async () => (await Promise.all(this.app.windows().map((page) => page.title()))).sort()).toEqual([
 			"启动日工作台", "启动日轻面板",

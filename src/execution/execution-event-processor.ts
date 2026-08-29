@@ -40,6 +40,10 @@ export class ExecutionEventProcessor {
 		this.#rules.clear();
 	}
 
+	async drain(): Promise<void> {
+		while (this.#queues.size > 0) await Promise.all([...this.#queues.values()]);
+	}
+
 	enqueue(event: ExecutionAgentEvent): Promise<void> {
 		const previous = this.#queues.get(event.runId) ?? Promise.resolve();
 		const current = previous.catch(() => undefined).then(() => this.#handle(event));

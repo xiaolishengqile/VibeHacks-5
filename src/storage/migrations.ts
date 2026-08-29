@@ -162,3 +162,21 @@ export function migrateDatabase(database: DatabaseSync): void {
 		throw error;
 	}
 }
+
+export function clearApplicationData(database: DatabaseSync): void {
+	database.exec("BEGIN IMMEDIATE");
+	try {
+		// 先清理独立执行记录，再按外键关系清理工作数据；数据库结构与版本保持不变。
+		database.exec(`
+			DELETE FROM execution_runs;
+			DELETE FROM duration_observations;
+			DELETE FROM waiting_observations;
+			DELETE FROM goals;
+			DELETE FROM profiles;
+		`);
+		database.exec("COMMIT");
+	} catch (error) {
+		database.exec("ROLLBACK");
+		throw error;
+	}
+}

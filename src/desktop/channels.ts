@@ -4,6 +4,7 @@ export const channels = {
 	command: "work:command",
 	openWorkbench: "window:open-workbench",
 	hideMiniPanel: "window:hide-mini-panel",
+	resetApplicationData: "application:reset-data",
 	chooseDirectory: "workspace:choose-directory",
 	event: "application:event",
 	changed: "application:changed",
@@ -14,4 +15,5 @@ export type InvokeChannel = typeof channels.snapshot
 	| typeof channels.command
 	| typeof channels.openWorkbench
 	| typeof channels.hideMiniPanel
+	| typeof channels.resetApplicationData
 	| typeof channels.chooseDirectory;

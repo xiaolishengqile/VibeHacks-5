@@ -96,3 +96,55 @@ test("长目录和代理状态不会撑破轻面板且关闭后可由桌宠重�
 	await startDay.triggerPetOpenPanel();
 	await expect.poll(() => startDay.isMiniPanelVisible()).toBe(true);
 });
+
+test("轻面板提供明确可用的关闭按钮和位于左侧的清理入口", async ({ startDay }) => {
+	const reset = startDay.mini.getByRole("button", { name: "清理数据" });
+	const close = startDay.mini.getByRole("button", { name: "关闭轻面板" });
+
+	await expect(reset).toBeVisible();
+	await expect(close).toBeEnabled();
+	await expect(close).toHaveAttribute("title", /桌宠继续运行/);
+	const [resetBox, closeBox] = await Promise.all([reset.boundingBox(), close.boundingBox()]);
+	expect(resetBox).not.toBeNull();
+	expect(closeBox).not.toBeNull();
+	expect((resetBox?.x ?? 0) + (resetBox?.width ?? 0)).toBeLessThanOrEqual(closeBox?.x ?? 0);
+
+	await reset.click();
+	const dialog = startDay.mini.locator("dialog.app-dialog");
+	await expect(dialog).toContainText("不会删除已生成文件，也不会退出执行代理账号");
+	await dialog.getByRole("button", { name: "取消" }).click();
+	await expect(dialog).toHaveCount(0);
+});
+
+test.describe("清理运行中的数据", () => {
+	test.use({ fakeMode: "slow" });
+	test("确认清理会停止代理、保留文件并恢复首次使用状态", async ({ startDay }) => {
+		await startDay.submit("下周五完成季度复盘");
+		await startDay.chooseFixtureWorkspace();
+		await startDay.startAndConfirmExecution();
+		await expect.poll(() => startDay.workspaceFileExists("运行中草稿.md")).toBe(true);
+		await expect.poll(async () => (await startDay.snapshot()).approvals.length).toBe(1);
+		await expect.poll(async () => (await startDay.snapshot()).artifacts.length).toBe(1);
+		const before = await startDay.snapshot();
+		expect(before.approvals).not.toEqual([]);
+		expect(before.artifacts).not.toEqual([]);
+		expect(before.codex.account).toBe("test@example.com");
+		expect(await startDay.loginStateExists()).toBe(true);
+		const previousAgentPid = await startDay.executionAgentProcessId();
+
+		await startDay.resetApplicationDataAndRestart();
+
+		await expect.poll(() => startDay.isProcessRunning(previousAgentPid)).toBe(false);
+		expect(await startDay.workspaceFileExists("运行中草稿.md")).toBe(true);
+		expect(await startDay.loginStateExists()).toBe(true);
+		const snapshot = await startDay.snapshot();
+		expect(snapshot.goal).toBeNull();
+		expect(snapshot.profile).toBeNull();
+		expect(snapshot.nodes).toEqual([]);
+		expect(snapshot.executions).toEqual([]);
+		expect(snapshot.approvals).toEqual([]);
+		expect(snapshot.artifacts).toEqual([]);
+		expect(snapshot.codex.ready).toBe(true);
+		expect(snapshot.codex.account).toBe("test@example.com");
+	});
+});

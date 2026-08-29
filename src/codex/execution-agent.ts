@@ -117,15 +117,22 @@ export class CodexExecutionAgent {
 	readonly #listeners = new Set<EventListener>();
 	readonly #active = new Map<string, ActiveTurn>();
 	readonly #pending = new Map<string, PendingApproval>();
+	readonly #requestTasks = new Set<Promise<void>>();
 	readonly #unsubscribeNotification: () => void;
 	readonly #unsubscribeRequest: () => void;
 	#eventQueue: Promise<void> = Promise.resolve();
+	#closing: Promise<void> | null = null;
 
 	constructor(server: ExecutionAgentAppServer, policy: PermissionPolicy) {
 		this.#server = server;
 		this.#policy = policy;
 		this.#unsubscribeNotification = server.onNotification((notification) => this.#notification(notification));
-		this.#unsubscribeRequest = server.onServerRequest((request) => this.#serverRequest(request));
+		this.#unsubscribeRequest = server.onServerRequest((request) => {
+			const task = this.#serverRequest(request);
+			this.#requestTasks.add(task);
+			void task.finally(() => this.#requestTasks.delete(task)).catch(() => undefined);
+			return task;
+		});
 	}
 
 	onEvent(listener: EventListener): () => void {
@@ -197,12 +204,25 @@ export class CodexExecutionAgent {
 		await this.#server.interruptTurn(run.threadId, run.turnId);
 	}
 
-	close(): void {
+	close(): Promise<void> {
+		this.#closing ??= this.#close();
+		return this.#closing;
+	}
+
+	async #close(): Promise<void> {
 		this.#unsubscribeNotification();
 		this.#unsubscribeRequest();
+		const failures: unknown[] = [];
+		const interrupted = await Promise.allSettled([...this.#active.values()].map((active) =>
+			this.#server.interruptTurn(active.threadId, active.turnId)));
+		failures.push(...interrupted.filter((result) => result.status === "rejected").map((result) => result.reason));
+		const requests = await Promise.allSettled([...this.#requestTasks]);
+		failures.push(...requests.filter((result) => result.status === "rejected").map((result) => result.reason));
+		try { await this.#eventQueue; } catch (error) { failures.push(error); }
 		this.#listeners.clear();
 		this.#active.clear();
 		this.#pending.clear();
+		if (failures.length > 0) throw new AggregateError(failures, "执行代理未能安全停止");
 	}
 
 	#activate(run: ExecutionRun, threadId: string, turnId: string): { threadId: string; turnId: string } {

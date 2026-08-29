@@ -85,3 +85,28 @@ test("业务变更会通知所有窗口刷新且普通读取不会循环通知",
 	service.publishEvent({ kind: "progress", message: "执行进度变化", at: "2026-08-29T09:00:00+08:00" });
 	assert.equal(changes, 2);
 });
+
+test("清理会等待已开始的业务操作并拒绝新的修改", async () => {
+	let releaseOperation!: () => void;
+	const operationBlocked = new Promise<void>((resolve) => { releaseOperation = resolve; });
+	let resetStarted = false;
+	const service = new ApplicationService({
+		runCommand: async () => {
+			await operationBlocked;
+			return emptyApplicationSnapshot();
+		},
+		resetApplicationData: async () => { resetStarted = true; },
+	});
+
+	const running = service.runCommand({ name: "refreshCodex" });
+	await Promise.resolve();
+	const reset = service.resetApplicationData();
+	await Promise.resolve();
+	assert.equal(resetStarted, false);
+	await assert.rejects(service.runCommand({ name: "refreshCodex" }), /正在清理/);
+
+	releaseOperation();
+	await running;
+	await reset;
+	assert.equal(resetStarted, true);
+});

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { mkdir, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import readline from "node:readline";
 
@@ -10,6 +11,7 @@ if (process.argv.includes("--version")) {
 
 const input = readline.createInterface({ input: process.stdin });
 const mode = process.env.STARTDAY_FAKE_MODE ?? "success";
+const authStatePath = process.env.STARTDAY_FAKE_AUTH_PATH ?? "";
 const pending = new Map();
 let threadSequence = 0;
 let turnSequence = 0;
@@ -49,7 +51,25 @@ const plan = (threadId, turnId) => {
 };
 
 const execute = (threadId, turnId, params) => {
-	if (mode === "slow") return;
+	if (mode === "slow") {
+		const cwd = typeof params.cwd === "string" ? params.cwd : process.cwd();
+		const path = join(cwd, "运行中草稿.md");
+		const requestId = `approval-${++approvalSequence}`;
+		pending.set(requestId, { threadId, turnId, path, name: "运行中草稿.md" });
+		void mkdir(cwd, { recursive: true }).then(async () => {
+			await writeFile(path, "# 运行中草稿\n", "utf8");
+			send({
+				method: "item/completed",
+				params: { threadId, turnId, item: { type: "fileChange", changes: [{ path, kind: { type: "add" } }] } },
+			});
+			send({
+				id: requestId,
+				method: "item/fileChange/requestApproval",
+				params: { threadId, turnId, changes: [{ path, kind: { type: "update" } }] },
+			});
+		});
+		return;
+	}
 	if (mode === "failure") {
 		return later(() => send({
 			method: "turn/completed",
@@ -95,7 +115,10 @@ input.on("line", (line) => {
 	if (message.method === "initialized") return;
 	if (message.method === "account/read") return send({
 		id: message.id,
-		result: { account: { type: "chatgpt", email: "test@example.com" }, requiresOpenaiAuth: true },
+		result: {
+			account: authStatePath && existsSync(authStatePath) ? { type: "chatgpt", email: "test@example.com" } : null,
+			requiresOpenaiAuth: true,
+		},
 	});
 	if (message.method === "model/list") return send({
 		id: message.id,

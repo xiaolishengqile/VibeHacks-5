@@ -114,7 +114,7 @@ test("执行回合锁定用户目录、网络和中等推理强度", async () =>
 		model: "gpt-5.6-terra",
 		effort: "medium",
 	});
-	agent.close();
+	await agent.close();
 });
 
 test("目录外文件修改被产品权限策略立即拒绝", async () => {
@@ -129,7 +129,7 @@ test("目录外文件修改被产品权限策略立即拒绝", async () => {
 	});
 	assert.equal((await eventPromise).type, "approvalDenied");
 	assert.deepEqual(server.responses, [{ id: 41, decision: "decline" }]);
-	agent.close();
+	await agent.close();
 });
 
 test("目录内创建文件等待用户确认后才批准", async () => {
@@ -147,7 +147,7 @@ test("目录内创建文件等待用户确认后才批准", async () => {
 	assert.equal(server.responses.length, 0);
 	await agent.approve("approval-2", "approve");
 	assert.deepEqual(server.responses, [{ id: "approval-2", decision: "accept" }]);
-	agent.close();
+	await agent.close();
 });
 
 test("标准文件补丁请求即使不含路径也必须单次确认", async () => {
@@ -168,7 +168,7 @@ test("标准文件补丁请求即使不含路径也必须单次确认", async ()
 	await assert.rejects(agent.approve("approval-patch", "approveForSession"), /不能/);
 	await agent.approve("approval-patch", "approve");
 	assert.deepEqual(server.responses, [{ id: "approval-patch", decision: "accept" }]);
-	agent.close();
+	await agent.close();
 });
 
 test("已声明的测试命令自动放行且未知命令拒绝", async () => {
@@ -185,7 +185,7 @@ test("已声明的测试命令自动放行且未知命令拒绝", async () => {
 		{ id: 3, decision: "accept" },
 		{ id: 4, decision: "decline" },
 	]);
-	agent.close();
+	await agent.close();
 });
 
 test("规划只读并转发流式计划和权威终态", async () => {
@@ -209,7 +209,7 @@ test("规划只读并转发流式计划和权威终态", async () => {
 	assert.equal((await completedEvent).type, "turnCompleted");
 	await agent.interrupt({ ...run, turnId: "turn-1" });
 	assert.deepEqual(server.interrupts, [{ threadId: "thread-1", turnId: "turn-1" }]);
-	agent.close();
+	await agent.close();
 });
 
 test("执行事件先等待状态处理完成再通知后续订阅者", async () => {
@@ -227,5 +227,33 @@ test("执行事件先等待状态处理完成再通知后续订阅者", async ()
 	});
 	await new Promise((resolve) => setImmediate(resolve));
 	assert.deepEqual(order, ["状态已保存", "界面已通知"]);
-	agent.close();
+	await agent.close();
+});
+
+test("关闭代理会中断活动回合并等待排队事件处理完成", async () => {
+	const server = new FakeAppServer();
+	const agent = new CodexExecutionAgent(server, new PermissionPolicy());
+	await agent.execute(run);
+	let releaseEvent!: () => void;
+	let markStarted!: () => void;
+	const eventStarted = new Promise<void>((resolve) => { markStarted = resolve; });
+	const eventBlocked = new Promise<void>((resolve) => { releaseEvent = resolve; });
+	agent.onEvent(async () => {
+		markStarted();
+		await eventBlocked;
+	});
+	server.emit("item/plan/delta", {
+		threadId: "thread-1", turnId: "turn-1", itemId: "plan-1", delta: "执行计划",
+	});
+	await eventStarted;
+
+	let closed = false;
+	const closing = Promise.resolve(agent.close()).then(() => { closed = true; });
+	await new Promise((resolve) => setImmediate(resolve));
+	assert.deepEqual(server.interrupts, [{ threadId: "thread-1", turnId: "turn-1" }]);
+	assert.equal(closed, false);
+
+	releaseEvent();
+	await closing;
+	assert.equal(closed, true);
 });

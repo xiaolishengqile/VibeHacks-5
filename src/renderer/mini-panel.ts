@@ -146,8 +146,31 @@ requiredElement<HTMLButtonElement>("open-workbench").addEventListener("click", (
 	void window.startDay.openWorkbench();
 });
 
-requiredElement<HTMLButtonElement>("close-mini-panel").addEventListener("click", () => {
-	void window.startDay.hideMiniPanel();
+requiredElement<HTMLButtonElement>("close-mini-panel").addEventListener("click", async () => {
+	const result = await window.startDay.hideMiniPanel();
+	if (!result.ok) setMessage(result.error, true);
+});
+
+const resetApplicationData = requiredElement<HTMLButtonElement>("reset-application-data");
+resetApplicationData.addEventListener("click", async () => {
+	const confirmed = await confirmAction({
+		title: "清理本地数据",
+		message: "将停止当前执行并清空工作习惯、计划、执行、审批和成果记录。不会删除已生成文件，也不会退出执行代理账号。",
+		confirmLabel: "清理并重新开始",
+	});
+	if (!confirmed) return;
+	resetApplicationData.disabled = true;
+	setMessage("正在清理并重新启动…");
+	try {
+		const result = await window.startDay.resetApplicationData();
+		if (!result.ok) {
+			resetApplicationData.disabled = false;
+			setMessage(result.error, true);
+		}
+	} catch (error) {
+		resetApplicationData.disabled = false;
+		setMessage(error instanceof Error ? error.message : "数据清理失败，请重试。", true);
+	}
 });
 
 requiredElement<HTMLButtonElement>("choose-directory").addEventListener("click", async () => {

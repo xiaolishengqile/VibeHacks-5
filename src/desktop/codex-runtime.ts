@@ -42,10 +42,13 @@ export async function createDesktopExecutionRuntime(
 	return {
 		interpreter: { interpret: (text) => interpreter.interpret(text, options.profile) },
 		orchestrator,
-		close: () => {
+		close: async () => {
 			unsubscribe();
-			orchestrator.close();
-			agent.close();
+			try {
+				await agent.close();
+			} finally {
+				await orchestrator.close();
+			}
 		},
 	};
 }

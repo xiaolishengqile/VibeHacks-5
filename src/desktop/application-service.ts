@@ -133,6 +133,7 @@ interface ApplicationServiceOptions {
 	readonly chooseDirectory?: () => Promise<readonly string[]>;
 	readonly openWorkbench?: () => void;
 	readonly hideMiniPanel?: () => void;
+	readonly resetApplicationData?: () => Promise<void>;
 }
 
 type EventListener = (event: VisibleApplicationEvent) => void;
@@ -158,6 +159,9 @@ export class ApplicationService {
 	readonly #listeners = new Set<EventListener>();
 	readonly #changeListeners = new Set<ChangeListener>();
 	#snapshot: ApplicationSnapshot;
+	#resetting = false;
+	#activeChanges = 0;
+	readonly #idleWaiters = new Set<() => void>();
 
 	constructor(options: ApplicationServiceOptions = {}) {
 		this.#options = options;
@@ -172,21 +176,25 @@ export class ApplicationService {
 	}
 
 	async submitWorkText(text: string): Promise<ApplicationSnapshot> {
-		const normalized = text.trim();
-		if (!normalized) throw new Error("工作描述不能为空");
-		if (!this.#options.submitText) throw new Error("工作理解服务尚未就绪");
-		this.#snapshot = this.#mergeBusinessSnapshot(await this.#options.submitText(normalized));
-		await this.getSnapshot();
-		this.#notifyChange();
-		return structuredClone(this.#snapshot);
+		return this.#runChange(async () => {
+			const normalized = text.trim();
+			if (!normalized) throw new Error("工作描述不能为空");
+			if (!this.#options.submitText) throw new Error("工作理解服务尚未就绪");
+			this.#snapshot = this.#mergeBusinessSnapshot(await this.#options.submitText(normalized));
+			await this.getSnapshot();
+			this.#notifyChange();
+			return structuredClone(this.#snapshot);
+		});
 	}
 
 	async runCommand(command: UiCommand): Promise<ApplicationSnapshot> {
-		if (!this.#options.runCommand) throw new Error("当前没有可操作的工作计划");
-		this.#snapshot = this.#mergeBusinessSnapshot(await this.#options.runCommand(command));
-		await this.getSnapshot();
-		this.#notifyChange();
-		return structuredClone(this.#snapshot);
+		return this.#runChange(async () => {
+			if (!this.#options.runCommand) throw new Error("当前没有可操作的工作计划");
+			this.#snapshot = this.#mergeBusinessSnapshot(await this.#options.runCommand(command));
+			await this.getSnapshot();
+			this.#notifyChange();
+			return structuredClone(this.#snapshot);
+		});
 	}
 
 	openWorkbench(): void {
@@ -197,12 +205,27 @@ export class ApplicationService {
 		this.#options.hideMiniPanel?.();
 	}
 
+	async resetApplicationData(): Promise<void> {
+		if (!this.#options.resetApplicationData) throw new Error("数据清理服务尚未就绪");
+		if (this.#resetting) throw new Error("正在清理数据，请稍候");
+		this.#resetting = true;
+		try {
+			await this.#waitForIdle();
+			await this.#options.resetApplicationData();
+		} catch (error) {
+			this.#resetting = false;
+			throw error;
+		}
+	}
+
 	async chooseWorkDirectory(): Promise<string | null> {
-		const selected = await this.#options.chooseDirectory?.() ?? [];
-		const path = selected.find((item) => typeof item === "string" && item.trim())?.trim() ?? null;
-		this.#snapshot = { ...this.#snapshot, workDirectory: path };
-		this.#notifyChange();
-		return path;
+		return this.#runChange(async () => {
+			const selected = await this.#options.chooseDirectory?.() ?? [];
+			const path = selected.find((item) => typeof item === "string" && item.trim())?.trim() ?? null;
+			this.#snapshot = { ...this.#snapshot, workDirectory: path };
+			this.#notifyChange();
+			return path;
+		});
 	}
 
 	subscribe(listener: EventListener): () => void {
@@ -225,6 +248,25 @@ export class ApplicationService {
 
 	#notifyChange(): void {
 		for (const listener of this.#changeListeners) listener();
+	}
+
+	async #runChange<T>(operation: () => Promise<T>): Promise<T> {
+		if (this.#resetting) throw new Error("正在清理数据，请稍候");
+		this.#activeChanges += 1;
+		try {
+			return await operation();
+		} finally {
+			this.#activeChanges -= 1;
+			if (this.#activeChanges === 0) {
+				for (const resolve of this.#idleWaiters) resolve();
+				this.#idleWaiters.clear();
+			}
+		}
+	}
+
+	#waitForIdle(): Promise<void> {
+		if (this.#activeChanges === 0) return Promise.resolve();
+		return new Promise((resolve) => this.#idleWaiters.add(resolve));
 	}
 
 	#mergeBusinessSnapshot(next: ApplicationSnapshot): ApplicationSnapshot {

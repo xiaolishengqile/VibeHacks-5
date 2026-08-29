@@ -116,6 +116,9 @@ export function createInvokeHandler(service: ApplicationService) {
 				case channels.hideMiniPanel:
 					service.hideMiniPanel();
 					return ok(null);
+				case channels.resetApplicationData:
+					await service.resetApplicationData();
+					return ok(null);
 				case channels.chooseDirectory:
 					return ok(await service.chooseWorkDirectory());
 				default:
@@ -139,6 +142,7 @@ export function registerDesktopIpc(
 		channels.command,
 		channels.openWorkbench,
 		channels.hideMiniPanel,
+		channels.resetApplicationData,
 		channels.chooseDirectory,
 	];
 	for (const channel of invokeChannels) {
