@@ -57,13 +57,32 @@ static func run() -> Array[String]:
 	if opened_panel:
 		errors.append("单击桌宠不能再直接打开轻面板")
 	var menu_window_count := 0
+	var menu_fill_colors: Array[Color] = []
+	var menu_border_colors: Array[Color] = []
 	for child in menu.get_children():
 		if child is Window:
 			menu_window_count += 1
 			if child.unfocusable:
 				errors.append("菜单按钮窗口必须可交互，点击按钮才能触发入口")
+			if child.get_child_count() == 0:
+				errors.append("菜单按钮窗口必须包含可点击按钮")
+			else:
+				var button := child.get_child(0) as Button
+				if button == null:
+					errors.append("菜单按钮窗口必须包含可点击按钮")
+					continue
+				var style := button.get_theme_stylebox("normal") as StyleBoxFlat
+				if style == null:
+					errors.append("菜单按钮必须有明确的默认样式")
+				else:
+					menu_fill_colors.append(style.bg_color)
+					menu_border_colors.append(style.border_color)
 	if menu_window_count != 4:
 		errors.append("桌宠菜单必须创建四个独立按钮窗口")
+	if _unique_color_count(menu_fill_colors) != 4:
+		errors.append("四个菜单按钮必须用不同背景色区分功能")
+	if _unique_color_count(menu_border_colors) != 4:
+		errors.append("四个菜单按钮必须用不同边框色区分功能")
 	if not menu.is_menu_visible():
 		errors.append("单击桌宠必须显示四个菜单按钮")
 	press.pressed = true
@@ -72,9 +91,24 @@ static func run() -> Array[String]:
 	interaction._unhandled_input(press)
 	if menu.is_menu_visible():
 		errors.append("再次单击桌宠必须收起四个菜单按钮")
+	interaction._on_menu_button_pressed("hide_pet")
+	var tucked := DesktopWindowControllerScript.tucked_position(
+		DisplayServer.screen_get_usable_rect(DisplayServer.window_get_current_screen()),
+		window.size,
+	)
+	if window.position != tucked:
+		errors.append("隐藏按钮必须把桌宠收纳到屏幕边缘")
 
 	interaction.free()
 	window.free()
 	animator.free()
 	visual.free()
 	return errors
+
+
+static func _unique_color_count(colors: Array[Color]) -> int:
+	var unique: Array[Color] = []
+	for color in colors:
+		if not unique.has(color):
+			unique.append(color)
+	return unique.size()
