@@ -80,7 +80,7 @@ function existingPlanContext(snapshot: ApplicationSnapshot): string {
 			nodeIds: milestone.nodeIds,
 		})),
 		nodes: snapshot.nodes
-			.filter((node) => node.status !== "done" && node.status !== "stopped")
+			.filter((node) => node.status !== "done" && node.status !== "stopped" && node.status !== "failed")
 			.map((node) => {
 				const decision = decisionsByNodeId.get(node.id);
 				return {

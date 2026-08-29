@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { FallbackWorkBackend } from "../../src/desktop/core-application.js";
 import type { ApplicationSnapshot, UiCommand } from "../../src/desktop/application-service.js";
 import { emptyApplicationSnapshot } from "../../src/desktop/application-service.js";
 import {
@@ -9,6 +10,10 @@ import {
 } from "../../src/desktop/integrated-backend.js";
 import type { ExecutionRepository } from "../../src/execution/repositories.js";
 import type { ApprovalRequest, Artifact, ExecutionEvent, ExecutionRun } from "../../src/execution/types.js";
+import { CommandService } from "../../src/work/command-service.js";
+import { DecisionEngine } from "../../src/work/decision-engine.js";
+import { createProfile } from "../../src/work/profile.js";
+import type { StoredWorkAggregate, WorkRepository } from "../../src/work/repositories.js";
 import { basicWorkNodeDetail, type WorkDraft } from "../../src/work/types.js";
 
 class CoreBackend {
@@ -66,6 +71,18 @@ class MemoryExecutionRepository implements ExecutionRepository {
 	async listApprovals(runId: string) { return this.approvals.filter((approval) => approval.runId === runId); }
 	async saveArtifact(artifact: Artifact) { this.artifacts.push(artifact); }
 	async listArtifacts(runId: string) { return this.artifacts.filter((artifact) => artifact.runId === runId); }
+}
+
+class MemoryWorkRepository implements WorkRepository {
+	aggregate: StoredWorkAggregate | null = null;
+	async loadAggregate(goalId: string) { return this.aggregate?.goal.id === goalId ? this.aggregate : null; }
+	async loadLatestAggregate() { return this.aggregate; }
+	async saveAggregate(aggregate: StoredWorkAggregate) { this.aggregate = aggregate; }
+}
+
+class Ids {
+	#index = 0;
+	next(prefix: string) { return `${prefix}_${++this.#index}`; }
 }
 
 const readyState = {
@@ -176,6 +193,75 @@ test("已有计划提供完整上下文并走增量重排", async () => {
 	assert.match(existingPlan, /"summary":"完成「生成复盘框架」/);
 	assert.equal(context.core.draft, null);
 	assert.equal(context.core.revisedDraft?.title, "季度复盘");
+});
+
+test("失败节点不进入智能重排上下文且会随增量重排原样保留", async () => {
+	const now = "2026-08-29T09:00:00+08:00";
+	const repository = new MemoryWorkRepository();
+	const commands = new CommandService(repository, new DecisionEngine(), new Ids(), { now: () => now });
+	const profile = createProfile({
+		id: "profile_1", timezone: "Asia/Shanghai", dailyCapacityMinutes: 420, bufferPercent: 20,
+	}, now);
+	const initial = await commands.createFromDraft({
+		profile,
+		draft: {
+			title: "季度复盘", deadline: "2026-09-04T18:00:00+08:00", milestones: [], assumptions: [],
+			nodes: [
+				{
+					title: "失败的数据请求", owner: "self", workMinutes: 30, waitMinutes: 0,
+					dependencyIndexes: [], detail: basicWorkNodeDetail("失败的数据请求"),
+				},
+				{
+					title: "可移动的复盘框架", owner: "self", workMinutes: 60, waitMinutes: 0,
+					dependencyIndexes: [], detail: basicWorkNodeDetail("可移动的复盘框架"),
+				},
+			],
+		},
+	});
+	const failed = initial.aggregate.graph.nodes[0]!;
+	const movable = initial.aggregate.graph.nodes[1]!;
+	await commands.startExecution({ goalId: initial.aggregate.graph.goal.id, nodeId: failed.id });
+	const failedResult = await commands.failExecution({
+		goalId: initial.aggregate.graph.goal.id, nodeId: failed.id, reason: "数据源不可用",
+	});
+	const failedNode = failedResult.aggregate.graph.node(failed.id);
+
+	const core = new FallbackWorkBackend(commands, profile, { now: () => now });
+	const contexts: string[] = [];
+	const revisedDraft: WorkDraft = {
+		title: "季度复盘（重排）", deadline: "2026-09-04T18:00:00+08:00", milestones: [], assumptions: [],
+		nodes: [{
+			title: "可移动的复盘框架", owner: "self", workMinutes: 45, waitMinutes: 0,
+			dependencyIndexes: [], sourceNodeId: movable.id, detail: basicWorkNodeDetail("可移动的复盘框架"),
+		}],
+	};
+	const backend = new IntegratedDesktopBackend({
+		core,
+		setup: { readiness: async () => readyState, startBrowserLogin: async () => undefined },
+		executionRepository: new MemoryExecutionRepository(),
+		createRuntime: async () => ({
+			interpreter: {
+				interpret: async (_text, existingPlanContext) => {
+					contexts.push(existingPlanContext ?? "");
+					return { status: "ready", draft: revisedDraft, confidence: 0.9, questions: [] };
+				},
+			},
+			orchestrator: {} as DesktopExecutionRuntime["orchestrator"],
+			close: () => undefined,
+		}),
+		openArtifact: async () => undefined,
+		clock: { now: () => now },
+	});
+
+	await backend.submitText("数据源失败，请重新安排复盘框架");
+	const snapshot = await core.getSnapshot();
+	const retained = snapshot.nodes.find((node) => node.id === failed.id);
+	const existingPlan = contexts[0] ?? "";
+	assert.doesNotMatch(existingPlan, new RegExp(`"sourceNodeId":"${failed.id}"`));
+	assert.match(existingPlan, new RegExp(`"sourceNodeId":"${movable.id}"`));
+	assert.equal(snapshot.goal?.title, "季度复盘（重排）");
+	assert.deepEqual(retained, failedNode);
+	assert.equal(snapshot.nodes.find((node) => node.id === movable.id)?.workMinutes, 45);
 });
 
 test("从工作节点创建只绑定已选择目录的执行计划", async () => {
