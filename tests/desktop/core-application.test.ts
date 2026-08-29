@@ -6,6 +6,7 @@ import { CommandService } from "../../src/work/command-service.js";
 import { DecisionEngine } from "../../src/work/decision-engine.js";
 import { createProfile } from "../../src/work/profile.js";
 import type { StoredWorkAggregate, WorkRepository } from "../../src/work/repositories.js";
+import { basicWorkNodeDetail } from "../../src/work/types.js";
 
 class MemoryRepository implements WorkRepository {
 	aggregate: StoredWorkAggregate | null = null;
@@ -94,4 +95,33 @@ test("刷新状态不会丢失尚未确认的停止影响范围", async () => {
 	await backend.runCommand({ name: "prepareStop", goalId: created.goal!.id, nodeId: created.nodes[0]!.id });
 
 	assert.ok((await backend.getSnapshot()).pendingStop);
+});
+
+test("基础后端在已有计划时透传增量重排", async () => {
+	const now = "2026-08-28T09:00:00+08:00";
+	const repository = new MemoryRepository();
+	const service = new CommandService(repository, new DecisionEngine(), new Ids(), { now: () => now });
+	const profile = createProfile({
+		id: "profile_1",
+		timezone: "Asia/Shanghai",
+		dailyCapacityMinutes: 420,
+		bufferPercent: 20,
+	}, now);
+	const backend = new FallbackWorkBackend(service, profile, { now: () => now });
+	const created = await backend.submitText("完成季度复盘");
+
+	const revised = await backend.reviseFromDraft({
+		title: "季度复盘补充事项",
+		deadline: "2026-09-04T18:00:00+08:00",
+		milestones: [],
+		nodes: [{
+			title: "完成季度复盘", owner: "self", workMinutes: 45, waitMinutes: 0,
+			dependencyIndexes: [], sourceNodeId: created.nodes[0]!.id, detail: basicWorkNodeDetail("完成季度复盘"),
+		}],
+		assumptions: ["本地计划"],
+	});
+
+	assert.equal(revised.goal?.id, created.goal?.id);
+	assert.equal(revised.goal?.title, "季度复盘补充事项");
+	assert.equal(revised.changes.at(-1)?.kind, "replanned");
 });

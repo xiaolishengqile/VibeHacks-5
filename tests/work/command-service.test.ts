@@ -122,6 +122,127 @@ test("确认草稿后创建可排期的工作聚合", async () => {
 	assert.match(result.aggregate.graph.nodes[0]?.detail?.summary ?? "", /找小王拿数据/);
 });
 
+test("增量重排保留既有工作身份、状态和终态节点", async () => {
+	const completed: WorkNode = {
+		...nodes[0]!,
+		id: "done_node",
+		status: "done",
+		actualMinutes: 12,
+	};
+	const running: WorkNode = {
+		...nodes[0]!,
+		id: "running_node",
+		status: "running",
+		actualMinutes: 30,
+		fixedStart: "2026-08-28T10:00:00+08:00",
+	};
+	const planned: WorkNode = {
+		...nodes[1]!,
+		id: "planned_node",
+		dependencyIds: ["running_node"],
+	};
+	const originalGoal = { ...goal, createdAt: "2026-08-20T09:00:00+08:00" };
+	const repository = new MemoryRepository({
+		profile,
+		goal: originalGoal,
+		nodes: [completed, running, planned],
+		changes: [],
+	});
+	const service = new CommandService(repository, new DecisionEngine(), new SequenceIds(), new MutableClock());
+
+	const result = await service.reviseFromDraft({
+		goalId: originalGoal.id,
+		draft: {
+			title: "季度复盘与突发事项",
+			deadline: "2026-09-04T18:00:00+08:00",
+			milestones: [],
+			nodes: [
+				{
+					title: "推进数据收集", owner: "小赵", workMinutes: 45, waitMinutes: 0,
+					dependencyIndexes: [], sourceNodeId: "running_node", detail: basicWorkNodeDetail("推进数据收集"),
+				},
+				{
+					title: "更新数据分析", owner: "self", workMinutes: 90, waitMinutes: 0,
+					dependencyIndexes: [0], sourceNodeId: "planned_node", detail: basicWorkNodeDetail("更新数据分析"),
+				},
+				{
+					title: "处理突发事项", owner: "self", workMinutes: 30, waitMinutes: 0,
+					dependencyIndexes: [1], detail: basicWorkNodeDetail("处理突发事项"),
+				},
+			],
+			assumptions: ["用户是产品经理"],
+		},
+	});
+
+	assert.equal(result.aggregate.graph.goal.id, originalGoal.id);
+	assert.equal(result.aggregate.graph.goal.createdAt, originalGoal.createdAt);
+	assert.equal(result.aggregate.graph.goal.description, "用户是产品经理");
+	assert.deepEqual(result.aggregate.graph.node("done_node"), completed);
+	const revisedRunning = result.aggregate.graph.node("running_node");
+	assert.equal(revisedRunning.status, "running");
+	assert.equal(revisedRunning.actualMinutes, 30);
+	assert.equal(revisedRunning.fixedStart, "2026-08-28T10:00:00+08:00");
+	assert.equal(revisedRunning.title, "推进数据收集");
+	assert.equal(result.aggregate.graph.node("planned_node").dependencyIds[0], "running_node");
+	assert.equal(result.aggregate.graph.nodes.find((node) => node.title === "处理突发事项")?.id, "node_1");
+	assert.equal(result.change.kind, "replanned");
+});
+
+test("增量重排拒绝缺失、重复和外来来源且不保存半成品", async () => {
+	const { repository, service } = setup();
+	const before = structuredClone(repository.aggregate);
+	const draft = {
+		title: "重排季度复盘",
+		deadline: "2026-09-04T18:00:00+08:00",
+		milestones: [],
+		assumptions: [],
+	};
+
+	for (const sourceNodeIds of [["request_data"], ["request_data", "request_data", "analysis"], ["request_data", "other_goal_node"]]) {
+		await assert.rejects(() => service.reviseFromDraft({
+			goalId: "goal_1",
+			draft: {
+				...draft,
+				nodes: sourceNodeIds.map((sourceNodeId, index) => ({
+					title: `任务 ${index + 1}`,
+					owner: "self",
+					workMinutes: 30,
+					waitMinutes: 0,
+					dependencyIndexes: [],
+					sourceNodeId,
+					detail: basicWorkNodeDetail(`任务 ${index + 1}`),
+				})),
+			},
+		}));
+		assert.deepEqual(repository.aggregate, before);
+	}
+});
+
+test("重排在固定事项排期校验失败时不会保存候选聚合", async () => {
+	const conflictingNodes: readonly WorkNode[] = [
+		{ ...nodes[0]!, id: "fixed_one", fixedStart: "2026-08-28T10:00:00+08:00" },
+		{ ...nodes[1]!, id: "fixed_two", dependencyIds: [], fixedStart: "2026-08-28T10:02:00+08:00" },
+	];
+	const repository = new MemoryRepository({ profile, goal, nodes: conflictingNodes, changes: [] });
+	const service = new CommandService(repository, new DecisionEngine(), new SequenceIds(), new MutableClock());
+	const before = structuredClone(repository.aggregate);
+
+	await assert.rejects(() => service.reviseFromDraft({
+		goalId: goal.id,
+		draft: {
+			title: goal.title,
+			deadline: goal.deadline,
+			milestones: [],
+			nodes: conflictingNodes.map((node) => ({
+				title: node.title, owner: node.owner, workMinutes: node.workMinutes, waitMinutes: node.waitMinutes,
+				dependencyIndexes: [], sourceNodeId: node.id, detail: basicWorkNodeDetail(node.title),
+			})),
+			assumptions: [],
+		},
+	}), /固定事项冲突/);
+	assert.deepEqual(repository.aggregate, before);
+});
+
 test("首次案例建立的工作模型经用户确认后才生成行动建议", async () => {
 	const repository = new MemoryRepository(null);
 	const service = new CommandService(repository, new DecisionEngine(), new SequenceIds(), new MutableClock());

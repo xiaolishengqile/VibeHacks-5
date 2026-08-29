@@ -98,6 +98,62 @@ export class CommandService {
 		return this.#save({ profile: input.profile, graph, changes: [change] }, change);
 	}
 
+	async reviseFromDraft(input: { readonly goalId: string; readonly draft: WorkDraft }): Promise<CommandResult> {
+		const aggregate = await this.#load(input.goalId);
+		const nonTerminalNodes = aggregate.graph.nodes.filter((node) =>
+			node.status !== "done" && node.status !== "stopped" && node.status !== "failed");
+		const existingById = new Map(nonTerminalNodes.map((node) => [node.id, node]));
+		const sourceIds = new Set<string>();
+		for (const draftNode of input.draft.nodes) {
+			if (!draftNode.sourceNodeId) continue;
+			if (!existingById.has(draftNode.sourceNodeId)) {
+				throw new Error(`草稿来源不属于当前可重排节点：${draftNode.sourceNodeId}`);
+			}
+			if (sourceIds.has(draftNode.sourceNodeId)) {
+				throw new Error(`草稿来源重复：${draftNode.sourceNodeId}`);
+			}
+			sourceIds.add(draftNode.sourceNodeId);
+		}
+		if (sourceIds.size !== existingById.size) throw new Error("草稿遗漏了当前可重排节点");
+
+		const nodeIds = input.draft.nodes.map((node) => node.sourceNodeId ?? this.#ids.next("node"));
+		const nodes: WorkNode[] = input.draft.nodes.map((draftNode, index) => {
+			const existing = draftNode.sourceNodeId ? existingById.get(draftNode.sourceNodeId) : undefined;
+			return {
+				id: nodeIds[index]!,
+				goalId: aggregate.graph.goal.id,
+				title: draftNode.title,
+				owner: draftNode.owner,
+				workMinutes: draftNode.workMinutes,
+				waitMinutes: draftNode.waitMinutes,
+				detail: draftNode.detail,
+				dependencyIds: draftNode.dependencyIndexes.map((dependencyIndex) => nodeIds[dependencyIndex]!),
+				status: existing?.status ?? (draftNode.dependencyIndexes.length === 0 ? "ready" : "planned"),
+				...(draftNode.potentialCollaborator ? { potentialCollaborator: draftNode.potentialCollaborator } : {}),
+				...(existing?.actualMinutes === undefined ? {} : { actualMinutes: existing.actualMinutes }),
+				...(existing?.fixedStart ? { fixedStart: existing.fixedStart } : {}),
+			};
+		});
+		const terminalNodes = aggregate.graph.nodes.filter((node) =>
+			node.status === "done" || node.status === "stopped" || node.status === "failed");
+		const goal: WorkGoal = {
+			...aggregate.graph.goal,
+			title: input.draft.title,
+			description: input.draft.assumptions.join("；"),
+			deadline: input.draft.deadline,
+			milestones: input.draft.milestones.map((milestone) => ({
+				id: this.#ids.next("milestone"),
+				title: milestone.title,
+				at: milestone.at,
+				nodeIds: milestone.nodeIndexes.map((nodeIndex) => nodeIds[nodeIndex]!),
+			})),
+			updatedAt: this.#clock.now(),
+		};
+		const graph = WorkGraph.create(goal, [...nodes, ...terminalNodes]);
+		const change = this.#change("replanned", `重排工作目标：${goal.title}`);
+		return this.#save({ ...aggregate, graph }, change);
+	}
+
 	async read(goalId: string): Promise<CommandState> {
 		return this.#state(await this.#load(goalId));
 	}
@@ -364,8 +420,8 @@ export class CommandService {
 			nodes: aggregate.graph.nodes,
 			changes,
 		};
-		await this.#repository.saveAggregate(stored);
 		const state = this.#state(this.#fromStored(stored));
+		await this.#repository.saveAggregate(stored);
 		return {
 			...state,
 			change,

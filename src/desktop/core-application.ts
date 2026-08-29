@@ -94,6 +94,15 @@ export class FallbackWorkBackend {
 		return this.#capture(await this.#commands.createFromDraft({ profile: this.#profile, draft }));
 	}
 
+	async reviseFromDraft(draft: Parameters<CommandService["createFromDraft"]>[0]["draft"]): Promise<ApplicationSnapshot> {
+		const state = await this.#commands.readLatest();
+		if (!state) return this.createFromDraft(draft);
+		return this.#capture(await this.#commands.reviseFromDraft({
+			goalId: state.aggregate.graph.goal.id,
+			draft,
+		}));
+	}
+
 	#capture(result: CommandState, clearPendingStop = true): ApplicationSnapshot {
 		this.#profile = result.aggregate.profile;
 		this.#snapshot = {
