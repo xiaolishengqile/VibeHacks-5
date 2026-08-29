@@ -12,7 +12,7 @@ test("完整工作台切换周时能看到后续日期连续横移", async ({ st
 			const duration = animation.effect?.getTiming().duration;
 			return typeof duration === "number" ? duration : 0;
 		});
-		await new Promise((resolve) => window.setTimeout(resolve, 160));
+		await new Promise((resolve) => window.setTimeout(resolve, 80));
 		return {
 			busy: calendar.getAttribute("aria-busy"),
 			panels: track.children.length,
@@ -29,7 +29,8 @@ test("完整工作台切换周时能看到后续日期连续横移", async ({ st
 		panels: 3,
 		nextWeekVisible: true,
 	});
-	expect(motion?.duration).toBeGreaterThanOrEqual(480);
+	expect(motion?.duration).toBeGreaterThanOrEqual(160);
+	expect(motion?.duration).toBeLessThanOrEqual(320);
 	expect(motion?.laterTransform).not.toBe(motion?.firstTransform);
 	await expect.poll(() => calendar.getAttribute("aria-busy")).toBe("false");
 });

@@ -19,7 +19,7 @@ let calendarDrag: {
 	lastPercent: number;
 } | null = null;
 let lastWheelShiftAt = 0;
-const calendarSlideMs = 960;
+const calendarSlideMs = 240;
 const calendarWindowDays = 7;
 const calendarStartPercent = -100;
 
@@ -131,6 +131,7 @@ const renderCalendar = (value: ApplicationSnapshot): void => {
 };
 
 const renderExecutionState = (value: ApplicationSnapshot): void => {
+	const panel = requiredElement<HTMLDetailsElement>("execution-panel");
 	const target = requiredElement<HTMLDivElement>("execution-state-list");
 	clearElement(target);
 	target.classList.remove("empty-state");
@@ -218,6 +219,8 @@ const renderExecutionState = (value: ApplicationSnapshot): void => {
 	if (count === 0) {
 		target.classList.add("empty-state");
 		renderEmpty(target, "当前没有执行任务或待确认操作");
+	} else {
+		panel.open = true;
 	}
 };
 

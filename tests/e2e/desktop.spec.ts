@@ -95,6 +95,31 @@ test("完整工作台周日历切换时有横向滑动动画", async ({ startDay
 	}))).toEqual({ busy: "false", panels: 1, range: "8月31日—9月6日" });
 });
 
+test("完整工作台把计划移到右侧并折叠空执行状态", async ({ startDay }) => {
+	await startDay.submit("下周五完成季度复盘，需要等同事一天的数据");
+
+	const layout = await startDay.workbench.evaluate(() => {
+		const today = document.querySelector<HTMLElement>(".panel--today")?.getBoundingClientRect();
+		const plan = document.querySelector<HTMLElement>(".panel--graph")?.getBoundingClientRect();
+		const execution = document.querySelector<HTMLDetailsElement>("#execution-panel");
+		return {
+			planHeading: document.querySelector(".panel--graph h2")?.textContent,
+			planAtRight: today && plan ? plan.left > today.left && plan.top === today.top : false,
+			executionCollapsed: execution?.open === false,
+		};
+	});
+
+	expect(layout).toEqual({
+		planHeading: "节点与依赖",
+		planAtRight: true,
+		executionCollapsed: true,
+	});
+	await expect(startDay.workbench.getByRole("button", { name: /执行状态/ })).toBeVisible();
+	await expect(startDay.workbench.locator("#execution-state-list")).toBeHidden();
+	await startDay.workbench.getByRole("button", { name: /执行状态/ }).click();
+	await expect(startDay.workbench.locator("#execution-state-list")).toBeVisible();
+});
+
 test("轻面板和完整工作台使用明亮的日历布局", async ({ startDay }) => {
 	await startDay.submit("下周五做季度复盘，周三老板先看，数据找小王，先帮我搭框架");
 

@@ -45,22 +45,24 @@
 					<button id="start-today-execution" class="primary-button" type="button" disabled>生成执行计划</button>
 				</section>
 
-				<section class="panel panel--execution">
-					<div class="section-heading">
-						<div><p class="section-label">执行</p><h2>状态与确认</h2></div>
-						<div class="button-row">
-							<button id="codex-login" class="text-button" type="button" hidden>登录</button>
-							<button id="codex-refresh" class="text-button" type="button">刷新状态</button>
-						</div>
-					</div>
-					<p id="readiness-summary" class="muted">正在检查执行环境</p>
-					<div id="execution-state-list" class="stack-list empty-state">当前没有执行任务或待确认操作</div>
-				</section>
-
 				<section class="panel panel--graph">
 					<div class="section-heading"><div><p class="section-label">计划</p><h2>节点与依赖</h2></div><span id="graph-count" class="muted">0 个节点</span></div>
 					<div id="graph-list" class="stack-list empty-state">正在加载工作计划</div>
 				</section>
+
+				<details id="execution-panel" class="panel panel--execution">
+					<summary class="execution-toggle" role="button" aria-label="执行状态">
+						<div><p class="section-label">执行</p><h2>执行状态</h2></div>
+						<span id="readiness-summary" class="muted">正在检查执行环境</span>
+					</summary>
+					<div class="execution-panel-body">
+						<div class="button-row">
+							<button id="codex-login" class="text-button" type="button" hidden>登录</button>
+							<button id="codex-refresh" class="text-button" type="button">刷新状态</button>
+						</div>
+						<div id="execution-state-list" class="stack-list empty-state">当前没有执行任务或待确认操作</div>
+					</div>
+				</details>
 
 				<details class="panel panel--history">
 					<summary>查看记录</summary>
