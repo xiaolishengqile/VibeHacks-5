@@ -59,6 +59,9 @@ static func run() -> Array[String]:
 	var menu_window_count := 0
 	var menu_fill_colors: Array[Color] = []
 	var menu_border_colors: Array[Color] = []
+	var menu_labels: Array[String] = []
+	var menu_descriptions: Array[String] = []
+	var small_description_count := 0
 	for child in menu.get_children():
 		if child is Window:
 			menu_window_count += 1
@@ -77,8 +80,23 @@ static func run() -> Array[String]:
 				else:
 					menu_fill_colors.append(style.bg_color)
 					menu_border_colors.append(style.border_color)
+				var texts := _label_texts(button)
+				if texts.size() != 2:
+					errors.append("菜单按钮必须显示主标题和小字描述")
+				else:
+					menu_labels.append(texts[0])
+					menu_descriptions.append(texts[1])
+					var sizes := _label_font_sizes(button)
+					if sizes.size() == 2 and sizes[1] < sizes[0]:
+						small_description_count += 1
 	if menu_window_count != 4:
 		errors.append("桌宠菜单必须创建四个独立按钮窗口")
+	if menu_labels != ["工作台", "今日", "想法", "隐藏"]:
+		errors.append("菜单按钮主标题必须保留原有功能名称")
+	if menu_descriptions != ["全局", "待办", "输入", "收纳"]:
+		errors.append("菜单按钮小字描述必须说明各自功能")
+	if small_description_count != 4:
+		errors.append("菜单按钮描述必须使用小于主标题的字号")
 	if _unique_color_count(menu_fill_colors) != 4:
 		errors.append("四个菜单按钮必须用不同背景色区分功能")
 	if _unique_color_count(menu_border_colors) != 4:
@@ -104,6 +122,24 @@ static func run() -> Array[String]:
 	animator.free()
 	visual.free()
 	return errors
+
+
+static func _label_texts(node: Node) -> Array[String]:
+	var result: Array[String] = []
+	for child in node.get_children():
+		if child is Label:
+			result.append(child.text)
+		result.append_array(_label_texts(child))
+	return result
+
+
+static func _label_font_sizes(node: Node) -> Array[int]:
+	var result: Array[int] = []
+	for child in node.get_children():
+		if child is Label:
+			result.append(child.get_theme_font_size("font_size"))
+		result.append_array(_label_font_sizes(child))
+	return result
 
 
 static func _unique_color_count(colors: Array[Color]) -> int:

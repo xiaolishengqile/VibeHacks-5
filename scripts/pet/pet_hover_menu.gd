@@ -4,9 +4,13 @@ extends Node
 signal action_requested(event_type: String)
 
 const BUTTON_SIZE := Vector2i(58, 58)
+const BUTTON_MARGIN := 6
+const TITLE_FONT_SIZE := 13
+const DESCRIPTION_FONT_SIZE := 10
 const BUTTON_SPECS := [
 	{
 		"label": "工作台",
+		"description": "全局",
 		"event": "open_workbench",
 		"offset": Vector2i(-38, 112),
 		"font": Color("17324d"),
@@ -17,6 +21,7 @@ const BUTTON_SPECS := [
 	},
 	{
 		"label": "今日",
+		"description": "待办",
 		"event": "open_today",
 		"offset": Vector2i(30, -54),
 		"font": Color("233b24"),
@@ -27,6 +32,7 @@ const BUTTON_SPECS := [
 	},
 	{
 		"label": "想法",
+		"description": "输入",
 		"event": "open_input",
 		"offset": Vector2i(126, -70),
 		"font": Color("3b294d"),
@@ -37,6 +43,7 @@ const BUTTON_SPECS := [
 	},
 	{
 		"label": "隐藏",
+		"description": "收纳",
 		"event": "hide_pet",
 		"offset": Vector2i(222, -42),
 		"font": Color("512126"),
@@ -68,12 +75,11 @@ func setup() -> void:
 		window.unfocusable = false
 
 		var button := Button.new()
-		button.text = String(spec["label"])
+		button.text = ""
 		button.position = Vector2.ZERO
 		button.size = Vector2(BUTTON_SIZE)
 		button.focus_mode = Control.FOCUS_NONE
 		button.mouse_filter = Control.MOUSE_FILTER_STOP
-		button.add_theme_font_size_override("font_size", 14)
 		var font_color: Color = spec["font"]
 		var border_color: Color = spec["border"]
 		button.add_theme_color_override("font_color", font_color)
@@ -82,6 +88,7 @@ func setup() -> void:
 		button.add_theme_stylebox_override("hover", _button_style(spec["hover"], border_color))
 		button.add_theme_stylebox_override("pressed", _button_style(spec["pressed"], border_color))
 		button.pressed.connect(_on_button_pressed.bind(String(spec["event"])))
+		_add_button_text(button, String(spec["label"]), String(spec["description"]), font_color)
 		window.add_child(button)
 
 		add_child(window)
@@ -147,6 +154,31 @@ func _button_style(fill: Color, border: Color) -> StyleBoxFlat:
 	style.set_border_width_all(3)
 	style.set_corner_radius_all(29)
 	return style
+
+
+func _add_button_text(button: Button, label: String, description: String, font_color: Color) -> void:
+	var content := VBoxContainer.new()
+	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	content.alignment = BoxContainer.ALIGNMENT_CENTER
+	content.set_anchors_preset(Control.PRESET_FULL_RECT)
+	content.offset_left = BUTTON_MARGIN
+	content.offset_top = BUTTON_MARGIN
+	content.offset_right = -BUTTON_MARGIN
+	content.offset_bottom = -BUTTON_MARGIN
+	content.add_child(_button_label(label, font_color, TITLE_FONT_SIZE))
+	content.add_child(_button_label(description, font_color, DESCRIPTION_FONT_SIZE))
+	button.add_child(content)
+
+
+func _button_label(text: String, font_color: Color, font_size: int) -> Label:
+	var label := Label.new()
+	label.text = text
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.add_theme_color_override("font_color", font_color)
+	label.add_theme_font_size_override("font_size", font_size)
+	return label
 
 
 func _on_button_pressed(event_type: String) -> void:
