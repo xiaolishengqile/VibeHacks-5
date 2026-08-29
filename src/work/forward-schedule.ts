@@ -124,9 +124,17 @@ const allocateTask = (
 	durationMinutes: number,
 	profile: WorkProfile,
 	reservations: readonly ScheduledSegment[],
-): readonly ScheduledSegment[] => durationMinutes <= profile.dailyCapacityMinutes.value
-	? [findContiguousSlot(earliest, durationMinutes, profile, reservations)]
-	: allocateSplitTask(earliest, durationMinutes, profile, reservations);
+): readonly ScheduledSegment[] => {
+	const aligned = alignToWorkingTime(earliest, profile, earliest);
+	const window = workingWindowAt(aligned, profile);
+	if (!window) throw new Error("无法读取工作日可用时段");
+	const availableMinutes = Math.floor(
+		(Date.parse(window.end) - Date.parse(window.start)) / minuteMs,
+	);
+	return durationMinutes <= availableMinutes
+		? [findContiguousSlot(aligned, durationMinutes, profile, reservations)]
+		: allocateSplitTask(aligned, durationMinutes, profile, reservations);
+};
 
 export function buildForwardSchedule(
 	nodes: readonly WorkNode[],

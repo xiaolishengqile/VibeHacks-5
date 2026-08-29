@@ -183,6 +183,43 @@ test("超过每日容量的任务拆成逐日工作时段", () => {
 	}]);
 });
 
+test("工作时段短于每日容量时仍按真实窗口拆段", () => {
+	const shortWorkdayProfile = createProfile({
+		id: "profile_short_workday",
+		timezone: "Asia/Shanghai",
+		workdayStart: "09:00",
+		workdayEnd: "12:00",
+		dailyCapacityMinutes: 420,
+		bufferPercent: 20,
+	}, "2026-08-28T09:00:00+08:00");
+	const node: WorkNode = {
+		id: "short_window_task",
+		goalId: "goal_1",
+		title: "集中整理材料",
+		owner: "self",
+		workMinutes: 240,
+		waitMinutes: 0,
+		dependencyIds: [],
+		status: "ready",
+	};
+
+	const window = buildForwardSchedule(
+		[node],
+		new Map([[node.id, "2026-09-04T12:00:00+08:00"]]),
+		shortWorkdayProfile,
+		"2026-08-31T09:00:00+08:00",
+		"2026-09-04T12:00:00+08:00",
+	).get(node.id);
+
+	assert.deepEqual(window?.scheduledSegments, [{
+		scheduledStart: "2026-08-31T09:00:00+08:00",
+		scheduledEnd: "2026-08-31T12:00:00+08:00",
+	}, {
+		scheduledStart: "2026-09-01T09:00:00+08:00",
+		scheduledEnd: "2026-09-01T11:00:00+08:00",
+	}]);
+});
+
 test("已完成依赖不再重复施加等待时间", () => {
 	const nodes: readonly WorkNode[] = [{
 		id: "done_request",
