@@ -46,7 +46,7 @@ const interpretation = (threadId, turnId) => {
 };
 
 const plan = (threadId, turnId) => {
-	send({ method: "item/plan/delta", params: { threadId, turnId, itemId: `plan-${turnId}`, delta: "读取授权目录并生成成果" } });
+	send({ method: "item/plan/delta", params: { threadId, turnId, itemId: `plan-${turnId}`, delta: "生成复盘成果" } });
 	completeTurn(threadId, turnId);
 };
 

@@ -14,7 +14,6 @@ const message = requiredElement<HTMLParagraphElement>("submit-message");
 const planSummary = requiredElement<HTMLParagraphElement>("plan-summary");
 const profileSummary = requiredElement<HTMLParagraphElement>("profile-summary");
 const confirmProfile = requiredElement<HTMLButtonElement>("confirm-profile");
-const directorySummary = requiredElement<HTMLParagraphElement>("directory-summary");
 const progressSummary = requiredElement<HTMLParagraphElement>("progress-summary");
 const resultLink = requiredElement<HTMLAnchorElement>("result-link");
 const approvalSummary = requiredElement<HTMLParagraphElement>("approval-summary");
@@ -43,7 +42,7 @@ const run = async (command: UiCommand): Promise<void> => {
 	if (request !== requestSequence) return;
 	if (result.ok) {
 		render(result.value);
-		setMessage("操作已更新。");
+		setMessage("");
 	} else {
 		setMessage(result.error, true);
 	}
@@ -82,7 +81,6 @@ const render = (value: ApplicationSnapshot): void => {
 		? `工作习惯：${value.profile.workdayStart}–${value.profile.workdayEnd} · 每日 ${value.profile.dailyCapacityMinutes} 分钟 · 缓冲 ${value.profile.bufferPercent}%`
 		: "提交首个真实工作案例后建立个人工作习惯。");
 	confirmProfile.hidden = !value.goal || !value.profile || value.profile.confirmed;
-	setText(directorySummary, value.workDirectory ? `工作目录：${value.workDirectory}` : "尚未选择工作目录");
 	const execution = value.executions.at(-1);
 	const executionView = execution ? toExecutionView(execution) : null;
 	setText(progressSummary, executionView ? `${executionView.title} · ${executionView.status} · ${executionView.progress}` : "当前没有执行任务");
@@ -103,7 +101,7 @@ const render = (value: ApplicationSnapshot): void => {
 		execution: execution ?? null,
 		hasApproval: Boolean(approval),
 		hasVerifiedArtifact: Boolean(artifact?.verified),
-		canStart: Boolean(value.goal && value.profile?.confirmed && nodeId && value.workDirectory && value.codex.ready && !active),
+		canStart: Boolean(value.goal && value.profile?.confirmed && nodeId && value.codex.ready && !active),
 	});
 	setText(executionPrimary, control.primaryLabel);
 	executionPrimary.disabled = control.primaryAction === null;
@@ -130,13 +128,13 @@ submit.addEventListener("click", async () => {
 	busy = false;
 	updateSubmitState();
 	if (request !== requestSequence) {
-		if (result.ok) setMessage("计划已更新，请检查后再开始执行。");
+		if (result.ok) setMessage("");
 		else setMessage(result.error, true);
 		return;
 	}
 	if (result.ok) {
 		render(result.value);
-		setMessage("计划已更新，请检查后再开始执行。");
+		setMessage("");
 	} else {
 		setMessage(result.error, true);
 	}
@@ -171,12 +169,6 @@ resetApplicationData.addEventListener("click", async () => {
 		resetApplicationData.disabled = false;
 		setMessage(error instanceof Error ? error.message : "数据清理失败，请重试。", true);
 	}
-});
-
-requiredElement<HTMLButtonElement>("choose-directory").addEventListener("click", async () => {
-	const result = await window.startDay.chooseWorkDirectory();
-	if (!result.ok) setMessage(result.error, true);
-	else await reload();
 });
 
 confirmProfile.addEventListener("click", () => {

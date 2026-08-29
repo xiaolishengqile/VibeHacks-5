@@ -57,7 +57,7 @@ const readyState = {
 	rateLimit: "额度可用",
 } as const;
 
-function setup(options: { readonly failClose?: boolean } = {}) {
+function setup(options: { readonly defaultWorkDirectory?: string; readonly failClose?: boolean } = {}) {
 	const core = new CoreBackend();
 	const repository = new MemoryExecutionRepository();
 	const calls: string[] = [];
@@ -105,6 +105,7 @@ function setup(options: { readonly failClose?: boolean } = {}) {
 		core,
 		setup: setupService,
 		executionRepository: repository,
+		...(options.defaultWorkDirectory ? { defaultWorkDirectory: options.defaultWorkDirectory } : {}),
 		createRuntime: async (publish) => {
 			publishRuntimeEvent = publish;
 			return runtime;
@@ -139,14 +140,14 @@ test("从工作节点创建只绑定已选择目录的执行计划", async () =>
 	assert.equal(snapshot.codex.ready, true);
 });
 
-test("未选择目录时不能启动执行", async () => {
-	const context = setup();
-	await assert.rejects(
-		context.backend.runCommand({
-			name: "startExecution", goalId: "goal-1", nodeId: "node-1", allowWebResearch: false,
-		}),
-		/工作目录/,
-	);
+test("未选择目录时使用默认产物目录启动执行", async () => {
+	const context = setup({ defaultWorkDirectory: "/tmp/startday-output" });
+	await context.backend.runCommand({
+		name: "startExecution", goalId: "goal-1", nodeId: "node-1", allowWebResearch: false,
+	});
+
+	assert.deepEqual(context.repository.run?.workspaceRoots, ["/tmp/startday-output"]);
+	assert.equal(context.repository.run?.allowedTools.includes("读取文件"), false);
 });
 
 test("审批、登录、成果打开和验收通过统一命令入口", async () => {

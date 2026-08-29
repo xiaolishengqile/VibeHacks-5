@@ -26,6 +26,11 @@ interface MiniPanelLike {
 	focus(): void;
 }
 
+interface ShortcutRegistry {
+	register(shortcut: string, callback: () => void): boolean;
+	unregister(shortcut: string): void;
+}
+
 const desktopDirectory = dirname(fileURLToPath(import.meta.url));
 const preloadPath = join(desktopDirectory, "preload.cjs");
 const rendererDirectory = join(desktopDirectory, "../renderer");
@@ -36,6 +41,29 @@ const secureWebPreferences = () => ({
 	contextIsolation: true,
 	sandbox: true,
 });
+
+export const windowShortcuts = {
+	miniPanel: "CommandOrControl+Shift+L",
+	workbench: "CommandOrControl+Shift+W",
+} as const;
+
+export function registerWindowShortcuts(
+	registry: ShortcutRegistry,
+	handlers: {
+		readonly openMiniPanel: () => void;
+		readonly openWorkbench: () => void;
+	},
+): () => void {
+	const registered: string[] = [];
+	const bind = (shortcut: string, callback: () => void): void => {
+		if (registry.register(shortcut, callback)) registered.push(shortcut);
+	};
+	bind(windowShortcuts.miniPanel, handlers.openMiniPanel);
+	bind(windowShortcuts.workbench, handlers.openWorkbench);
+	return () => {
+		for (const shortcut of registered) registry.unregister(shortcut);
+	};
+}
 
 export function workbenchWindowOptions(): SecureWindowOptions {
 	return {

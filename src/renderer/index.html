@@ -15,7 +15,6 @@
 					<h1 id="goal-title">把想法变成今天能推进的工作</h1>
 					<p id="goal-deadline">输入工作想法后，这里会展示完整计划。</p>
 				</div>
-				<button id="workbench-directory" class="secondary-button compact-button" type="button">选择工作目录</button>
 			</header>
 
 			<section class="calendar-panel" aria-label="周日历">
@@ -25,9 +24,9 @@
 						<h2 id="calendar-range">本周</h2>
 						<p id="calendar-outside" class="calendar-outside" hidden></p>
 					</div>
-					<div class="calendar-state" aria-label="当前日历状态">
-						<span>周视图</span>
-						<span>自动排期</span>
+					<div class="calendar-actions" aria-label="切换周">
+						<button id="calendar-prev-week" class="icon-button" type="button" aria-label="上一周" title="上一周">‹</button>
+						<button id="calendar-next-week" class="icon-button" type="button" aria-label="下一周" title="下一周">›</button>
 					</div>
 				</div>
 				<div id="week-calendar" class="week-calendar" aria-live="polite"></div>
@@ -35,7 +34,7 @@
 
 			<div class="dashboard-grid">
 				<section class="panel panel--today">
-					<p class="section-label">今天</p>
+					<p class="section-label">当前</p>
 					<h2 id="today-title">暂无当前行动</h2>
 					<div class="meta-row"><span id="today-risk" class="pill">等待输入</span><span id="today-time" class="muted"></span></div>
 					<p id="today-reason">从桌宠打开轻面板，输入你想完成的工作。</p>
@@ -46,19 +45,16 @@
 					<button id="start-today-execution" class="primary-button" type="button" disabled>生成执行计划</button>
 				</section>
 
-				<section class="panel panel--codex">
+				<section class="panel panel--execution">
 					<div class="section-heading">
-						<div><p class="section-label">执行代理</p><h2 id="codex-readiness">正在检查</h2></div>
+						<div><p class="section-label">执行</p><h2>状态与确认</h2></div>
 						<div class="button-row">
 							<button id="codex-login" class="text-button" type="button" hidden>登录</button>
 							<button id="codex-refresh" class="text-button" type="button">刷新状态</button>
 						</div>
 					</div>
-					<div class="status-grid">
-						<p><span class="muted">账号</span><strong id="codex-account">正在检查</strong></p>
-						<p><span class="muted">模型</span><strong id="codex-model">正在检查</strong></p>
-						<p><span class="muted">额度</span><strong id="codex-rate-limit">正在检查</strong></p>
-					</div>
+					<p id="readiness-summary" class="muted">正在检查执行环境</p>
+					<div id="execution-state-list" class="stack-list empty-state">当前没有执行任务或待确认操作</div>
 				</section>
 
 				<section class="panel panel--graph">
@@ -66,35 +62,10 @@
 					<div id="graph-list" class="stack-list empty-state">正在加载工作计划</div>
 				</section>
 
-				<section class="panel">
-					<p class="section-label">协作</p><h2>等待中的协作者</h2>
-					<div id="waiting-list" class="stack-list empty-state">暂无等待事项</div>
-				</section>
-
-				<section class="panel">
-					<p class="section-label">决策解释</p><h2>为什么现在做</h2>
-					<p id="decision-explanation">暂无可解释的排期决策</p>
-				</section>
-
-				<section class="panel">
-					<p class="section-label">执行</p><h2>执行任务</h2>
-					<div id="execution-list" class="stack-list empty-state">当前没有执行任务</div>
-				</section>
-
-				<section class="panel">
-					<p class="section-label">权限</p><h2>等待确认</h2>
-					<div id="approval-list" class="stack-list empty-state">当前没有待确认操作</div>
-				</section>
-
-				<section class="panel">
-					<p class="section-label">成果</p><h2>可验收成果</h2>
-					<div id="artifact-list" class="stack-list empty-state">当前没有可验收成果</div>
-				</section>
-
-				<section class="panel panel--history">
-					<p class="section-label">记录</p><h2>决策与执行历史</h2>
+				<details class="panel panel--history">
+					<summary>查看记录</summary>
 					<div id="history-list" class="stack-list empty-state">当前没有历史记录</div>
-				</section>
+				</details>
 			</div>
 		</main>
 		<script type="module" src="workbench.js"></script>

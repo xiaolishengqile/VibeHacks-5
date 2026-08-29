@@ -83,7 +83,7 @@ export class PermissionPolicy {
 			case "command":
 				return this.#command(request, run);
 			case "workspacePatch":
-				return confirm("medium", request.reason || "修改已授权工作目录内的文件");
+				return confirm("medium", request.reason || "修改应用产物空间内的文件");
 			case "network":
 				return request.purpose === "research"
 					&& run.networkEnabled
@@ -101,7 +101,7 @@ export class PermissionPolicy {
 	#file(request: Extract<PermissionRequest, { kind: "file" }>, run: ExecutionRun): PermissionDecision {
 		if (request.operation === "delete") return deny("第一版禁止删除文件");
 		const targetRoot = this.#containingRoot(request.path, run.workspaceRoots);
-		if (!targetRoot) return deny("文件不在用户选择的工作目录内");
+		if (!targetRoot) return deny("文件不在应用产物空间内");
 		if (request.operation === "read") {
 			return run.allowedTools.includes("读取文件") ? allow(`读取文件：${request.path}`) : deny("执行计划未获准读取文件");
 		}
@@ -112,7 +112,7 @@ export class PermissionPolicy {
 		}
 		if (request.operation === "move") {
 			if (!request.destinationPath || !this.#containingRoot(request.destinationPath, run.workspaceRoots)) {
-				return deny("移动目标不在用户选择的工作目录内");
+				return deny("移动目标不在应用产物空间内");
 			}
 			return confirm("medium", `移动文件：${request.path} → ${request.destinationPath}`);
 		}

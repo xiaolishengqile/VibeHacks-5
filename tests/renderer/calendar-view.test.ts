@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { emptyApplicationSnapshot } from "../../src/desktop/application-service.js";
-import { toWeekCalendarView } from "../../src/renderer/calendar-view.js";
+import { toWeekCalendarView, weekOffsetDeltaFromSwipe } from "../../src/renderer/calendar-view.js";
 
 const shanghaiProfile = {
 	timezone: "Asia/Shanghai",
@@ -184,4 +184,53 @@ test("跨年周显示年份并提示其他周仍有安排", () => {
 
 	assert.equal(calendar.rangeLabel, "2025年12月29日—2026年1月4日");
 	assert.equal(calendar.outsideWeekCount, 1);
+});
+
+test("周日历可以切换到上下周并显示对应任务", () => {
+	const node = (id: string, title: string) => ({
+		id,
+		goalId: "goal_review",
+		title,
+		owner: "self",
+		workMinutes: 30,
+		waitMinutes: 0,
+		dependencyIds: [] as string[],
+		status: "ready" as const,
+	});
+	const previous = node("previous", "整理上周遗留");
+	const current = node("current", "本周收集数据");
+	const next = node("next", "下周完成复盘");
+	const decision = (entry: typeof current, latestStart: string) => ({
+		nodeId: entry.id,
+		title: entry.title,
+		latestStart,
+		targetAt: latestStart,
+		recommendedAction: "start" as const,
+		risk: "low" as const,
+		reason: "排期验证",
+	});
+	const snapshot = {
+		...emptyApplicationSnapshot(),
+		profile: shanghaiProfile,
+		nodes: [current, previous, next],
+		decisions: [
+			decision(current, "2026-08-26T10:00:00+08:00"),
+			decision(previous, "2026-08-20T10:00:00+08:00"),
+			decision(next, "2026-09-02T10:00:00+08:00"),
+		],
+	};
+
+	const previousWeek = toWeekCalendarView(snapshot, "2026-08-26T09:00:00+08:00", -1);
+	const nextWeek = toWeekCalendarView(snapshot, "2026-08-26T09:00:00+08:00", 1);
+
+	assert.equal(previousWeek.rangeLabel, "8月17日—8月23日");
+	assert.deepEqual(previousWeek.days.flatMap((day) => day.items.map((item) => item.title)), ["整理上周遗留"]);
+	assert.equal(nextWeek.rangeLabel, "8月31日—9月6日");
+	assert.deepEqual(nextWeek.days.flatMap((day) => day.items.map((item) => item.title)), ["下周完成复盘"]);
+});
+
+test("水平滑动只在足够距离时切换周", () => {
+	assert.equal(weekOffsetDeltaFromSwipe(320, 180), 1);
+	assert.equal(weekOffsetDeltaFromSwipe(180, 320), -1);
+	assert.equal(weekOffsetDeltaFromSwipe(200, 170), 0);
 });

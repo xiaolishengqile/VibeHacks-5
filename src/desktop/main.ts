@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, screen, shell } from "electron";
+import { app, BrowserWindow, dialog, globalShortcut, ipcMain, screen, shell } from "electron";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 
@@ -26,6 +26,7 @@ import { toPetStatus } from "../renderer/view-models.js";
 import {
 	createMiniPanelWindow,
 	createWorkbenchWindow,
+	registerWindowShortcuts,
 	screenCornerForPoint,
 	showMiniPanelNearPet,
 } from "./windows.js";
@@ -35,11 +36,26 @@ let miniPanel: BrowserWindow | null = null;
 let closeIpc: (() => void) | null = null;
 let closeDatabase: (() => void) | null = null;
 let closePetEvents: (() => void) | null = null;
+let closeShortcuts: (() => void) | null = null;
 let shutdownStarted = false;
 
 const createWindows = (): void => {
 	if (!workbench || workbench.isDestroyed()) workbench = createWorkbenchWindow(BrowserWindow);
 	if (!miniPanel || miniPanel.isDestroyed()) miniPanel = createMiniPanelWindow(BrowserWindow);
+};
+
+const openMiniPanelNearCursor = (): void => {
+	createWindows();
+	if (!miniPanel) return;
+	const cursor = screen.getCursorScreenPoint();
+	const workArea = screen.getDisplayNearestPoint(cursor).workArea;
+	showMiniPanelNearPet(miniPanel, workArea, screenCornerForPoint(cursor, workArea));
+};
+
+const openWorkbenchWindow = (): void => {
+	createWindows();
+	workbench?.show();
+	workbench?.focus();
 };
 
 const startDesktop = async (): Promise<void> => {
@@ -51,10 +67,7 @@ const startDesktop = async (): Promise<void> => {
 	});
 	closePetEvents = bridge.onEvent((event) => {
 		if (event.type === "quit_requested") return app.quit();
-		if (event.type !== "open_panel" || !miniPanel) return;
-		const cursor = screen.getCursorScreenPoint();
-		const workArea = screen.getDisplayNearestPoint(cursor).workArea;
-		showMiniPanelNearPet(miniPanel, workArea, screenCornerForPoint(cursor, workArea));
+		if (event.type === "open_panel") openMiniPanelNearCursor();
 	});
 	petProcess.start({ port: bridge.port, token: bridge.token });
 
@@ -64,7 +77,9 @@ const startDesktop = async (): Promise<void> => {
 	const repository = new SqliteWorkRepository(database);
 	const executionRepository = new SqliteExecutionRepository(database);
 	const interpreterDirectory = join(app.getPath("userData"), "work-interpreter");
+	const generatedWorkDirectory = join(app.getPath("userData"), "generated-work");
 	mkdirSync(interpreterDirectory, { recursive: true, mode: 0o700 });
+	mkdirSync(generatedWorkDirectory, { recursive: true, mode: 0o700 });
 	const clock = { now: () => new Date().toISOString() };
 	const ids = new RandomIdGenerator();
 	const commands = new CommandService(repository, new DecisionEngine(), ids, clock);
@@ -89,6 +104,7 @@ const startDesktop = async (): Promise<void> => {
 		core: coreBackend,
 		setup: codexSetup,
 		executionRepository,
+		defaultWorkDirectory: generatedWorkDirectory,
 		createRuntime: (publish) => createDesktopExecutionRuntime({
 			setup: codexSetup,
 			repository: executionRepository,
@@ -119,10 +135,7 @@ const startDesktop = async (): Promise<void> => {
 			backend.setWorkDirectory(paths[0] ?? null);
 			return paths;
 		},
-		openWorkbench: () => {
-			workbench?.show();
-			workbench?.focus();
-		},
+		openWorkbench: openWorkbenchWindow,
 		hideMiniPanel: () => miniPanel?.hide(),
 		resetApplicationData: () => runApplicationReset({
 			closeBackend: () => backend.stopExecutionRuntime(),
@@ -142,11 +155,17 @@ const startDesktop = async (): Promise<void> => {
 	closeIpc = registerDesktopIpc(ipcMain, applicationService, () =>
 		[workbench, miniPanel].filter((window): window is BrowserWindow => window !== null).map((window) => window.webContents));
 	createWindows();
+	closeShortcuts = registerWindowShortcuts(globalShortcut, {
+		openMiniPanel: openMiniPanelNearCursor,
+		openWorkbench: openWorkbenchWindow,
+	});
 
 	app.on("before-quit", (event) => {
 		if (shutdownStarted) return;
 		event.preventDefault();
 		shutdownStarted = true;
+		closeShortcuts?.();
+		closeShortcuts = null;
 		petProcess.stop();
 		closePetEvents?.();
 		closePetEvents = null;

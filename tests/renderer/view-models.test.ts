@@ -57,9 +57,19 @@ test("今日行动包含标题、最晚开始、风险和中文原因", () => {
 	const view = toTodayActionView(readyDecision);
 	assert.ok(view);
 	assert.equal(view.title, "找小赵拿数据");
-	assert.equal(view.latestStart, "2026-08-28 10:00");
+	assert.equal(view.latestStart, "8月28日 10:00");
 	assert.equal(view.risk, "高风险");
 	assert.equal(view.reason, readyDecision.reason);
+});
+
+test("今日行动把排期明细压缩成可读提醒", () => {
+	const view = toTodayActionView({
+		...readyDecision,
+		latestStart: "2026-08-28T15:54:00+08:00",
+		reason: "目标为同事数据到齐 2026-09-01T09:30:00+08:00；预计工作 30 分钟；外部等待 1440 分钟；安全缓冲 6 分钟；最晚开始 2026-08-28T15:54:00+08:00",
+	});
+
+	assert.equal(view?.reason, "需要等待 1 天；预计工作 30 分钟；最晚 8月28日 15:54 开始。");
 });
 
 test("轻面板按执行阶段给出唯一的主要动作", () => {

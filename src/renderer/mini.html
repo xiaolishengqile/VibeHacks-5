@@ -15,8 +15,15 @@
 					<p id="mini-calendar-range" class="mini-kicker">本周</p>
 				</div>
 				<div class="window-actions" aria-label="窗口操作">
-					<span class="status-dot" aria-label="连接状态"></span>
-					<button id="reset-application-data" class="window-reset" type="button" aria-label="清理数据" title="清理本地计划与执行记录">清理数据</button>
+					<details class="mini-menu">
+						<summary id="mini-more" aria-label="更多操作" title="更多操作">…</summary>
+						<div class="mini-menu-list">
+							<button id="change-owner" type="button">更换协作方</button>
+							<button id="change-deadline" type="button">调整截止时间</button>
+							<button id="stop-work" type="button">停止节点</button>
+							<button id="reset-application-data" class="danger-text-button" type="button">清理数据</button>
+						</div>
+					</details>
 					<button id="close-mini-panel" class="window-close" type="button" aria-label="关闭轻面板" title="关闭轻面板（桌宠继续运行）">×</button>
 				</div>
 			</header>
@@ -39,24 +46,16 @@
 				<label for="work-input">添加日程</label>
 				<textarea id="work-input" rows="3" placeholder="例如：下周五前完成季度复盘，需要等同事一天的数据"></textarea>
 				<div class="input-actions">
-					<button class="voice-future" type="button" disabled title="语音输入后续开放">◉ 语音 · 后续开放</button>
 					<button id="submit-work" class="primary-button" type="button" disabled>整理计划</button>
 				</div>
 				<p id="submit-message" class="form-message" aria-live="polite"></p>
 			</section>
 
-			<nav class="quick-actions" aria-label="快速调整">
-				<button id="change-owner" type="button">更换协作方</button>
-				<button id="change-deadline" type="button">调整截止时间</button>
-				<button id="stop-work" type="button">停止节点</button>
-			</nav>
-
 			<section class="compact-card">
-				<div class="card-heading"><h2>计划与权限</h2><button id="choose-directory" class="text-button" type="button">选择目录</button></div>
+				<div class="card-heading"><h2>计划与权限</h2></div>
 				<p id="plan-summary">暂无计划。执行前会展示范围并请求确认。</p>
 				<p id="profile-summary" class="muted">提交首个真实工作案例后建立个人工作习惯。</p>
 				<button id="confirm-profile" class="text-button" type="button" hidden>确认工作习惯</button>
-				<p id="directory-summary" class="muted">尚未选择工作目录</p>
 				<p id="approval-summary" class="muted">当前没有待确认操作</p>
 			</section>
 
