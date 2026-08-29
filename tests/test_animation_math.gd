@@ -35,6 +35,8 @@ static func run() -> Array[String]:
 	window_controller.configure(window)
 	var interaction := PetInteractionScript.new()
 	interaction.setup(window_controller, animator)
+	var opened_panel := false
+	interaction.open_panel_requested.connect(func(): opened_panel = true)
 	var press := InputEventMouseButton.new()
 	press.button_index = MOUSE_BUTTON_LEFT
 	press.pressed = true
@@ -45,6 +47,17 @@ static func run() -> Array[String]:
 	interaction._input(press)
 	if window_controller.is_dragging():
 		errors.append("左键松开必须结束拖拽")
+	if opened_panel:
+		errors.append("单击桌宠不能再直接打开轻面板")
+	var menu = interaction.get_node("PetHoverMenu")
+	if not menu.is_menu_visible():
+		errors.append("单击桌宠必须显示四个菜单按钮")
+	press.pressed = true
+	interaction._input(press)
+	press.pressed = false
+	interaction._input(press)
+	if menu.is_menu_visible():
+		errors.append("再次单击桌宠必须收起四个菜单按钮")
 
 	interaction.free()
 	window.free()

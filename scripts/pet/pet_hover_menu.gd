@@ -4,7 +4,6 @@ extends Node
 signal action_requested(event_type: String)
 
 const BUTTON_SIZE := Vector2i(58, 58)
-const MENU_GAP_MARGIN := 14
 const BUTTON_SPECS := [
 	{"label": "工作台", "event": "open_workbench", "offset": Vector2i(-38, 112)},
 	{"label": "今日", "event": "open_today", "offset": Vector2i(30, -54)},
@@ -80,32 +79,12 @@ static func button_rects(pet_position: Vector2i, work_area: Rect2i) -> Array[Rec
 	return rects
 
 
-static func should_show_menu(
-	menu_visible: bool,
-	pet_rect: Rect2i,
-	button_rects_value: Array[Rect2i],
-	mouse_position: Vector2i,
-) -> bool:
-	if pet_rect.has_point(mouse_position):
-		return true
-	if not menu_visible:
-		return false
-	return _menu_zone(pet_rect, button_rects_value, MENU_GAP_MARGIN).has_point(mouse_position)
-
-
 func update_for_pet_window(pet_window: Window) -> void:
 	if pet_window == null or _button_windows.is_empty():
 		return
 	var rects := button_rects(pet_window.position, _work_area())
 	for index in _button_windows.size():
 		_button_windows[index].position = rects[index].position
-
-
-func wants_visible_at(mouse_position: Vector2i, pet_window: Window) -> bool:
-	if pet_window == null:
-		return false
-	var pet_rect := Rect2i(pet_window.position, pet_window.size)
-	return should_show_menu(_visible, pet_rect, button_rects(pet_window.position, _work_area()), mouse_position)
 
 
 func set_menu_visible(visible: bool) -> void:
@@ -121,22 +100,6 @@ func set_menu_visible(visible: bool) -> void:
 
 func is_menu_visible() -> bool:
 	return _visible
-
-
-static func _menu_zone(pet_rect: Rect2i, button_rects_value: Array[Rect2i], margin: int) -> Rect2i:
-	var left := pet_rect.position.x
-	var top := pet_rect.position.y
-	var right := pet_rect.position.x + pet_rect.size.x
-	var bottom := pet_rect.position.y + pet_rect.size.y
-	for rect in button_rects_value:
-		left = mini(left, rect.position.x)
-		top = mini(top, rect.position.y)
-		right = maxi(right, rect.position.x + rect.size.x)
-		bottom = maxi(bottom, rect.position.y + rect.size.y)
-	return Rect2i(
-		Vector2i(left - margin, top - margin),
-		Vector2i(right - left + margin * 2, bottom - top + margin * 2),
-	)
 
 
 func _button_style(fill: Color, border: Color) -> StyleBoxFlat:

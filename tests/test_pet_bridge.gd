@@ -16,9 +16,15 @@ static func run() -> Array[String]:
 		errors.append("超过阈值的移动不能识别为单击")
 	var menu := PetInteractionScript.menu_buttons()
 	if menu.map(func(button): return button["label"]) != ["工作台", "今日", "想法", "隐藏"]:
-		errors.append("悬浮菜单必须使用确认后的四个短名称")
+		errors.append("桌宠菜单必须使用确认后的四个短名称")
 	if menu.map(func(button): return button["event"]) != ["open_workbench", "open_today", "open_input", "hide_pet"]:
-		errors.append("悬浮菜单必须发出四个明确事件")
+		errors.append("桌宠菜单必须发出四个明确事件")
+	if PetInteractionScript.menu_visible_after_pet_click(false, true) != true:
+		errors.append("单击桌宠必须展开四个按钮")
+	if PetInteractionScript.menu_visible_after_pet_click(true, true) != false:
+		errors.append("菜单已显示时再次单击桌宠必须收起按钮")
+	if PetInteractionScript.menu_visible_after_pet_click(false, false) != false:
+		errors.append("拖动桌宠不能误触发菜单")
 	var menu_rects := PetInteractionScript.menu_button_rects(
 		Vector2i(1131, 626),
 		Rect2i(Vector2i(0, 0), Vector2i(1440, 900)),
@@ -29,16 +35,9 @@ static func run() -> Array[String]:
 		Vector2i(1257, 556),
 		Vector2i(1353, 584),
 	]:
-		errors.append("悬浮菜单必须拆成围绕桌宠的独立按钮位置")
+		errors.append("桌宠菜单必须拆成围绕桌宠的独立按钮位置")
 	if menu_rects.any(func(rect): return rect.size != Vector2i(58, 58)):
-		errors.append("悬浮菜单按钮必须使用独立小窗尺寸")
-	var pet_rect := Rect2i(Vector2i(1131, 626), Vector2i(285, 250))
-	if not PetInteractionScript.should_show_menu(false, pet_rect, menu_rects, Vector2i(1200, 720)):
-		errors.append("鼠标进入桌宠主体时必须显示悬浮菜单")
-	if PetInteractionScript.should_show_menu(false, pet_rect, menu_rects, Vector2i(1210, 590)):
-		errors.append("菜单未显示时不能只因鼠标经过上方空白区弹出")
-	if not PetInteractionScript.should_show_menu(true, pet_rect, menu_rects, Vector2i(1210, 590)):
-		errors.append("菜单显示后经过按钮和桌宠之间的空隙不能闪退")
+		errors.append("桌宠菜单按钮必须使用独立小窗尺寸")
 	var executing = PetStateScript.animation_parameters("executing")
 	var idle = PetStateScript.animation_parameters("idle")
 	if executing.speed <= idle.speed:

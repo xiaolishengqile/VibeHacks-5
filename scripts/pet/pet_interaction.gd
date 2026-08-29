@@ -39,13 +39,8 @@ static func menu_button_rects(pet_position: Vector2i, work_area: Rect2i) -> Arra
 	return PetHoverMenuScript.button_rects(pet_position, work_area)
 
 
-static func should_show_menu(
-	menu_visible: bool,
-	pet_rect: Rect2i,
-	button_rects_value: Array[Rect2i],
-	mouse_position: Vector2i,
-) -> bool:
-	return PetHoverMenuScript.should_show_menu(menu_visible, pet_rect, button_rects_value, mouse_position)
+static func menu_visible_after_pet_click(menu_visible: bool, clicked: bool) -> bool:
+	return not menu_visible if clicked else menu_visible
 
 
 static func should_quit_for_button(button_index: MouseButton, pressed: bool) -> bool:
@@ -76,7 +71,7 @@ func _input(event: InputEvent) -> void:
 		var release_position := Vector2(DisplayServer.mouse_get_position())
 		_window_controller.end_drag()
 		if _left_pressed and not _drag_started and is_click(_press_position, release_position):
-			open_panel_requested.emit()
+			_set_menu_visible(menu_visible_after_pet_click(_hover_menu.is_menu_visible(), true))
 		_left_pressed = false
 	_animator.react()
 
@@ -90,8 +85,8 @@ func _process(_delta: float) -> void:
 	var local_mouse := _local_mouse_position()
 	_animator.set_mouse_position(local_mouse)
 	_hover_menu.update_for_pet_window(get_window())
-	_set_menu_visible(_hover_menu.wants_visible_at(DisplayServer.mouse_get_position(), get_window())
-		and not _window_controller.is_dragging())
+	if _window_controller.is_dragging():
+		_set_menu_visible(false)
 
 
 func _on_menu_button_pressed(event_type: String) -> void:
