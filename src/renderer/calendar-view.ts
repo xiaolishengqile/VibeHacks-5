@@ -6,10 +6,13 @@ export interface CalendarItemView {
 	readonly id: string;
 	readonly title: string;
 	readonly dateTime: string;
+	readonly endDateTime: string;
 	readonly timeLabel: string;
 	readonly owner: string;
 	readonly status: string;
 	readonly tone: CalendarTone;
+	readonly risk: ApplicationSnapshot["decisions"][number]["risk"] | null;
+	readonly durationMinutes: number;
 }
 
 export interface CalendarDayView {
@@ -17,6 +20,8 @@ export interface CalendarDayView {
 	readonly weekday: string;
 	readonly dateLabel: string;
 	readonly isToday: boolean;
+	readonly scheduledMinutes: number;
+	readonly reservedMinutes: number;
 	readonly items: readonly CalendarItemView[];
 }
 
@@ -113,6 +118,11 @@ const weekdayLabel = (date: CalendarDate): string => weekdays[(asUtcDate(date).g
 const timeLabel = (date: ZonedInstant): string =>
 	`${String(date.hour).padStart(2, "0")}:${String(date.minute).padStart(2, "0")}`;
 
+const clockMinutes = (value: string | undefined): number => {
+	const match = /^(\d{2}):(\d{2})$/.exec(value ?? "");
+	return match ? Number(match[1]) * 60 + Number(match[2]) : 0;
+};
+
 const rangeLabel = (start: CalendarDate, end: CalendarDate): string => start.year === end.year
 	? `${dateLabel(start)}—${dateLabel(end)}`
 	: `${start.year}年${dateLabel(start)}—${end.year}年${dateLabel(end)}`;
@@ -158,7 +168,7 @@ export function toCalendarWindowView(
 	const current = zonedInstant(now, formatter) ?? zonedInstant(new Date(), formatter);
 	if (!current) throw new Error("无法读取当前日历日期");
 	const firstDecision = snapshot.decisions[0];
-	const firstDecisionDate = firstDecision ? zonedInstant(firstDecision.latestStart, formatter) : null;
+	const firstDecisionDate = firstDecision ? zonedInstant(firstDecision.scheduledStart, formatter) : null;
 	const anchor = firstDecisionDate ?? current;
 	const windowStart = addDays(startOfWeek(anchor), dayOffset);
 	const windowDates = Array.from({ length: Math.max(1, spanDays) }, (_, index) => addDays(windowStart, index));
@@ -170,35 +180,58 @@ export function toCalendarWindowView(
 
 	for (const node of snapshot.nodes) {
 		const decision = decisionByNode.get(node.id);
-		const dateTime = decision?.latestStart ?? node.latestStart ?? "";
+		const dateTime = decision?.scheduledStart ?? node.latestStart ?? "";
+		const endDateTime = decision?.scheduledEnd ?? dateTime;
 		const date = zonedInstant(dateTime, formatter);
-		if (!date) continue;
+		const endDate = zonedInstant(endDateTime, formatter);
+		if (!date || !endDate) continue;
 		const key = dateKey(date);
+		const weekday = asUtcDate(date).getUTCDay();
+		if (weekday === 0 || weekday === 6) continue;
 		if (!windowKeys.has(key)) {
 			outsideWindowCount += 1;
 			continue;
 		}
 		const items = itemsByDay.get(key) ?? [];
+		const durationMinutes = Math.max(0, Math.floor(
+			(Date.parse(endDateTime) - Date.parse(dateTime)) / 60_000,
+		));
+		const startLabel = timeLabel(date);
+		const endLabel = timeLabel(endDate);
 		items.push({
 			id: node.id,
 			title: node.title,
 			dateTime,
-			timeLabel: timeLabel(date),
+			endDateTime,
+			timeLabel: startLabel === endLabel ? startLabel : `${startLabel}—${endLabel}`,
 			owner: node.owner === "self" ? "自己" : node.owner,
 			status: statusLabels[node.status],
 			tone: toneFor(node.status, decision?.risk),
+			risk: decision?.risk ?? null,
+			durationMinutes,
 		});
 		itemsByDay.set(key, items);
 	}
 
 	const days = windowDates.map((date): CalendarDayView => {
 		const key = dateKey(date);
+		const weekday = asUtcDate(date).getUTCDay();
+		const isWeekend = weekday === 0 || weekday === 6;
+		const items = (itemsByDay.get(key) ?? []).sort((left, right) => left.dateTime.localeCompare(right.dateTime));
+		const scheduledMinutes = isWeekend
+			? 0
+			: items.reduce((total, item) => total + item.durationMinutes, 0);
+		const workdayMinutes = snapshot.profile
+			? Math.max(0, clockMinutes(snapshot.profile.workdayEnd) - clockMinutes(snapshot.profile.workdayStart))
+			: 0;
 		return {
 			key,
 			weekday: weekdayLabel(date),
 			dateLabel: dateLabel(date),
 			isToday: key === todayKey,
-			items: (itemsByDay.get(key) ?? []).sort((left, right) => left.timeLabel.localeCompare(right.timeLabel)),
+			scheduledMinutes,
+			reservedMinutes: isWeekend ? 0 : Math.max(0, workdayMinutes - scheduledMinutes),
+			items,
 		};
 	});
 	const windowEnd = windowDates[windowDates.length - 1] ?? windowStart;

@@ -45,7 +45,7 @@ test("周日历从周一开始并把工作节点放入对应日期", () => {
 				title: "找小王拿数据",
 				latestStart: "2026-08-26T09:30:00+08:00",
 				scheduledStart: "2026-08-26T09:30:00+08:00",
-				scheduledEnd: "2026-08-26T09:30:00+08:00",
+				scheduledEnd: "2026-08-26T11:00:00+08:00",
 				targetAt: "2026-08-26T18:00:00+08:00",
 				recommendedAction: "start" as const,
 				risk: "high" as const,
@@ -56,7 +56,7 @@ test("周日历从周一开始并把工作节点放入对应日期", () => {
 				title: "搭建复盘框架",
 				latestStart: "2026-08-28T14:00:00+08:00",
 				scheduledStart: "2026-08-28T14:00:00+08:00",
-				scheduledEnd: "2026-08-28T14:00:00+08:00",
+				scheduledEnd: "2026-08-28T15:30:00+08:00",
 				targetAt: "2026-08-28T18:00:00+08:00",
 				recommendedAction: "later" as const,
 				risk: "low" as const,
@@ -70,11 +70,18 @@ test("周日历从周一开始并把工作节点放入对应日期", () => {
 	assert.equal(calendar.rangeLabel, "8月24日—8月30日");
 	assert.deepEqual(calendar.days.map((day) => day.weekday), ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]);
 	assert.deepEqual(calendar.days[2]?.items.map((item) => [item.title, item.timeLabel, item.owner, item.tone, item.dateTime]), [
-		["找小王拿数据", "09:30", "小王", "urgent", "2026-08-26T09:30:00+08:00"],
+		["找小王拿数据", "09:30—11:00", "小王", "urgent", "2026-08-26T09:30:00+08:00"],
 	]);
 	assert.deepEqual(calendar.days[4]?.items.map((item) => [item.title, item.timeLabel, item.owner, item.tone]), [
-		["搭建复盘框架", "14:00", "自己", "planned"],
+		["搭建复盘框架", "14:00—15:30", "自己", "planned"],
 	]);
+	assert.equal(calendar.days[2]?.scheduledMinutes, 90);
+	assert.equal(calendar.days[2]?.reservedMinutes, 450);
+	for (const day of calendar.days.slice(5)) {
+		assert.equal(day.items.length, 0);
+		assert.equal(day.scheduledMinutes, 0);
+		assert.equal(day.reservedMinutes, 0);
+	}
 	assert.equal(calendar.focusDayKey, "2026-08-26");
 	assert.equal(calendar.focusItemId, "node_data");
 	assert.equal(calendar.outsideWeekCount, 0);
@@ -91,6 +98,8 @@ test("没有计划时日历显示当前周并聚焦今天", () => {
 	assert.equal(calendar.focusItemId, null);
 	assert.equal(calendar.days.find((day) => day.isToday)?.weekday, "周六");
 	assert.equal(calendar.days.every((day) => day.items.length === 0), true);
+	assert.equal(calendar.days[5]?.scheduledMinutes, 0);
+	assert.equal(calendar.days[5]?.reservedMinutes, 0);
 });
 
 test("日历按用户时区处理跨日和夏令时", () => {
@@ -117,33 +126,33 @@ test("日历按用户时区处理跨日和夏令时", () => {
 		decisions: [{
 			nodeId: "node_midnight",
 			title: "跨时区检查",
-			latestStart: "2026-08-24T00:30:00+08:00",
-			scheduledStart: "2026-08-24T00:30:00+08:00",
-			scheduledEnd: "2026-08-24T00:30:00+08:00",
-			targetAt: "2026-08-24T01:00:00+08:00",
+			latestStart: "2026-08-25T00:30:00+08:00",
+			scheduledStart: "2026-08-25T00:30:00+08:00",
+			scheduledEnd: "2026-08-25T00:30:00+08:00",
+			targetAt: "2026-08-25T01:00:00+08:00",
 			recommendedAction: "start" as const,
 			risk: "medium" as const,
 			reason: "跨时区验证",
 		}],
 	};
 
-	const calendar = toWeekCalendarView(snapshot, "2026-08-23T12:00:00Z");
+	const calendar = toWeekCalendarView(snapshot, "2026-08-24T12:00:00Z");
 
-	assert.equal(calendar.rangeLabel, "8月17日—8月23日");
-	assert.equal(calendar.focusDayKey, "2026-08-23");
-	assert.deepEqual(calendar.days[6]?.items.map((item) => [item.title, item.timeLabel]), [["跨时区检查", "09:30"]]);
+	assert.equal(calendar.rangeLabel, "8月24日—8月30日");
+	assert.equal(calendar.focusDayKey, "2026-08-24");
+	assert.deepEqual(calendar.days[0]?.items.map((item) => [item.title, item.timeLabel]), [["跨时区检查", "09:30"]]);
 
 	const fallback = toWeekCalendarView({
 		...snapshot,
 		decisions: [{
 			...snapshot.decisions[0]!,
-			latestStart: "2026-11-01T09:30:00Z",
-			scheduledStart: "2026-11-01T09:30:00Z",
-			scheduledEnd: "2026-11-01T09:30:00Z",
+			latestStart: "2026-11-02T09:30:00Z",
+			scheduledStart: "2026-11-02T09:30:00Z",
+			scheduledEnd: "2026-11-02T09:30:00Z",
 		}],
-	}, "2026-11-01T12:00:00Z");
-	assert.equal(fallback.rangeLabel, "10月26日—11月1日");
-	assert.equal(fallback.days[6]?.items[0]?.timeLabel, "01:30");
+	}, "2026-11-02T12:00:00Z");
+	assert.equal(fallback.rangeLabel, "11月2日—11月8日");
+	assert.equal(fallback.days[0]?.items[0]?.timeLabel, "01:30");
 });
 
 test("跨年周显示年份并提示其他周仍有安排", () => {
