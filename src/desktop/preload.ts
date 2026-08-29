@@ -14,5 +14,6 @@ export interface DesktopApi {
 	onMiniPanelMode(listener: (mode: MiniPanelMode) => void): () => void;
 	resetApplicationData(): Promise<Result<null, string>>;
 	chooseWorkDirectory(): Promise<Result<string | null, string>>;
+	recognizeVoice(audio: string): Promise<Result<string, string>>;
 	subscribe(listener: () => void): () => void;
 }

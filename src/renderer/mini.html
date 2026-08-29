@@ -10,20 +10,16 @@
 	<body class="mini-body">
 		<main id="mini-shell" class="shell shell--mini" data-mini-mode="today">
 			<header class="mini-header drag-region">
-				<div>
-					<p class="eyebrow">启动日日历</p>
-					<p id="mini-calendar-range" class="mini-kicker">本周</p>
+				<div class="mini-header-leading">
+					<button id="conversation-history-toggle" class="history-toggle" type="button" aria-label="历史对话" title="历史对话">
+						<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v5h5M12 7v5l3 2"/></svg>
+					</button>
+					<div>
+						<p class="eyebrow">启动日日历</p>
+						<p id="mini-calendar-range" class="mini-kicker">本周</p>
+					</div>
 				</div>
 				<div class="window-actions" aria-label="窗口操作">
-					<details class="mini-menu">
-						<summary id="mini-more" aria-label="更多操作" title="更多操作">…</summary>
-						<div class="mini-menu-list">
-							<button id="change-owner" type="button">更换协作方</button>
-							<button id="change-deadline" type="button">调整截止时间</button>
-							<button id="stop-work" type="button">停止节点</button>
-							<button id="reset-application-data" class="danger-text-button" type="button">清理数据</button>
-						</div>
-					</details>
 					<button id="close-mini-panel" class="window-close" type="button" aria-label="关闭轻面板" title="关闭轻面板（桌宠继续运行）">×</button>
 				</div>
 			</header>
@@ -42,11 +38,25 @@
 				</div>
 			</section>
 
+			<aside id="conversation-history" class="conversation-history" aria-label="历史对话" hidden>
+				<div class="history-heading">
+					<div><strong>历史对话</strong><span>仅保留在当前页面</span></div>
+					<button id="conversation-history-close" type="button" aria-label="关闭历史对话">×</button>
+				</div>
+				<div id="conversation-history-list" class="conversation-history-list"></div>
+			</aside>
+
 			<section class="input-card" aria-label="安排对话">
 				<div id="chat-log" class="chat-log" aria-live="polite"></div>
+				<div class="work-composer">
 				<textarea id="work-input" rows="3" placeholder="把要安排的事发给我，我会拆解并同步到日历"></textarea>
 				<div class="input-actions">
-					<button id="submit-work" class="primary-button" type="button" disabled>发送</button>
+						<button id="voice-input" class="voice-button" type="button" aria-label="语音输入" title="语音输入">
+							<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3zM5 11a7 7 0 0 0 14 0M12 18v4"/></svg>
+						</button>
+						<button id="manual-todo" class="text-button" type="button">手动待办</button>
+						<button id="submit-work" class="primary-button" type="button" disabled>安排</button>
+					</div>
 				</div>
 				<p id="submit-message" class="form-message" aria-live="polite"></p>
 			</section>

@@ -137,6 +137,28 @@ export const weekOffsetDeltaFromSwipe = (
 	return distance > 0 ? 1 : -1;
 };
 
+export interface CalendarGesture {
+	readonly distanceX: number;
+	readonly width: number;
+	readonly durationMs: number;
+}
+
+export const dayOffsetDeltaFromGesture = ({
+	distanceX,
+	width,
+	durationMs,
+}: CalendarGesture): number => {
+	const direction = distanceX === 0 ? 0 : distanceX < 0 ? 1 : -1;
+	if (direction === 0) return 0;
+	const dayWidth = Math.max(1, width) / 7;
+	const distanceDays = Math.abs(distanceX) / dayWidth;
+	const velocity = Math.abs(distanceX) / Math.max(16, durationMs);
+	if (distanceDays < 0.5 && velocity < 0.5) return 0;
+	const velocityDays = velocity >= 0.5 ? Math.round(velocity * 2) : 0;
+	const projectedDays = Math.max(Math.round(distanceDays), velocityDays);
+	return direction * Math.min(7, Math.max(1, projectedDays));
+};
+
 const toneFor = (
 	status: ApplicationSnapshot["nodes"][number]["status"],
 	risk: ApplicationSnapshot["decisions"][number]["risk"] | undefined,

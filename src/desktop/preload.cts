@@ -14,6 +14,7 @@ const channels = Object.freeze({
 	miniMode: "window:mini-mode",
 	resetApplicationData: "application:reset-data",
 	chooseDirectory: "workspace:choose-directory",
+	recognizeVoice: "voice:recognize",
 	event: "application:event",
 	changed: "application:changed",
 });
@@ -41,6 +42,7 @@ const desktopApi = {
 	},
 	resetApplicationData: () => ipcRenderer.invoke(channels.resetApplicationData),
 	chooseWorkDirectory: () => ipcRenderer.invoke(channels.chooseDirectory),
+	recognizeVoice: (audio) => ipcRenderer.invoke(channels.recognizeVoice, { audio }),
 	subscribe: (listener) => {
 		const wrapped = () => listener();
 		ipcRenderer.on(channels.changed, wrapped);

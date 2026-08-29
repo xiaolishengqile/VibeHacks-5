@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { emptyApplicationSnapshot } from "../../src/desktop/application-service.js";
-import { toCalendarWindowView, toWeekCalendarView, weekOffsetDeltaFromSwipe } from "../../src/renderer/calendar-view.js";
+import { dayOffsetDeltaFromGesture, toCalendarWindowView, toWeekCalendarView, weekOffsetDeltaFromSwipe } from "../../src/renderer/calendar-view.js";
 
 const shanghaiProfile = {
 	timezone: "Asia/Shanghai",
@@ -365,4 +365,18 @@ test("水平滑动只在足够距离时切换周", () => {
 	assert.equal(weekOffsetDeltaFromSwipe(320, 180), 1);
 	assert.equal(weekOffsetDeltaFromSwipe(180, 320), -1);
 	assert.equal(weekOffsetDeltaFromSwipe(200, 170), 0);
+});
+
+test("日历拖动幅度随距离增加并限制单次最多移动一周", () => {
+	assert.equal(dayOffsetDeltaFromGesture({ distanceX: -30, width: 700, durationMs: 500 }), 0);
+	assert.equal(dayOffsetDeltaFromGesture({ distanceX: -110, width: 700, durationMs: 500 }), 1);
+	assert.equal(dayOffsetDeltaFromGesture({ distanceX: -310, width: 700, durationMs: 500 }), 3);
+	assert.equal(dayOffsetDeltaFromGesture({ distanceX: -900, width: 700, durationMs: 500 }), 7);
+	assert.equal(dayOffsetDeltaFromGesture({ distanceX: 310, width: 700, durationMs: 500 }), -3);
+});
+
+test("快速甩动会按释放速度增加移动幅度但不反转方向", () => {
+	assert.equal(dayOffsetDeltaFromGesture({ distanceX: -45, width: 700, durationMs: 35 }), 3);
+	assert.equal(dayOffsetDeltaFromGesture({ distanceX: 45, width: 700, durationMs: 35 }), -3);
+	assert.equal(dayOffsetDeltaFromGesture({ distanceX: -45, width: 700, durationMs: 500 }), 0);
 });

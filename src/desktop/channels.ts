@@ -9,6 +9,7 @@ export const channels = {
 	miniMode: "window:mini-mode",
 	resetApplicationData: "application:reset-data",
 	chooseDirectory: "workspace:choose-directory",
+	recognizeVoice: "voice:recognize",
 	event: "application:event",
 	changed: "application:changed",
 } as const;
@@ -20,4 +21,5 @@ export type InvokeChannel = typeof channels.snapshot
 	| typeof channels.openWorkbench
 	| typeof channels.hideMiniPanel
 	| typeof channels.resetApplicationData
-	| typeof channels.chooseDirectory;
+	| typeof channels.chooseDirectory
+	| typeof channels.recognizeVoice;

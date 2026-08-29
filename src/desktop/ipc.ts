@@ -3,6 +3,7 @@ import type { IpcMain, WebContents } from "electron";
 import { err, ok, type Result } from "../shared/result.js";
 import { type ApplicationService, type UiCommand } from "./application-service.js";
 import { channels, type InvokeChannel } from "./channels.js";
+import { recognizeVoice } from "./voice-recognizer.js";
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
 	typeof value === "object" && value !== null && !Array.isArray(value);
@@ -133,6 +134,11 @@ export function createInvokeHandler(service: ApplicationService) {
 					return ok(null);
 				case channels.chooseDirectory:
 					return ok(await service.chooseWorkDirectory());
+				case channels.recognizeVoice: {
+					const audioBase64 = isRecord(payload) ? requiredText(payload, "audio") : null;
+					if (!audioBase64) return err("语音数据无效");
+					return ok(await recognizeVoice(audioBase64));
+				}
 				default:
 					return err("不支持的桌面请求");
 			}
@@ -157,6 +163,7 @@ export function registerDesktopIpc(
 		channels.hideMiniPanel,
 		channels.resetApplicationData,
 		channels.chooseDirectory,
+		channels.recognizeVoice,
 	];
 	for (const channel of invokeChannels) {
 		ipcMain.handle(channel, (_event, payload) => invoke(channel, payload));

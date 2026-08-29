@@ -34,6 +34,15 @@ assertReleaseTarget();
 await executable(godot, "Godot");
 await executable(codexBinary, "Codex");
 await run(join(projectRoot, "scripts", "export.command"), [], { cwd: projectRoot });
+const petExecutable = join(petApp, "Contents", "MacOS", "毛球桌宠");
+const petArm64 = `${petExecutable}.arm64`;
+const { stdout: petArchitectures } = await run("/usr/bin/lipo", ["-archs", petExecutable]);
+if (petArchitectures.trim().split(/\s+/).includes("x86_64")) {
+	await run("/usr/bin/lipo", [petExecutable, "-thin", "arm64", "-output", petArm64]);
+	await rename(petArm64, petExecutable);
+}
+await chmod(petExecutable, 0o755);
+await run("/usr/bin/codesign", ["--force", "--deep", "--sign", "-", petApp]);
 await run(join(projectRoot, "tests", "test_export_app.command"), [], { cwd: projectRoot });
 await run("npm", ["run", "build:desktop"], { cwd: projectRoot });
 

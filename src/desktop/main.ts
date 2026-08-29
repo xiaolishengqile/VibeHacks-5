@@ -1,5 +1,5 @@
 import { app, BrowserWindow, dialog, globalShortcut, ipcMain, screen, shell } from "electron";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { RandomIdGenerator } from "../shared/ids.js";
@@ -79,7 +79,24 @@ const closeMiniTodayPreview = (): void => {
 	if (currentMiniPanelMode === "today") miniPanel?.hide();
 };
 
+const loadEnvFile = (): void => {
+	try {
+		const envPath = join(app.getAppPath(), ".env");
+		const content = readFileSync(envPath, "utf8");
+		for (const line of content.split("\n")) {
+			const trimmed = line.trim();
+			if (!trimmed || trimmed.startsWith("#")) continue;
+			const eqIndex = trimmed.indexOf("=");
+			if (eqIndex === -1) continue;
+			const key = trimmed.slice(0, eqIndex).trim();
+			const value = trimmed.slice(eqIndex + 1).trim();
+			if (key && !process.env[key]) process.env[key] = value;
+		}
+	} catch { /* .env not found, skip */ }
+};
+
 const startDesktop = async (): Promise<void> => {
+	loadEnvFile();
 	const bridge = await PetBridge.start();
 	const petProcess = new PetProcess({
 		packaged: app.isPackaged,

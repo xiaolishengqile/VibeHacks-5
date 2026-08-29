@@ -13,3 +13,5 @@ artifacts/*.import
 *.sqlite-wal
 *.log
 .DS_Store
+.env
+.env.*
