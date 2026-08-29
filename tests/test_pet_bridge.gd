@@ -16,16 +16,27 @@ static func run() -> Array[String]:
 	if PetInteractionScript.is_click(Vector2(10, 10), Vector2(20, 10), 4.0) != false:
 		errors.append("超过阈值的移动不能识别为单击")
 	var pet_rect := Rect2i(Vector2i(100, 100), Vector2i(200, 200))
-	if PetInteractionScript.hover_action_for_pointer(false, Vector2i(120, 120), pet_rect, false) != "open_today":
-		errors.append("鼠标进入桌宠区域必须请求显示今日待办")
+	if PetInteractionScript.hover_action_for_pointer(false, Vector2i(120, 120), pet_rect, false) != "show_menu":
+		errors.append("鼠标进入桌宠区域必须只请求显示四个快捷按钮")
 	if PetInteractionScript.hover_action_for_pointer(true, Vector2i(120, 120), pet_rect, false) != "":
-		errors.append("鼠标停留在桌宠区域不能重复请求今日待办")
-	if PetInteractionScript.hover_action_for_pointer(true, Vector2i(20, 20), pet_rect, false) != "close_today":
-		errors.append("鼠标离开桌宠区域必须请求关闭今日待办")
+		errors.append("鼠标停留在桌宠区域不能重复请求快捷按钮")
+	if PetInteractionScript.hover_action_for_pointer(true, Vector2i(20, 20), pet_rect, false) != "":
+		errors.append("鼠标离开桌宠区域不能直接关闭业务面板")
 	if PetInteractionScript.hover_action_for_pointer(false, Vector2i(120, 120), pet_rect, true) != "":
-		errors.append("拖动桌宠时不能误触发今日待办")
+		errors.append("拖动桌宠时不能误触发快捷按钮")
 	if PetInteractionScript.hover_action_for_pointer(true, Vector2i(20, 20), pet_rect, true) != "":
-		errors.append("拖动桌宠时不能误触发关闭今日待办")
+		errors.append("拖动桌宠时不能误触发关闭业务面板")
+	var menu_buttons := PetInteractionScript.menu_buttons()
+	if menu_buttons.size() != 4:
+		errors.append("悬浮菜单必须提供四个快捷按钮")
+	if PetInteractionScript.should_hide_menu_for_pointer(Vector2i(120, 120), pet_rect, []) != false:
+		errors.append("指针仍在桌宠上时不能收起快捷按钮")
+	if PetInteractionScript.should_hide_menu_for_pointer(Vector2i(420, 420), pet_rect, [Rect2i(400, 400, 58, 58)]) != false:
+		errors.append("指针仍在快捷按钮上时不能收起快捷按钮")
+	if PetInteractionScript.should_hide_menu_for_pointer(Vector2i(330, 120), pet_rect, [Rect2i(400, 100, 58, 58)]) != false:
+		errors.append("指针在桌宠和快捷按钮之间移动时不能提前收起快捷按钮")
+	if PetInteractionScript.should_hide_menu_for_pointer(Vector2i(20, 20), pet_rect, [Rect2i(400, 400, 58, 58)]) != true:
+		errors.append("指针离开桌宠和快捷按钮时必须收起快捷按钮")
 	var tree := Engine.get_main_loop() as SceneTree
 	var bridge_client := PetBridgeClientScript.new()
 	tree.root.add_child(bridge_client)

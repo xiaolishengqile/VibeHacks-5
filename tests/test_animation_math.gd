@@ -52,20 +52,27 @@ static func run() -> Array[String]:
 	if window_controller.is_dragging():
 		errors.append("左键松开必须结束拖拽")
 	if opened_panel:
-		errors.append("单击桌宠不能再直接打开轻面板")
+		errors.append("单击桌宠不能走旧的统一轻面板入口")
 	if not requested_actions.is_empty():
-		errors.append("单击桌宠不能发出入口事件")
+		errors.append("单击桌宠不能立刻触发今日任务，必须给双击留出取消窗口")
 	if interaction.has_node("PetHoverMenu") and interaction.get_node("PetHoverMenu").is_menu_visible():
-		errors.append("单击桌宠不能显示四个菜单按钮")
+		errors.append("单击桌宠进入今日任务前必须先收起四个菜单按钮")
+	interaction._complete_pending_single_click()
+	if requested_actions != ["open_today"]:
+		errors.append("单击桌宠必须在双击窗口结束后请求今日任务")
 
 	requested_actions.clear()
+	interaction._set_menu_visible(true)
 	press.double_click = true
 	press.pressed = true
 	interaction._unhandled_input(press)
 	press.pressed = false
 	interaction._unhandled_input(press)
+	interaction._complete_pending_single_click()
 	if requested_actions != ["open_input"]:
-		errors.append("双击桌宠必须直接请求输入状态")
+		errors.append("双击桌宠必须取消单击今日任务并直接请求输入状态")
+	if interaction.has_node("PetHoverMenu") and interaction.get_node("PetHoverMenu").is_menu_visible():
+		errors.append("双击桌宠进入输入状态后必须收起四个菜单按钮")
 
 	interaction.free()
 	window.free()
