@@ -73,20 +73,22 @@ test("桌宠悬浮菜单事件打开对应入口", async ({ startDay }) => {
 });
 
 test("完整工作台周日历切换时有横向滑动动画", async ({ startDay }) => {
+	const calendar = startDay.workbench.locator("#week-calendar");
+	await expect(calendar.locator("[data-calendar-track]")).toHaveCount(1);
 	await startDay.workbench.getByRole("button", { name: "下一周" }).click();
-	const duringSlide = await startDay.workbench.locator("#week-calendar").evaluate((calendar) => {
+	const duringSlide = await calendar.evaluate((calendar) => {
 		const track = calendar.querySelector<HTMLElement>("[data-calendar-track]");
 		if (!track) return null;
 		const style = getComputedStyle(track);
 		return {
 			busy: calendar.getAttribute("aria-busy"),
 			panels: track.children.length,
-			sliding: style.transitionProperty.includes("transform") && style.transform !== "none",
+			sliding: track.getAnimations().length > 0 && style.transform !== "none",
 		};
 	});
 
 	expect(duringSlide).toEqual({ busy: "true", panels: 3, sliding: true });
-	await expect.poll(() => startDay.workbench.locator("#week-calendar").evaluate((calendar) => ({
+	await expect.poll(() => calendar.evaluate((calendar) => ({
 		busy: calendar.getAttribute("aria-busy"),
 		panels: calendar.querySelector("[data-calendar-track]")?.children.length ?? 0,
 		range: document.getElementById("calendar-range")?.textContent,

@@ -79,15 +79,15 @@ button:focus-visible, textarea:focus-visible, input:focus-visible, a:focus-visib
 	border-radius: 18px;
 	background: rgba(246, 247, 250, 0.74);
 	touch-action: pan-y;
+	cursor: grab;
+	user-select: none;
 }
+.week-calendar.is-dragging { cursor: grabbing; }
 .calendar-slider-track {
 	display: flex;
 	min-height: inherit;
 	transform: translate3d(0, 0, 0);
 	will-change: transform;
-}
-.calendar-slider-track.is-sliding {
-	transition: transform 560ms cubic-bezier(0.32, 0.72, 0, 1);
 }
 .calendar-week {
 	display: grid;

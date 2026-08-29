@@ -109,6 +109,7 @@ const addDays = (date: CalendarDate, days: number): CalendarDate => {
 };
 
 const dateLabel = (date: CalendarDate): string => `${date.month}月${date.day}日`;
+const weekdayLabel = (date: CalendarDate): string => weekdays[(asUtcDate(date).getUTCDay() + 6) % 7] ?? "";
 const timeLabel = (date: ZonedInstant): string =>
 	`${String(date.hour).padStart(2, "0")}:${String(date.minute).padStart(2, "0")}`;
 
@@ -138,10 +139,11 @@ const toneFor = (
 	return "planned";
 };
 
-export function toWeekCalendarView(
+export function toCalendarWindowView(
 	snapshot: ApplicationSnapshot,
 	now = new Date().toISOString(),
-	weekOffset = 0,
+	dayOffset = 0,
+	spanDays = 7,
 ): WeekCalendarView {
 	const timeZone = calendarTimeZone(snapshot);
 	const formatter = new Intl.DateTimeFormat("en-CA", {
@@ -158,13 +160,13 @@ export function toWeekCalendarView(
 	const firstDecision = snapshot.decisions[0];
 	const firstDecisionDate = firstDecision ? zonedInstant(firstDecision.latestStart, formatter) : null;
 	const anchor = firstDecisionDate ?? current;
-	const weekStart = addDays(startOfWeek(anchor), weekOffset * 7);
-	const weekDates = weekdays.map((_, index) => addDays(weekStart, index));
-	const weekKeys = new Set(weekDates.map(dateKey));
+	const windowStart = addDays(startOfWeek(anchor), dayOffset);
+	const windowDates = Array.from({ length: Math.max(1, spanDays) }, (_, index) => addDays(windowStart, index));
+	const windowKeys = new Set(windowDates.map(dateKey));
 	const todayKey = dateKey(current);
 	const decisionByNode = new Map(snapshot.decisions.map((decision) => [decision.nodeId, decision]));
 	const itemsByDay = new Map<string, CalendarItemView[]>();
-	let outsideWeekCount = 0;
+	let outsideWindowCount = 0;
 
 	for (const node of snapshot.nodes) {
 		const decision = decisionByNode.get(node.id);
@@ -172,8 +174,8 @@ export function toWeekCalendarView(
 		const date = zonedInstant(dateTime, formatter);
 		if (!date) continue;
 		const key = dateKey(date);
-		if (!weekKeys.has(key)) {
-			outsideWeekCount += 1;
+		if (!windowKeys.has(key)) {
+			outsideWindowCount += 1;
 			continue;
 		}
 		const items = itemsByDay.get(key) ?? [];
@@ -189,29 +191,37 @@ export function toWeekCalendarView(
 		itemsByDay.set(key, items);
 	}
 
-	const days = weekDates.map((date, index): CalendarDayView => {
+	const days = windowDates.map((date): CalendarDayView => {
 		const key = dateKey(date);
 		return {
 			key,
-			weekday: weekdays[index] ?? "",
+			weekday: weekdayLabel(date),
 			dateLabel: dateLabel(date),
 			isToday: key === todayKey,
 			items: (itemsByDay.get(key) ?? []).sort((left, right) => left.timeLabel.localeCompare(right.timeLabel)),
 		};
 	});
-	const weekEnd = weekDates[6] ?? weekStart;
-	const focusDayKey = weekOffset === 0
+	const windowEnd = windowDates[windowDates.length - 1] ?? windowStart;
+	const focusDayKey = dayOffset === 0
 		? dateKey(anchor)
-		: [...itemsByDay.keys()].sort()[0] ?? dateKey(weekStart);
-	const focusItemId = weekOffset === 0
+		: [...itemsByDay.keys()].sort()[0] ?? dateKey(windowStart);
+	const focusItemId = dayOffset === 0
 		? firstDecision?.nodeId ?? null
 		: itemsByDay.get(focusDayKey)?.[0]?.id ?? null;
 
 	return {
-		rangeLabel: rangeLabel(weekStart, weekEnd),
+		rangeLabel: rangeLabel(windowStart, windowEnd),
 		focusDayKey,
 		focusItemId,
-		outsideWeekCount,
+		outsideWeekCount: outsideWindowCount,
 		days,
 	};
+}
+
+export function toWeekCalendarView(
+	snapshot: ApplicationSnapshot,
+	now = new Date().toISOString(),
+	weekOffset = 0,
+): WeekCalendarView {
+	return toCalendarWindowView(snapshot, now, weekOffset * 7);
 }

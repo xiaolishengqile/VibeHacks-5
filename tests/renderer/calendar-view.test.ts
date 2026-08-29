@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { emptyApplicationSnapshot } from "../../src/desktop/application-service.js";
-import { toWeekCalendarView, weekOffsetDeltaFromSwipe } from "../../src/renderer/calendar-view.js";
+import { toCalendarWindowView, toWeekCalendarView, weekOffsetDeltaFromSwipe } from "../../src/renderer/calendar-view.js";
 
 const shanghaiProfile = {
 	timezone: "Asia/Shanghai",
@@ -227,6 +227,64 @@ test("周日历可以切换到上下周并显示对应任务", () => {
 	assert.deepEqual(previousWeek.days.flatMap((day) => day.items.map((item) => item.title)), ["整理上周遗留"]);
 	assert.equal(nextWeek.rangeLabel, "8月31日—9月6日");
 	assert.deepEqual(nextWeek.days.flatMap((day) => day.items.map((item) => item.title)), ["下周完成复盘"]);
+});
+
+test("日历窗口可以从任意一天开始连续显示七天", () => {
+	const anchor = {
+		id: "anchor",
+		goalId: "goal_review",
+		title: "本周启动",
+		owner: "self",
+		workMinutes: 30,
+		waitMinutes: 0,
+		dependencyIds: [] as string[],
+		status: "ready" as const,
+	};
+	const later = {
+		id: "day_stop",
+		goalId: "goal_review",
+		title: "9月交付",
+		owner: "self",
+		workMinutes: 30,
+		waitMinutes: 0,
+		dependencyIds: [] as string[],
+		status: "ready" as const,
+	};
+	const snapshot = {
+		...emptyApplicationSnapshot(),
+		profile: shanghaiProfile,
+		nodes: [anchor, later],
+		decisions: [
+			{
+				nodeId: anchor.id,
+				title: anchor.title,
+				latestStart: "2026-08-24T10:00:00+08:00",
+				targetAt: "2026-08-24T18:00:00+08:00",
+				recommendedAction: "start" as const,
+				risk: "low" as const,
+				reason: "日历基准",
+			},
+			{
+				nodeId: later.id,
+				title: later.title,
+				latestStart: "2026-09-01T10:00:00+08:00",
+				targetAt: "2026-09-01T18:00:00+08:00",
+				recommendedAction: "later" as const,
+				risk: "low" as const,
+				reason: "按天停留验证",
+			},
+		],
+	};
+
+	const calendar = toCalendarWindowView(snapshot, "2026-08-26T09:00:00+08:00", 2);
+
+	assert.equal(calendar.rangeLabel, "8月26日—9月1日");
+	assert.deepEqual(calendar.days.map((day) => day.dateLabel), [
+		"8月26日", "8月27日", "8月28日", "8月29日", "8月30日", "8月31日", "9月1日",
+	]);
+	assert.deepEqual(calendar.days[6]?.items.map((item) => item.title), ["9月交付"]);
+	assert.equal(calendar.focusDayKey, "2026-09-01");
+	assert.equal(calendar.focusItemId, "day_stop");
 });
 
 test("水平滑动只在足够距离时切换周", () => {

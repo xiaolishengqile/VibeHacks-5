@@ -1,6 +1,6 @@
 import type { ApplicationSnapshot, UiCommand } from "../desktop/application-service.js";
 import type { CalendarDayView, WeekCalendarView } from "./calendar-view.js";
-import { toWeekCalendarView, weekOffsetDeltaFromSwipe } from "./calendar-view.js";
+import { toCalendarWindowView } from "./calendar-view.js";
 import { requestText } from "./dialogs.js";
 import { clearElement, createTextElement, renderEmpty, requiredElement, setText } from "./dom.js";
 import { formatHumanInstant, toExecutionView, toGraphView, toTodayActionView } from "./view-models.js";
@@ -8,12 +8,20 @@ import { formatHumanInstant, toExecutionView, toGraphView, toTodayActionView } f
 const text = (id: string, value: string): void => setText(requiredElement(id), value);
 let snapshot: ApplicationSnapshot | null = null;
 let requestSequence = 0;
-let calendarWeekOffset = 0;
+let calendarDayOffset = 0;
 let calendarSlideToken = 0;
 let calendarSliding = false;
-let touchStartX: number | null = null;
+let calendarDrag: {
+	readonly pointerId: number;
+	readonly startX: number;
+	readonly track: HTMLDivElement;
+	readonly target: HTMLDivElement;
+	lastPercent: number;
+} | null = null;
 let lastWheelShiftAt = 0;
-const calendarSlideMs = 560;
+const calendarSlideMs = 960;
+const calendarWindowDays = 7;
+const calendarStartPercent = -100;
 
 const actionButton = (label: string, action: () => Promise<void>, danger = false): HTMLButtonElement => {
 	const button = createTextElement("button", danger ? "danger-button" : "text-button", label) as HTMLButtonElement;
@@ -98,9 +106,9 @@ const renderCalendarWeek = (calendar: WeekCalendarView): HTMLElement => {
 	return week;
 };
 
-const renderCalendarTrack = (calendars: readonly WeekCalendarView[], sliding = false): HTMLDivElement => {
+const renderCalendarTrack = (calendars: readonly WeekCalendarView[]): HTMLDivElement => {
 	const track = document.createElement("div");
-	track.className = `calendar-slider-track${sliding ? " is-sliding" : ""}`;
+	track.className = "calendar-slider-track";
 	track.dataset.calendarTrack = "";
 	for (const calendar of calendars) track.append(renderCalendarWeek(calendar));
 	return track;
@@ -109,12 +117,12 @@ const renderCalendarTrack = (calendars: readonly WeekCalendarView[], sliding = f
 const updateCalendarHeading = (calendar: WeekCalendarView): void => {
 	text("calendar-range", calendar.rangeLabel);
 	const outside = requiredElement<HTMLParagraphElement>("calendar-outside");
-	setText(outside, calendar.outsideWeekCount > 0 ? `另有 ${calendar.outsideWeekCount} 项安排在其他周` : "");
+	setText(outside, calendar.outsideWeekCount > 0 ? `另有 ${calendar.outsideWeekCount} 项安排在当前视图之外` : "");
 	outside.hidden = calendar.outsideWeekCount === 0;
 };
 
 const renderCalendar = (value: ApplicationSnapshot): void => {
-	const calendar = toWeekCalendarView(value, new Date().toISOString(), calendarWeekOffset);
+	const calendar = toCalendarWindowView(value, new Date().toISOString(), calendarDayOffset);
 	updateCalendarHeading(calendar);
 	const target = requiredElement<HTMLDivElement>("week-calendar");
 	target.setAttribute("aria-busy", "false");
@@ -254,58 +262,140 @@ const reload = async (): Promise<void> => {
 	else text("today-reason", result.error);
 };
 
-const shiftCalendarWeek = (delta: number): void => {
-	if (!snapshot || delta === 0 || calendarSliding) return;
-	if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-		calendarWeekOffset += delta;
-		renderCalendar(snapshot);
-		return;
-	}
-	calendarSliding = true;
-	const token = ++calendarSlideToken;
+const calendarTransform = (percent: number): string => `translate3d(${percent}%, 0, 0)`;
+const clampCalendarPercent = (percent: number): number => Math.max(-200, Math.min(0, percent));
+const clampDayDelta = (delta: number): number => Math.max(-calendarWindowDays, Math.min(calendarWindowDays, delta));
+const calendarPercentForDayDelta = (dayDelta: number): number =>
+	calendarStartPercent - (clampDayDelta(dayDelta) / calendarWindowDays) * 100;
+
+const dayDeltaFromDrag = (startX: number, endX: number, width: number): number => {
+	const rawDelta = (startX - endX) / Math.max(1, width / calendarWindowDays);
+	if (Math.abs(rawDelta) < 0.35) return 0;
+	return clampDayDelta(Math.round(rawDelta));
+};
+
+const renderSlidingCalendarTrack = (): { readonly target: HTMLDivElement; readonly track: HTMLDivElement } | null => {
+	if (!snapshot) return null;
 	const target = requiredElement<HTMLDivElement>("week-calendar");
-	const previous = toWeekCalendarView(snapshot, new Date().toISOString(), calendarWeekOffset - 1);
-	const current = toWeekCalendarView(snapshot, new Date().toISOString(), calendarWeekOffset);
-	const next = toWeekCalendarView(snapshot, new Date().toISOString(), calendarWeekOffset + 1);
+	const now = new Date().toISOString();
+	const previous = toCalendarWindowView(snapshot, now, calendarDayOffset - calendarWindowDays);
+	const current = toCalendarWindowView(snapshot, now, calendarDayOffset);
+	const next = toCalendarWindowView(snapshot, now, calendarDayOffset + calendarWindowDays);
 	target.setAttribute("aria-busy", "true");
 	clearElement(target);
 	const track = renderCalendarTrack([previous, current, next]);
-	track.style.transform = "translate3d(-100%, 0, 0)";
+	track.style.transform = calendarTransform(calendarStartPercent);
 	target.append(track);
-	track.getBoundingClientRect();
-	track.classList.add("is-sliding");
-	track.style.transform = delta > 0 ? "translate3d(-200%, 0, 0)" : "translate3d(0%, 0, 0)";
-	let finished = false;
+	return { target, track };
+};
+
+const completeCalendarMotion = (dayDelta: number): void => {
+	calendarDayOffset += dayDelta;
+	calendarSliding = false;
+	requiredElement<HTMLDivElement>("week-calendar").classList.remove("is-dragging");
+	if (snapshot) renderCalendar(snapshot);
+};
+
+const animateCalendarTrack = (
+	track: HTMLDivElement,
+	fromPercent: number,
+	toPercent: number,
+	dayDelta: number,
+	token: number,
+): void => {
 	const finish = (): void => {
-		if (finished || token !== calendarSlideToken) return;
-		finished = true;
-		calendarWeekOffset += delta;
-		calendarSliding = false;
-		if (snapshot) renderCalendar(snapshot);
+		if (token !== calendarSlideToken) return;
+		completeCalendarMotion(dayDelta);
 	};
-	track.addEventListener("transitionend", finish, { once: true });
-	window.setTimeout(finish, calendarSlideMs + 180);
+	track.style.transform = calendarTransform(fromPercent);
+	const animation = track.animate([
+		{ transform: calendarTransform(fromPercent) },
+		{ transform: calendarTransform(toPercent) },
+	], {
+		duration: calendarSlideMs,
+		easing: "cubic-bezier(0.25, 0.86, 0.2, 1)",
+		fill: "forwards",
+	});
+	let finished = false;
+	const finishOnce = (): void => {
+		if (finished) return;
+		finished = true;
+		finish();
+	};
+	animation.addEventListener("finish", finishOnce, { once: true });
+	window.setTimeout(finishOnce, calendarSlideMs + 180);
+};
+
+const shiftCalendarDays = (delta: number): void => {
+	const dayDelta = clampDayDelta(Math.round(delta));
+	if (!snapshot || dayDelta === 0 || calendarSliding) return;
+	calendarSliding = true;
+	const token = ++calendarSlideToken;
+	const rail = renderSlidingCalendarTrack();
+	if (!rail) return completeCalendarMotion(0);
+	animateCalendarTrack(
+		rail.track,
+		calendarStartPercent,
+		calendarPercentForDayDelta(dayDelta),
+		dayDelta,
+		token,
+	);
 };
 
 const calendarTarget = requiredElement<HTMLDivElement>("week-calendar");
-requiredElement<HTMLButtonElement>("calendar-prev-week").addEventListener("click", () => shiftCalendarWeek(-1));
-requiredElement<HTMLButtonElement>("calendar-next-week").addEventListener("click", () => shiftCalendarWeek(1));
-calendarTarget.addEventListener("touchstart", (event) => {
-	touchStartX = event.changedTouches[0]?.clientX ?? null;
-}, { passive: true });
-calendarTarget.addEventListener("touchend", (event) => {
-	if (touchStartX === null) return;
-	const delta = weekOffsetDeltaFromSwipe(touchStartX, event.changedTouches[0]?.clientX ?? touchStartX);
-	touchStartX = null;
-	if (delta !== 0) shiftCalendarWeek(delta);
-}, { passive: true });
+requiredElement<HTMLButtonElement>("calendar-prev-week").addEventListener("click", () => shiftCalendarDays(-calendarWindowDays));
+requiredElement<HTMLButtonElement>("calendar-next-week").addEventListener("click", () => shiftCalendarDays(calendarWindowDays));
+calendarTarget.addEventListener("pointerdown", (event) => {
+	if (!snapshot || calendarSliding || event.button !== 0) return;
+	calendarSliding = true;
+	const rail = renderSlidingCalendarTrack();
+	if (!rail) return completeCalendarMotion(0);
+	calendarSlideToken += 1;
+	calendarDrag = {
+		pointerId: event.pointerId,
+		startX: event.clientX,
+		track: rail.track,
+		target: rail.target,
+		lastPercent: calendarStartPercent,
+	};
+	rail.target.classList.add("is-dragging");
+	rail.target.setPointerCapture(event.pointerId);
+	event.preventDefault();
+});
+calendarTarget.addEventListener("pointermove", (event) => {
+	if (!calendarDrag || calendarDrag.pointerId !== event.pointerId) return;
+	const width = Math.max(1, calendarDrag.target.clientWidth);
+	const percent = clampCalendarPercent(calendarStartPercent + ((event.clientX - calendarDrag.startX) / width) * 100);
+	calendarDrag.lastPercent = percent;
+	calendarDrag.track.style.transform = calendarTransform(percent);
+	event.preventDefault();
+});
+const finishCalendarDrag = (event: PointerEvent): void => {
+	if (!calendarDrag || calendarDrag.pointerId !== event.pointerId) return;
+	const drag = calendarDrag;
+	calendarDrag = null;
+	if (drag.target.hasPointerCapture(event.pointerId)) drag.target.releasePointerCapture(event.pointerId);
+	drag.target.classList.remove("is-dragging");
+	const dayDelta = dayDeltaFromDrag(drag.startX, event.clientX, drag.target.clientWidth);
+	const token = ++calendarSlideToken;
+	animateCalendarTrack(
+		drag.track,
+		drag.lastPercent,
+		calendarPercentForDayDelta(dayDelta),
+		dayDelta,
+		token,
+	);
+	event.preventDefault();
+};
+calendarTarget.addEventListener("pointerup", finishCalendarDrag);
+calendarTarget.addEventListener("pointercancel", finishCalendarDrag);
 calendarTarget.addEventListener("wheel", (event) => {
 	if (Math.abs(event.deltaX) <= Math.abs(event.deltaY)) return;
-	const delta = weekOffsetDeltaFromSwipe(0, -event.deltaX, 36);
-	if (delta === 0 || event.timeStamp - lastWheelShiftAt < 350) return;
+	const dayDelta = Math.abs(event.deltaX) >= 36 ? (event.deltaX > 0 ? 1 : -1) : 0;
+	if (dayDelta === 0 || event.timeStamp - lastWheelShiftAt < 220) return;
 	event.preventDefault();
 	lastWheelShiftAt = event.timeStamp;
-	shiftCalendarWeek(delta);
+	shiftCalendarDays(dayDelta);
 }, { passive: false });
 
 requiredElement<HTMLButtonElement>("codex-login").addEventListener("click", () => void run({ name: "startCodexLogin" }));
