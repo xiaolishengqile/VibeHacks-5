@@ -110,12 +110,86 @@ test("任务详情按个人时区显示 UTC 固定时间", () => {
 			...decision,
 			nodeId: "notes",
 			title: "整理会议纪要",
+			latestStart: "2026-09-01T02:15:00.000Z",
 			scheduledStart: "2026-09-01T02:00:00.000Z",
 			scheduledEnd: "2026-09-01T02:45:00.000Z",
 		}],
 	};
 
-	assert.equal(toTaskDetailView(snapshot, "notes")?.scheduledLabel, "9月1日 10:00—10:45");
+	const detail = toTaskDetailView(snapshot, "notes");
+
+	assert.equal(detail?.scheduledLabel, "9月1日 10:00—10:45");
+	assert.equal(detail?.latestStartLabel, "9月1日 10:15");
+});
+
+test("非法排期时间显示待安排", () => {
+	const snapshot = {
+		...emptyApplicationSnapshot(),
+		nodes: [{
+			id: "notes",
+			goalId: "goal_1",
+			title: "整理会议纪要",
+			owner: "self",
+			workMinutes: 45,
+			waitMinutes: 0,
+			dependencyIds: [],
+			status: "ready" as const,
+		}],
+		decisions: [{
+			...decision,
+			nodeId: "notes",
+			title: "整理会议纪要",
+			scheduledStart: "invalid-schedule",
+			scheduledEnd: "2026-09-01T10:45:00+08:00",
+		}],
+	};
+
+	assert.equal(toTaskDetailView(snapshot, "notes")?.scheduledLabel, "待安排");
+});
+
+test("非法最晚开始显示未设置", () => {
+	const snapshot = {
+		...emptyApplicationSnapshot(),
+		nodes: [{
+			id: "notes",
+			goalId: "goal_1",
+			title: "整理会议纪要",
+			owner: "self",
+			workMinutes: 45,
+			waitMinutes: 0,
+			dependencyIds: [],
+			status: "ready" as const,
+		}],
+		decisions: [{
+			...decision,
+			nodeId: "notes",
+			title: "整理会议纪要",
+			latestStart: "invalid-latest-start",
+		}],
+	};
+
+	assert.equal(toTaskDetailView(snapshot, "notes")?.latestStartLabel, "未设置");
+});
+
+test("缺失排期和最晚开始保持安全回退", () => {
+	const snapshot = {
+		...emptyApplicationSnapshot(),
+		nodes: [{
+			id: "notes",
+			goalId: "goal_1",
+			title: "整理会议纪要",
+			owner: "self",
+			workMinutes: 45,
+			waitMinutes: 0,
+			dependencyIds: [],
+			status: "ready" as const,
+		}],
+	};
+
+	const detail = toTaskDetailView(snapshot, "notes");
+
+	assert.equal(detail?.scheduledLabel, "待安排");
+	assert.equal(detail?.latestStartLabel, "未设置");
 });
 
 test("旧任务没有智能详情时仍生成可执行的基础说明", () => {

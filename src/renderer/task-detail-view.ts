@@ -51,9 +51,9 @@ const timeZoneFor = (snapshot: ApplicationSnapshot): string => {
 	}
 };
 
-const instantParts = (value: string, timeZone: string): { readonly date: string; readonly time: string } => {
+const instantParts = (value: string, timeZone: string): { readonly date: string; readonly time: string } | null => {
 	const instant = new Date(value);
-	if (Number.isNaN(instant.getTime())) return { date: "", time: value };
+	if (Number.isNaN(instant.getTime())) return null;
 	const parts = new Map(new Intl.DateTimeFormat("en-CA", {
 		timeZone,
 		year: "numeric",
@@ -69,9 +69,10 @@ const instantParts = (value: string, timeZone: string): { readonly date: string;
 	};
 };
 
-const scheduledLabel = (start: string, end: string, timeZone: string): string => {
+const scheduledLabel = (start: string, end: string, timeZone: string): string | null => {
 	const startParts = instantParts(start, timeZone);
 	const endParts = instantParts(end, timeZone);
+	if (!startParts || !endParts) return null;
 	if (start === end) return `${startParts.date} ${startParts.time}`.trim();
 	if (startParts.date === endParts.date) {
 		return `${startParts.date} ${startParts.time}—${endParts.time}`.trim();
@@ -91,18 +92,20 @@ export function toTaskDetailView(snapshot: ApplicationSnapshot, nodeId: string):
 	const schedule = decision?.scheduledSegments?.length
 		? decision.scheduledSegments
 			.map((segment) => scheduledLabel(segment.scheduledStart, segment.scheduledEnd, timeZone))
+			.filter((label): label is string => label !== null)
 			.join("、")
-		: start ? scheduledLabel(start, end, timeZone) : "待安排";
+		: start ? scheduledLabel(start, end, timeZone) : null;
 	return {
 		id: node.id,
 		title: node.title,
 		owner: node.owner === "self" ? "自己" : node.owner,
 		status: statusLabels[node.status],
 		scheduleTypeLabel: node.fixedStart ? "固定时间" : "智能安排",
-		scheduledLabel: schedule,
-		latestStartLabel: decision?.latestStart
-			? `${instantParts(decision.latestStart, timeZone).date} ${instantParts(decision.latestStart, timeZone).time}`
-			: "未设置",
+		scheduledLabel: schedule || "待安排",
+		latestStartLabel: (() => {
+			const latestStart = decision?.latestStart ? instantParts(decision.latestStart, timeZone) : null;
+			return latestStart ? `${latestStart.date} ${latestStart.time}` : "未设置";
+		})(),
 		workMinutes: node.workMinutes,
 		waitMinutes: node.waitMinutes,
 		dependencies: node.dependencyIds.map((id) => nodeById.get(id)?.title ?? id),
