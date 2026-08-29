@@ -44,6 +44,7 @@ export const workDraftOutputSchema = {
 					workMinutes: { type: "integer", minimum: 0 },
 					waitMinutes: { type: "integer", minimum: 0 },
 					dependencyIndexes: { type: "array", items: { type: "integer", minimum: 0 } },
+					sourceNodeId: { type: "string", minLength: 1 },
 					detail: {
 						type: "object",
 						additionalProperties: false,

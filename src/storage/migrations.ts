@@ -150,17 +150,22 @@ const schemaVersionThree = `
 ALTER TABLE work_nodes ADD COLUMN detail_json TEXT;
 `;
 
+const schemaVersionFour = `
+ALTER TABLE work_nodes ADD COLUMN fixed_start TEXT;
+`;
+
 export function migrateDatabase(database: DatabaseSync): void {
 	const row = database.prepare("PRAGMA user_version").get() as { user_version: number };
-	if (row.user_version > 3) throw new Error(`数据库版本 ${row.user_version} 高于当前支持版本 3`);
-	if (row.user_version === 3) return;
+	if (row.user_version > 4) throw new Error(`数据库版本 ${row.user_version} 高于当前支持版本 4`);
+	if (row.user_version === 4) return;
 
 	database.exec("BEGIN IMMEDIATE");
 	try {
 		if (row.user_version < 1) database.exec(schemaVersionOne);
 		if (row.user_version < 2) database.exec(schemaVersionTwo);
 		if (row.user_version < 3) database.exec(schemaVersionThree);
-		database.exec("PRAGMA user_version = 3");
+		if (row.user_version < 4) database.exec(schemaVersionFour);
+		database.exec("PRAGMA user_version = 4");
 		database.exec("COMMIT");
 	} catch (error) {
 		database.exec("ROLLBACK");

@@ -20,6 +20,7 @@ interface CoreBackend {
 	getSnapshot(): Promise<ApplicationSnapshot>;
 	submitText(text: string): Promise<ApplicationSnapshot>;
 	createFromDraft(draft: WorkDraft): Promise<ApplicationSnapshot>;
+	reviseFromDraft(draft: WorkDraft): Promise<ApplicationSnapshot>;
 	addManualTodo(todo: ManualTodoInput): Promise<ApplicationSnapshot>;
 	runCommand(command: UiCommand): Promise<ApplicationSnapshot>;
 }
@@ -68,23 +69,36 @@ export function toVisibleAgentEvent(event: ExecutionAgentEvent, at: string): Vis
 
 function existingPlanContext(snapshot: ApplicationSnapshot): string {
 	if (!snapshot.goal) return "";
+	const decisionsByNodeId = new Map(snapshot.decisions.map((decision) => [decision.nodeId, decision]));
 	return JSON.stringify({
 		title: snapshot.goal.title,
+		description: snapshot.goal.description,
 		deadline: snapshot.goal.deadline,
 		milestones: snapshot.goal.milestones.map((milestone) => ({
 			title: milestone.title,
 			at: milestone.at,
+			nodeIds: milestone.nodeIds,
 		})),
 		nodes: snapshot.nodes
-			.filter((node) => node.status !== "done" && node.status !== "stopped")
-			.map((node) => ({
-				title: node.title,
-				owner: node.owner,
-				workMinutes: node.workMinutes,
-				waitMinutes: node.waitMinutes,
-				status: node.status,
-				detail: node.detail,
-			})),
+			.filter((node) => node.status !== "done" && node.status !== "stopped" && node.status !== "failed")
+			.map((node) => {
+				const decision = decisionsByNodeId.get(node.id);
+				return {
+					sourceNodeId: node.id,
+					title: node.title,
+					owner: node.owner,
+					workMinutes: node.workMinutes,
+					waitMinutes: node.waitMinutes,
+					dependencyIds: node.dependencyIds,
+					status: node.status,
+					fixedStart: node.fixedStart,
+					latestStart: node.latestStart,
+					detail: node.detail,
+					scheduledStart: decision?.scheduledStart,
+					scheduledEnd: decision?.scheduledEnd,
+					scheduledSegments: decision?.scheduledSegments,
+				};
+			}),
 	});
 }
 
@@ -167,7 +181,8 @@ export class IntegratedDesktopBackend {
 		const interpretation = await (await this.#ensureRuntime()).interpreter.interpret(text, existingPlanContext(current));
 		if (interpretation.status === "needsInput") throw new Error(interpretation.questions[0]);
 		if (interpretation.status === "failed") throw new Error(interpretation.error);
-		await this.#options.core.createFromDraft(interpretation.draft);
+		if (current.goal) await this.#options.core.reviseFromDraft(interpretation.draft);
+		else await this.#options.core.createFromDraft(interpretation.draft);
 		await this.#confirmProfileIfNeeded(await this.#options.core.getSnapshot());
 		return this.getSnapshot();
 	}

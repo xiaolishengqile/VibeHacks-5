@@ -53,8 +53,8 @@ export class SqliteWorkRepository implements WorkRepository {
 			const insertNode = database.prepare(`
         INSERT INTO work_nodes (
           id, goal_id, title, owner, potential_collaborator_json,
-          work_minutes, wait_minutes, status, latest_start, actual_minutes, detail_json
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          work_minutes, wait_minutes, status, latest_start, fixed_start, actual_minutes, detail_json
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 			for (const node of aggregate.nodes) {
 				insertNode.run(
@@ -67,6 +67,7 @@ export class SqliteWorkRepository implements WorkRepository {
 					node.waitMinutes,
 					node.status,
 					node.latestStart ?? null,
+					node.fixedStart ?? null,
 					node.actualMinutes ?? null,
 					node.detail ? text(node.detail) : null,
 				);
@@ -258,6 +259,7 @@ export class SqliteWorkRepository implements WorkRepository {
 					? { potentialCollaborator: parse(String(row.potential_collaborator_json)) }
 					: {}),
 				...(row.latest_start ? { latestStart: String(row.latest_start) } : {}),
+				...(row.fixed_start ? { fixedStart: String(row.fixed_start) } : {}),
 				...(row.actual_minutes === null ? {} : { actualMinutes: Number(row.actual_minutes) }),
 			};
 		});

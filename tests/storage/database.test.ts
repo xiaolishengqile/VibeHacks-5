@@ -8,8 +8,10 @@ test("数据库迁移可重复执行并启用外键", () => {
 	migrateDatabase(database);
 	migrateDatabase(database);
 
-	assert.equal(database.prepare("PRAGMA user_version").get()?.user_version, 3);
+	assert.equal(database.prepare("PRAGMA user_version").get()?.user_version, 4);
 	assert.equal(database.prepare("PRAGMA foreign_keys").get()?.foreign_keys, 1);
+	assert.ok(database.prepare("PRAGMA table_info(work_nodes)").all()
+		.some((column) => column.name === "fixed_start"));
 	database.close();
 });
 
@@ -36,7 +38,7 @@ test("已有第一版数据库可以无损增加执行表", () => {
     SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE 'execution_%' ORDER BY name
   `).all().map((row) => row.name);
 	assert.deepEqual(tables, ["execution_events", "execution_runs"]);
-	assert.equal(database.prepare("PRAGMA user_version").get()?.user_version, 3);
+	assert.equal(database.prepare("PRAGMA user_version").get()?.user_version, 4);
 	database.close();
 });
 
@@ -63,9 +65,41 @@ test("已有第二版数据库可以无损增加任务详情", () => {
 
 	migrateDatabase(database);
 
-	assert.equal(database.prepare("PRAGMA user_version").get()?.user_version, 3);
+	assert.equal(database.prepare("PRAGMA user_version").get()?.user_version, 4);
 	assert.equal(database.prepare("SELECT title FROM work_nodes WHERE id = 'node-1'").get()?.title, "生成初稿");
 	assert.equal(database.prepare("SELECT detail_json FROM work_nodes WHERE id = 'node-1'").get()?.detail_json, null);
+	assert.ok(database.prepare("PRAGMA table_info(work_nodes)").all()
+		.some((column) => column.name === "fixed_start"));
+	database.close();
+});
+
+test("已有第三版数据库可以无损增加固定开始时间", () => {
+	const database = openDatabase(":memory:");
+	database.exec(`
+		CREATE TABLE work_nodes (
+			id TEXT PRIMARY KEY,
+			goal_id TEXT NOT NULL,
+			title TEXT NOT NULL,
+			owner TEXT NOT NULL,
+			potential_collaborator_json TEXT,
+			work_minutes INTEGER NOT NULL,
+			wait_minutes INTEGER NOT NULL,
+			status TEXT NOT NULL,
+			latest_start TEXT,
+			actual_minutes INTEGER,
+			detail_json TEXT
+		);
+		INSERT INTO work_nodes VALUES (
+			'node-1', 'goal-1', '生成初稿', 'self', NULL, 60, 0, 'ready', NULL, NULL, NULL
+		);
+		PRAGMA user_version = 3;
+	`);
+
+	migrateDatabase(database);
+
+	assert.equal(database.prepare("PRAGMA user_version").get()?.user_version, 4);
+	assert.equal(database.prepare("SELECT title FROM work_nodes WHERE id = 'node-1'").get()?.title, "生成初稿");
+	assert.equal(database.prepare("SELECT fixed_start FROM work_nodes WHERE id = 'node-1'").get()?.fixed_start, null);
 	database.close();
 });
 
@@ -119,7 +153,7 @@ test("清理应用数据会清空业务和执行记录但保留数据库结构",
 		const row = database.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get() as { count: number };
 		assert.equal(row.count, 0, `${table} 应为空`);
 	}
-	assert.equal(database.prepare("PRAGMA user_version").get()?.user_version, 3);
+	assert.equal(database.prepare("PRAGMA user_version").get()?.user_version, 4);
 	database.close();
 });
 

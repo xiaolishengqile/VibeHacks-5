@@ -158,12 +158,29 @@ const windowForDate = (date: LocalDate, profile: WorkProfile): WorkingWindow => 
 	};
 };
 
+const workdayWindowForDate = (date: LocalDate, profile: WorkProfile): WorkingWindow => {
+	const window = workingMinutes(profile, false);
+	const timeZone = profile.timezone.value;
+	return {
+		start: formatInTimeZone(instantForLocal(date, window.start, timeZone), timeZone),
+		end: formatInTimeZone(instantForLocal(date, window.end, timeZone), timeZone),
+	};
+};
+
 export function workingWindowAt(value: string, profile: WorkProfile): WorkingWindow | null {
 	const instantMs = Date.parse(value);
 	if (Number.isNaN(instantMs)) throw new Error("当前时间无效");
 	const local = zonedParts(instantMs, profile.timezone.value);
 	const date = { year: local.year, month: local.month, day: local.day };
 	return isWeekend(date) ? null : windowForDate(date, profile);
+}
+
+export function workdayWindowAt(value: string, profile: WorkProfile): WorkingWindow | null {
+	const instantMs = Date.parse(value);
+	if (Number.isNaN(instantMs)) throw new Error("固定事项时间无效");
+	const local = zonedParts(instantMs, profile.timezone.value);
+	const date = { year: local.year, month: local.month, day: local.day };
+	return isWeekend(date) ? null : workdayWindowForDate(date, profile);
 }
 
 export function isWithinWorkday(value: string, profile: WorkProfile): boolean {
@@ -265,4 +282,10 @@ export function subtractCalendarMinutes(target: string, minutes: number): string
 	if (!Number.isInteger(minutes) || minutes < 0) throw new RangeError("等待分钟必须是非负整数");
 	const offset = parseOffsetMinutes(target);
 	return formatWithOffset(Date.parse(target) - minutes * minuteMs, offset);
+}
+
+export function addCalendarMinutes(start: string, minutes: number): string {
+	if (!Number.isInteger(minutes) || minutes < 0) throw new RangeError("自然分钟必须是非负整数");
+	const offset = parseOffsetMinutes(start);
+	return formatWithOffset(Date.parse(start) + minutes * minuteMs, offset);
 }

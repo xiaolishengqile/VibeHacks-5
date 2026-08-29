@@ -6,7 +6,7 @@ export type MiniPanelMode = "today" | "input";
 export interface DesktopApi {
 	getSnapshot(): Promise<Result<ApplicationSnapshot, string>>;
 	submitWorkText(text: string): Promise<Result<ApplicationSnapshot, string>>;
-	addManualTodo(todo: { readonly title: string; readonly at: string }): Promise<Result<ApplicationSnapshot, string>>;
+	addManualTodo(todo: { readonly title: string; readonly at: string; readonly durationMinutes: number }): Promise<Result<ApplicationSnapshot, string>>;
 	runCommand(command: UiCommand): Promise<Result<ApplicationSnapshot, string>>;
 	openWorkbench(): Promise<Result<null, string>>;
 	hideMiniPanel(): Promise<Result<null, string>>;

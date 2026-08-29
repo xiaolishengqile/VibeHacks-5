@@ -12,7 +12,8 @@ export type WorkChangeKind =
 	| "executionFailed"
 	| "artifactAccepted"
 	| "todoAdded"
-	| "profileConfirmed";
+	| "profileConfirmed"
+	| "replanned";
 
 export interface WorkChange {
 	readonly id: string;

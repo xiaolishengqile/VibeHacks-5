@@ -10,7 +10,8 @@ import type {
 	WorkRepository,
 } from "./repositories.js";
 import { basicWorkNodeDetail, type WorkDraft, type WorkGoal, type WorkNode, type WorkProfile } from "./types.js";
-import { isWithinWorkday } from "./schedule.js";
+import { validateFixedSchedule } from "./forward-schedule.js";
+import { addCalendarMinutes, isWithinWorkday } from "./schedule.js";
 
 export interface LoadedAggregate {
 	readonly profile: WorkProfile;
@@ -33,14 +34,18 @@ interface StopConfirmation {
 	readonly expiresAt: number;
 }
 
-const normalizeManualTodo = (input: { readonly title: string; readonly at: string }): {
+const normalizeManualTodo = (input: { readonly title: string; readonly at: string; readonly durationMinutes: number }): {
 	readonly title: string;
 	readonly at: string;
+	readonly durationMinutes: number;
 } => {
 	const title = input.title.trim();
 	if (!title) throw new Error("待办内容不能为空");
 	if (Number.isNaN(Date.parse(input.at))) throw new Error("待办时间无效");
-	return { title, at: input.at };
+	if (!Number.isInteger(input.durationMinutes) || input.durationMinutes < 1 || input.durationMinutes > 540) {
+		throw new Error("待办时长必须是 1 到 540 分钟的整数");
+	}
+	return { title, at: input.at, durationMinutes: input.durationMinutes };
 };
 
 export class CommandService {
@@ -98,6 +103,62 @@ export class CommandService {
 		return this.#save({ profile: input.profile, graph, changes: [change] }, change);
 	}
 
+	async reviseFromDraft(input: { readonly goalId: string; readonly draft: WorkDraft }): Promise<CommandResult> {
+		const aggregate = await this.#load(input.goalId);
+		const nonTerminalNodes = aggregate.graph.nodes.filter((node) =>
+			node.status !== "done" && node.status !== "stopped" && node.status !== "failed");
+		const existingById = new Map(nonTerminalNodes.map((node) => [node.id, node]));
+		const sourceIds = new Set<string>();
+		for (const draftNode of input.draft.nodes) {
+			if (!draftNode.sourceNodeId) continue;
+			if (!existingById.has(draftNode.sourceNodeId)) {
+				throw new Error(`草稿来源不属于当前可重排节点：${draftNode.sourceNodeId}`);
+			}
+			if (sourceIds.has(draftNode.sourceNodeId)) {
+				throw new Error(`草稿来源重复：${draftNode.sourceNodeId}`);
+			}
+			sourceIds.add(draftNode.sourceNodeId);
+		}
+		if (sourceIds.size !== existingById.size) throw new Error("草稿遗漏了当前可重排节点");
+
+		const nodeIds = input.draft.nodes.map((node) => node.sourceNodeId ?? this.#ids.next("node"));
+		const nodes: WorkNode[] = input.draft.nodes.map((draftNode, index) => {
+			const existing = draftNode.sourceNodeId ? existingById.get(draftNode.sourceNodeId) : undefined;
+			return {
+				id: nodeIds[index]!,
+				goalId: aggregate.graph.goal.id,
+				title: draftNode.title,
+				owner: draftNode.owner,
+				workMinutes: draftNode.workMinutes,
+				waitMinutes: draftNode.waitMinutes,
+				detail: draftNode.detail,
+				dependencyIds: draftNode.dependencyIndexes.map((dependencyIndex) => nodeIds[dependencyIndex]!),
+				status: existing?.status ?? (draftNode.dependencyIndexes.length === 0 ? "ready" : "planned"),
+				...(draftNode.potentialCollaborator ? { potentialCollaborator: draftNode.potentialCollaborator } : {}),
+				...(existing?.actualMinutes === undefined ? {} : { actualMinutes: existing.actualMinutes }),
+				...(existing?.fixedStart ? { fixedStart: existing.fixedStart } : {}),
+			};
+		});
+		const terminalNodes = aggregate.graph.nodes.filter((node) =>
+			node.status === "done" || node.status === "stopped" || node.status === "failed");
+		const goal: WorkGoal = {
+			...aggregate.graph.goal,
+			title: input.draft.title,
+			description: input.draft.assumptions.join("；"),
+			deadline: input.draft.deadline,
+			milestones: input.draft.milestones.map((milestone) => ({
+				id: this.#ids.next("milestone"),
+				title: milestone.title,
+				at: milestone.at,
+				nodeIds: milestone.nodeIndexes.map((nodeIndex) => nodeIds[nodeIndex]!),
+			})),
+			updatedAt: this.#clock.now(),
+		};
+		const graph = WorkGraph.create(goal, [...nodes, ...terminalNodes]);
+		const change = this.#change("replanned", `重排工作目标：${goal.title}`);
+		return this.#save({ ...aggregate, graph }, change);
+	}
+
 	async read(goalId: string): Promise<CommandState> {
 		return this.#state(await this.#load(goalId));
 	}
@@ -151,6 +212,7 @@ export class CommandService {
 		readonly goalId?: string | null;
 		readonly title: string;
 		readonly at: string;
+		readonly durationMinutes: number;
 	}): Promise<CommandResult> {
 		const todo = normalizeManualTodo(input);
 		const aggregate = input.goalId
@@ -162,30 +224,32 @@ export class CommandService {
 		const nodeId = this.#ids.next("node");
 		const milestoneId = this.#ids.next("milestone");
 		const now = this.#clock.now();
+		const endsAt = addCalendarMinutes(todo.at, todo.durationMinutes);
 		const node: WorkNode = {
 			id: nodeId,
 			goalId: aggregate.graph.goal.id,
 			title: todo.title,
 			owner: "self",
-			workMinutes: 0,
+			workMinutes: todo.durationMinutes,
 			waitMinutes: 0,
 			dependencyIds: [],
 			status: "ready",
-			latestStart: todo.at,
+			fixedStart: todo.at,
 			detail: basicWorkNodeDetail(todo.title),
 		};
 		const goal: WorkGoal = {
 			...aggregate.graph.goal,
-			deadline: Date.parse(todo.at) > Date.parse(aggregate.graph.goal.deadline) ? todo.at : aggregate.graph.goal.deadline,
+			deadline: Date.parse(endsAt) > Date.parse(aggregate.graph.goal.deadline) ? endsAt : aggregate.graph.goal.deadline,
 			milestones: [...aggregate.graph.goal.milestones, {
 				id: milestoneId,
 				title: todo.title,
-				at: todo.at,
+				at: endsAt,
 				nodeIds: [nodeId],
 			}],
 			updatedAt: now,
 		};
 		const graph = WorkGraph.create(goal, [...aggregate.graph.nodes, node]);
+		validateFixedSchedule(graph.nodes, aggregate.profile);
 		const change = this.#change("todoAdded", `添加手动待办：${todo.title}`);
 		return this.#save({ ...aggregate, graph }, change);
 	}
@@ -322,7 +386,7 @@ export class CommandService {
 		};
 	}
 
-	#manualTodoAggregate(profile: WorkProfile, todo: { readonly title: string; readonly at: string }): LoadedAggregate {
+	#manualTodoAggregate(profile: WorkProfile, todo: { readonly title: string; readonly at: string; readonly durationMinutes: number }): LoadedAggregate {
 		const now = this.#clock.now();
 		const goal: WorkGoal = {
 			id: this.#ids.next("goal"),
@@ -364,8 +428,8 @@ export class CommandService {
 			nodes: aggregate.graph.nodes,
 			changes,
 		};
-		await this.#repository.saveAggregate(stored);
 		const state = this.#state(this.#fromStored(stored));
+		await this.#repository.saveAggregate(stored);
 		return {
 			...state,
 			change,

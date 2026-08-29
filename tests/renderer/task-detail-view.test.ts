@@ -59,6 +59,137 @@ test("任务详情保留生成排期时的专业建议和兜底", () => {
 	assert.equal(full?.contingencies[0]?.trigger, "周三中午仍未拿到数据");
 	assert.deepEqual(full?.dependencies, ["回收项目数据"]);
 	assert.equal(full?.scheduledLabel, "9月1日 13:30—15:30");
+	assert.equal((full as { scheduleTypeLabel?: string } | null)?.scheduleTypeLabel, "智能安排");
+});
+
+test("固定时间任务在详情中明确标识其排期类型", () => {
+	const snapshot = {
+		...emptyApplicationSnapshot(),
+		nodes: [{
+			id: "notes",
+			goalId: "goal_1",
+			title: "整理会议纪要",
+			owner: "self",
+			workMinutes: 45,
+			waitMinutes: 0,
+			dependencyIds: [],
+			status: "ready" as const,
+			fixedStart: "2026-09-01T10:00:00+08:00",
+		}],
+		decisions: [{ ...decision, nodeId: "notes", title: "整理会议纪要", scheduledStart: "2026-09-01T10:00:00+08:00", scheduledEnd: "2026-09-01T10:45:00+08:00" }],
+	};
+
+	const detail = toTaskDetailView(snapshot, "notes");
+
+	assert.equal((detail as { scheduleTypeLabel?: string } | null)?.scheduleTypeLabel, "固定时间");
+});
+
+test("任务详情按个人时区显示 UTC 固定时间", () => {
+	const snapshot = {
+		...emptyApplicationSnapshot(),
+		profile: {
+			timezone: "Asia/Shanghai",
+			workdayStart: "09:00",
+			workdayEnd: "18:00",
+			dailyCapacityMinutes: 360,
+			bufferPercent: 20,
+			confirmed: true,
+		},
+		nodes: [{
+			id: "notes",
+			goalId: "goal_1",
+			title: "整理会议纪要",
+			owner: "self",
+			workMinutes: 45,
+			waitMinutes: 0,
+			dependencyIds: [],
+			status: "ready" as const,
+			fixedStart: "2026-09-01T02:00:00.000Z",
+		}],
+		decisions: [{
+			...decision,
+			nodeId: "notes",
+			title: "整理会议纪要",
+			latestStart: "2026-09-01T02:15:00.000Z",
+			scheduledStart: "2026-09-01T02:00:00.000Z",
+			scheduledEnd: "2026-09-01T02:45:00.000Z",
+		}],
+	};
+
+	const detail = toTaskDetailView(snapshot, "notes");
+
+	assert.equal(detail?.scheduledLabel, "9月1日 10:00—10:45");
+	assert.equal(detail?.latestStartLabel, "9月1日 10:15");
+});
+
+test("非法排期时间显示待安排", () => {
+	const snapshot = {
+		...emptyApplicationSnapshot(),
+		nodes: [{
+			id: "notes",
+			goalId: "goal_1",
+			title: "整理会议纪要",
+			owner: "self",
+			workMinutes: 45,
+			waitMinutes: 0,
+			dependencyIds: [],
+			status: "ready" as const,
+		}],
+		decisions: [{
+			...decision,
+			nodeId: "notes",
+			title: "整理会议纪要",
+			scheduledStart: "invalid-schedule",
+			scheduledEnd: "2026-09-01T10:45:00+08:00",
+		}],
+	};
+
+	assert.equal(toTaskDetailView(snapshot, "notes")?.scheduledLabel, "待安排");
+});
+
+test("非法最晚开始显示未设置", () => {
+	const snapshot = {
+		...emptyApplicationSnapshot(),
+		nodes: [{
+			id: "notes",
+			goalId: "goal_1",
+			title: "整理会议纪要",
+			owner: "self",
+			workMinutes: 45,
+			waitMinutes: 0,
+			dependencyIds: [],
+			status: "ready" as const,
+		}],
+		decisions: [{
+			...decision,
+			nodeId: "notes",
+			title: "整理会议纪要",
+			latestStart: "invalid-latest-start",
+		}],
+	};
+
+	assert.equal(toTaskDetailView(snapshot, "notes")?.latestStartLabel, "未设置");
+});
+
+test("缺失排期和最晚开始保持安全回退", () => {
+	const snapshot = {
+		...emptyApplicationSnapshot(),
+		nodes: [{
+			id: "notes",
+			goalId: "goal_1",
+			title: "整理会议纪要",
+			owner: "self",
+			workMinutes: 45,
+			waitMinutes: 0,
+			dependencyIds: [],
+			status: "ready" as const,
+		}],
+	};
+
+	const detail = toTaskDetailView(snapshot, "notes");
+
+	assert.equal(detail?.scheduledLabel, "待安排");
+	assert.equal(detail?.latestStartLabel, "未设置");
 });
 
 test("旧任务没有智能详情时仍生成可执行的基础说明", () => {

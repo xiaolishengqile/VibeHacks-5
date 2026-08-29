@@ -120,3 +120,33 @@ test("合法工作草稿返回经过规范化的结构", () => {
 		assert.equal(result.value.nodes[0]?.title, "找小王拿数据");
 	}
 });
+
+test("工作草稿保留非空来源标识并拒绝空白来源标识", () => {
+	const validDraft = {
+		title: "季度复盘",
+		deadline: "2026-09-04T18:00:00+08:00",
+		milestones: [],
+		nodes: [{
+			title: "搭建复盘框架",
+			owner: "self",
+			workMinutes: 180,
+			waitMinutes: 0,
+			dependencyIndexes: [],
+			detail: completeDetail,
+		}],
+		assumptions: [],
+	};
+
+	const preserved = validateWorkDraft({
+		...validDraft,
+		nodes: [{ ...validDraft.nodes[0], sourceNodeId: "node_existing" }],
+	});
+	assert.equal(preserved.ok && preserved.value.nodes[0]?.sourceNodeId, "node_existing");
+
+	const blank = validateWorkDraft({
+		...validDraft,
+		nodes: [{ ...validDraft.nodes[0], sourceNodeId: "  " }],
+	});
+	assert.equal(blank.ok, false);
+	if (!blank.ok) assert.equal(blank.error.includes("节点 1 的来源标识不能为空"), true);
+});

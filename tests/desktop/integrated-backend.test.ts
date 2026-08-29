@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { FallbackWorkBackend } from "../../src/desktop/core-application.js";
 import type { ApplicationSnapshot, UiCommand } from "../../src/desktop/application-service.js";
 import { emptyApplicationSnapshot } from "../../src/desktop/application-service.js";
 import {
@@ -9,25 +10,49 @@ import {
 } from "../../src/desktop/integrated-backend.js";
 import type { ExecutionRepository } from "../../src/execution/repositories.js";
 import type { ApprovalRequest, Artifact, ExecutionEvent, ExecutionRun } from "../../src/execution/types.js";
+import { CommandService } from "../../src/work/command-service.js";
+import { DecisionEngine } from "../../src/work/decision-engine.js";
+import { createProfile } from "../../src/work/profile.js";
+import type { StoredWorkAggregate, WorkRepository } from "../../src/work/repositories.js";
 import { basicWorkNodeDetail, type WorkDraft } from "../../src/work/types.js";
 
 class CoreBackend {
 	snapshot: ApplicationSnapshot = {
 		...emptyApplicationSnapshot(),
 		goal: {
-			id: "goal-1", title: "季度复盘", description: "", deadline: "2026-09-04T18:00:00+08:00",
-			milestones: [], status: "active", createdAt: "2026-08-29T09:00:00+08:00", updatedAt: "2026-08-29T09:00:00+08:00",
+			id: "goal-1", title: "季度复盘", description: "产品经理季度复盘，突出留存改进",
+			deadline: "2026-09-04T18:00:00+08:00",
+			milestones: [{ id: "milestone-1", title: "内部审核", at: "2026-09-03T15:00:00+08:00", nodeIds: ["node_1"] }],
+			status: "active", createdAt: "2026-08-29T09:00:00+08:00", updatedAt: "2026-08-29T09:00:00+08:00",
 		},
-		nodes: [{
-			id: "node-1", goalId: "goal-1", title: "生成复盘框架", owner: "self",
-			workMinutes: 60, waitMinutes: 0, dependencyIds: [], status: "ready",
+		nodes: [
+			{
+				id: "node_0", goalId: "goal-1", title: "收集数据", owner: "self",
+				workMinutes: 60, waitMinutes: 0, dependencyIds: [], status: "ready",
+			},
+			{
+				id: "node_1", goalId: "goal-1", title: "生成复盘框架", owner: "self",
+				workMinutes: 60, waitMinutes: 0, dependencyIds: ["node_0"], status: "ready",
+				fixedStart: "2026-09-02T09:00:00+08:00", latestStart: "2026-09-02T13:00:00+08:00",
+				detail: basicWorkNodeDetail("生成复盘框架"),
+			},
+		],
+		decisions: [{
+			nodeId: "node_1", title: "生成复盘框架", latestStart: "2026-09-02T13:00:00+08:00",
+			scheduledStart: "2026-09-02T09:00:00+08:00", scheduledEnd: "2026-09-02T10:00:00+08:00",
+			scheduledSegments: [{
+				scheduledStart: "2026-09-02T09:00:00+08:00", scheduledEnd: "2026-09-02T10:00:00+08:00",
+			}],
+			targetAt: "2026-09-03T15:00:00+08:00", recommendedAction: "start", risk: "low", reason: "测试排期",
 		}],
 	};
 	draft: WorkDraft | null = null;
+	revisedDraft: WorkDraft | null = null;
 	todo: { title: string; at: string } | null = null;
 	async getSnapshot() { return this.snapshot; }
 	async submitText(_text: string) { return this.snapshot; }
 	async createFromDraft(draft: WorkDraft) { this.draft = draft; return this.snapshot; }
+	async reviseFromDraft(draft: WorkDraft) { this.revisedDraft = draft; return this.snapshot; }
 	async addManualTodo(todo: { title: string; at: string }) { this.todo = todo; return this.snapshot; }
 	async runCommand(_command: UiCommand) { return this.snapshot; }
 }
@@ -48,6 +73,18 @@ class MemoryExecutionRepository implements ExecutionRepository {
 	async listArtifacts(runId: string) { return this.artifacts.filter((artifact) => artifact.runId === runId); }
 }
 
+class MemoryWorkRepository implements WorkRepository {
+	aggregate: StoredWorkAggregate | null = null;
+	async loadAggregate(goalId: string) { return this.aggregate?.goal.id === goalId ? this.aggregate : null; }
+	async loadLatestAggregate() { return this.aggregate; }
+	async saveAggregate(aggregate: StoredWorkAggregate) { this.aggregate = aggregate; }
+}
+
+class Ids {
+	#index = 0;
+	next(prefix: string) { return `${prefix}_${++this.#index}`; }
+}
+
 const readyState = {
 	ready: true,
 	reason: "已就绪",
@@ -59,10 +96,16 @@ const readyState = {
 	rateLimit: "额度可用",
 } as const;
 
-function setup(options: { readonly defaultWorkDirectory?: string; readonly failClose?: boolean } = {}) {
+function setup(options: {
+	readonly defaultWorkDirectory?: string;
+	readonly failClose?: boolean;
+	readonly withoutGoal?: boolean;
+} = {}) {
 	const core = new CoreBackend();
+	if (options.withoutGoal) core.snapshot = emptyApplicationSnapshot();
 	const repository = new MemoryExecutionRepository();
 	const calls: string[] = [];
+	const interpretations: string[] = [];
 	const draft: WorkDraft = {
 		title: "季度复盘",
 		deadline: "2026-09-04T18:00:00+08:00",
@@ -74,7 +117,12 @@ function setup(options: { readonly defaultWorkDirectory?: string; readonly failC
 		assumptions: [],
 	};
 	const runtime: DesktopExecutionRuntime = {
-		interpreter: { interpret: async () => ({ status: "ready", draft, confidence: 0.9, questions: [] }) },
+		interpreter: {
+			interpret: async (_text, existingPlanContext) => {
+				interpretations.push(existingPlanContext ?? "");
+				return { status: "ready", draft, confidence: 0.9, questions: [] };
+			},
+		},
 		orchestrator: {
 			create: async (request) => {
 				calls.push(`create:${request.workNodeId}`);
@@ -119,25 +167,110 @@ function setup(options: { readonly defaultWorkDirectory?: string; readonly failC
 		clock: { now: () => "2026-08-29T09:00:00+08:00" },
 	});
 	return {
-		backend, core, repository, calls,
+		backend, core, repository, calls, interpretations,
 		publish: (event: Parameters<Parameters<IntegratedDesktopBackend["subscribe"]>[0]>[0]) => publishRuntimeEvent?.(event),
 	};
 }
 
-test("执行代理就绪时使用结构化理解结果创建工作", async () => {
-	const context = setup();
+test("首次理解在没有现有目标时创建工作", async () => {
+	const context = setup({ withoutGoal: true });
 	await context.backend.submitText("下周五完成季度复盘");
 	assert.equal(context.core.draft?.title, "季度复盘");
-	assert.match(context.core.draft?.nodes[0]?.detail.summary ?? "", /生成复盘框架/);
+	assert.equal(context.core.revisedDraft, null);
+});
+
+test("已有计划提供完整上下文并走增量重排", async () => {
+	const context = setup();
+	await context.backend.submitText("下周五完成季度复盘");
+	const existingPlan = context.interpretations[0] ?? "";
+	assert.match(existingPlan, /"description":"产品经理季度复盘/);
+	assert.match(existingPlan, /"nodeIds":\["node_1"\]/);
+	assert.match(existingPlan, /"sourceNodeId":"node_1"/);
+	assert.match(existingPlan, /"dependencyIds":\["node_0"\]/);
+	assert.match(existingPlan, /"fixedStart":"2026-09-02T09:00:00\+08:00"/);
+	assert.match(existingPlan, /"latestStart":"2026-09-02T13:00:00\+08:00"/);
+	assert.match(existingPlan, /"scheduledSegments"/);
+	assert.match(existingPlan, /"summary":"完成「生成复盘框架」/);
+	assert.equal(context.core.draft, null);
+	assert.equal(context.core.revisedDraft?.title, "季度复盘");
+});
+
+test("失败节点不进入智能重排上下文且会随增量重排原样保留", async () => {
+	const now = "2026-08-29T09:00:00+08:00";
+	const repository = new MemoryWorkRepository();
+	const commands = new CommandService(repository, new DecisionEngine(), new Ids(), { now: () => now });
+	const profile = createProfile({
+		id: "profile_1", timezone: "Asia/Shanghai", dailyCapacityMinutes: 420, bufferPercent: 20,
+	}, now);
+	const initial = await commands.createFromDraft({
+		profile,
+		draft: {
+			title: "季度复盘", deadline: "2026-09-04T18:00:00+08:00", milestones: [], assumptions: [],
+			nodes: [
+				{
+					title: "失败的数据请求", owner: "self", workMinutes: 30, waitMinutes: 0,
+					dependencyIndexes: [], detail: basicWorkNodeDetail("失败的数据请求"),
+				},
+				{
+					title: "可移动的复盘框架", owner: "self", workMinutes: 60, waitMinutes: 0,
+					dependencyIndexes: [], detail: basicWorkNodeDetail("可移动的复盘框架"),
+				},
+			],
+		},
+	});
+	const failed = initial.aggregate.graph.nodes[0]!;
+	const movable = initial.aggregate.graph.nodes[1]!;
+	await commands.startExecution({ goalId: initial.aggregate.graph.goal.id, nodeId: failed.id });
+	const failedResult = await commands.failExecution({
+		goalId: initial.aggregate.graph.goal.id, nodeId: failed.id, reason: "数据源不可用",
+	});
+	const failedNode = failedResult.aggregate.graph.node(failed.id);
+
+	const core = new FallbackWorkBackend(commands, profile, { now: () => now });
+	const contexts: string[] = [];
+	const revisedDraft: WorkDraft = {
+		title: "季度复盘（重排）", deadline: "2026-09-04T18:00:00+08:00", milestones: [], assumptions: [],
+		nodes: [{
+			title: "可移动的复盘框架", owner: "self", workMinutes: 45, waitMinutes: 0,
+			dependencyIndexes: [], sourceNodeId: movable.id, detail: basicWorkNodeDetail("可移动的复盘框架"),
+		}],
+	};
+	const backend = new IntegratedDesktopBackend({
+		core,
+		setup: { readiness: async () => readyState, startBrowserLogin: async () => undefined },
+		executionRepository: new MemoryExecutionRepository(),
+		createRuntime: async () => ({
+			interpreter: {
+				interpret: async (_text, existingPlanContext) => {
+					contexts.push(existingPlanContext ?? "");
+					return { status: "ready", draft: revisedDraft, confidence: 0.9, questions: [] };
+				},
+			},
+			orchestrator: {} as DesktopExecutionRuntime["orchestrator"],
+			close: () => undefined,
+		}),
+		openArtifact: async () => undefined,
+		clock: { now: () => now },
+	});
+
+	await backend.submitText("数据源失败，请重新安排复盘框架");
+	const snapshot = await core.getSnapshot();
+	const retained = snapshot.nodes.find((node) => node.id === failed.id);
+	const existingPlan = contexts[0] ?? "";
+	assert.doesNotMatch(existingPlan, new RegExp(`"sourceNodeId":"${failed.id}"`));
+	assert.match(existingPlan, new RegExp(`"sourceNodeId":"${movable.id}"`));
+	assert.equal(snapshot.goal?.title, "季度复盘（重排）");
+	assert.deepEqual(retained, failedNode);
+	assert.equal(snapshot.nodes.find((node) => node.id === movable.id)?.workMinutes, 45);
 });
 
 test("从工作节点创建只绑定已选择目录的执行计划", async () => {
 	const context = setup();
 	context.backend.setWorkDirectory("/tmp/startday-work");
 	await context.backend.runCommand({
-		name: "startExecution", goalId: "goal-1", nodeId: "node-1", allowWebResearch: true,
+		name: "startExecution", goalId: "goal-1", nodeId: "node_1", allowWebResearch: true,
 	});
-	assert.deepEqual(context.calls.slice(0, 2), ["create:node-1", "plan:run-1"]);
+	assert.deepEqual(context.calls.slice(0, 2), ["create:node_1", "plan:run-1"]);
 	assert.deepEqual(context.repository.run?.workspaceRoots, ["/tmp/startday-work"]);
 	assert.equal(context.repository.run?.networkEnabled, true);
 	assert.ok(context.repository.run?.allowedTools.includes("公开网页调研"));
@@ -149,7 +282,7 @@ test("从工作节点创建只绑定已选择目录的执行计划", async () =>
 test("未选择目录时使用默认产物目录启动执行", async () => {
 	const context = setup({ defaultWorkDirectory: "/tmp/startday-output" });
 	await context.backend.runCommand({
-		name: "startExecution", goalId: "goal-1", nodeId: "node-1", allowWebResearch: false,
+		name: "startExecution", goalId: "goal-1", nodeId: "node_1", allowWebResearch: false,
 	});
 
 	assert.deepEqual(context.repository.run?.workspaceRoots, ["/tmp/startday-output"]);
@@ -160,10 +293,10 @@ test("审批、登录、成果打开和验收通过统一命令入口", async ()
 	const context = setup();
 	context.backend.setWorkDirectory("/tmp/startday-work");
 	await context.backend.runCommand({
-		name: "startExecution", goalId: "goal-1", nodeId: "node-1", allowWebResearch: false,
+		name: "startExecution", goalId: "goal-1", nodeId: "node_1", allowWebResearch: false,
 	});
 	context.repository.artifacts.push({
-		id: "artifact-1", runId: "run-1", workNodeId: "node-1", name: "复盘.md",
+		id: "artifact-1", runId: "run-1", workNodeId: "node_1", name: "复盘.md",
 		path: "/tmp/startday-work/复盘.md", sha256: "a".repeat(64), version: 1, verified: true,
 		createdAt: "2026-08-29T09:10:00+08:00",
 	});
@@ -196,7 +329,7 @@ test("停止失败时保留事件订阅并允许后续重建运行时", async ()
 	assert.deepEqual(received, ["停止失败但界面仍可收到通知"]);
 
 	await context.backend.submitText("重新建立执行通道");
-	assert.equal(context.core.draft?.title, "季度复盘");
+	assert.equal(context.core.revisedDraft?.title, "季度复盘");
 });
 
 test("仅停止执行通道时保留订阅并可重建运行时", async () => {

@@ -56,10 +56,16 @@ const draft = {
 	blockingQuestion: null,
 };
 
-const interpretation = (threadId, turnId) => {
+const interpretation = (threadId, turnId, params) => {
+	const prompt = params.input?.[0]?.text ?? "";
+	const sourceNodeIds = [...String(prompt).matchAll(/"sourceNodeId":"([^"]+)"/g)].map((match) => match[1]);
+	const result = structuredClone(draft);
+	result.nodes = result.nodes.map((node, index) => sourceNodeIds[index]
+		? { ...node, sourceNodeId: sourceNodeIds[index] }
+		: node);
 	send({
 		method: "item/completed",
-		params: { threadId, turnId, item: { type: "agentMessage", text: JSON.stringify(draft) } },
+		params: { threadId, turnId, item: { type: "agentMessage", text: JSON.stringify(result) } },
 	});
 	completeTurn(threadId, turnId);
 };
@@ -155,7 +161,7 @@ input.on("line", (line) => {
 		const threadId = message.params.threadId;
 		const turnId = `turn-${++turnSequence}`;
 		send({ id: message.id, result: { turn: { id: turnId } } });
-		if (message.params.outputSchema) later(() => interpretation(threadId, turnId));
+		if (message.params.outputSchema) later(() => interpretation(threadId, turnId, message.params));
 		else if (message.params.sandboxPolicy?.type === "readOnly") later(() => plan(threadId, turnId));
 		else execute(threadId, turnId, message.params);
 		return;
