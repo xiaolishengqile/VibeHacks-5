@@ -66,6 +66,34 @@ export interface CollaboratorRef {
 	readonly confirmed: boolean;
 }
 
+export interface WorkContingency {
+	readonly risk: string;
+	readonly trigger: string;
+	readonly action: string;
+}
+
+export interface WorkNodeDetail {
+	readonly summary: string;
+	readonly steps: readonly string[];
+	readonly deliverables: readonly string[];
+	readonly successCriteria: readonly string[];
+	readonly suggestions: readonly string[];
+	readonly contingencies: readonly WorkContingency[];
+}
+
+export const basicWorkNodeDetail = (title: string): WorkNodeDetail => ({
+	summary: `完成「${title}」，并留下可检查的结果。`,
+	steps: [`确认「${title}」的范围和所需资料`, `完成「${title}」并记录结果`],
+	deliverables: [`「${title}」的完成结果`],
+	successCriteria: ["结果可检查、可交付，未完成项已明确记录"],
+	suggestions: ["先完成最小可交付版本，再补充细节"],
+	contingencies: [{
+		risk: "时间或资料不足",
+		trigger: "开始时仍缺少完成任务所需的关键信息",
+		action: "缩小范围，先交最小版本并标记待补内容",
+	}],
+});
+
 export interface WorkNode {
 	readonly id: string;
 	readonly goalId: string;
@@ -78,6 +106,7 @@ export interface WorkNode {
 	readonly status: WorkNodeStatus;
 	readonly latestStart?: string;
 	readonly actualMinutes?: number;
+	readonly detail?: WorkNodeDetail;
 }
 
 export interface WorkDraftMilestone {
@@ -93,6 +122,7 @@ export interface WorkDraftNode {
 	readonly waitMinutes: number;
 	readonly dependencyIndexes: readonly number[];
 	readonly potentialCollaborator?: CollaboratorRef;
+	readonly detail: WorkNodeDetail;
 }
 
 export interface WorkDraft {
@@ -114,6 +144,56 @@ const validInstant = (value: unknown): value is string =>
 
 const nonNegativeInteger = (value: unknown): value is number =>
 	typeof value === "number" && Number.isInteger(value) && value >= 0;
+
+const detailStrings = (
+	value: unknown,
+	label: string,
+	nodeIndex: number,
+	errors: string[],
+): readonly string[] | null => {
+	const items = Array.isArray(value)
+		? value.map(trimmed).filter((item): item is string => item !== null)
+		: [];
+	if (items.length === 0 || items.length !== (Array.isArray(value) ? value.length : 0)) {
+		errors.push(`节点 ${nodeIndex + 1} 的${label}至少需要一项具体内容`);
+		return null;
+	}
+	return items;
+};
+
+const workNodeDetail = (value: unknown, nodeIndex: number, errors: string[]): WorkNodeDetail | null => {
+	if (!isRecord(value)) {
+		errors.push(`节点 ${nodeIndex + 1} 缺少任务详情`);
+		return null;
+	}
+	const summary = trimmed(value.summary);
+	if (!summary) errors.push(`节点 ${nodeIndex + 1} 的任务说明不能为空`);
+	const steps = detailStrings(value.steps, "执行步骤", nodeIndex, errors);
+	const deliverables = detailStrings(value.deliverables, "交付物", nodeIndex, errors);
+	const successCriteria = detailStrings(value.successCriteria, "完成标准", nodeIndex, errors);
+	const suggestions = detailStrings(value.suggestions, "助理建议", nodeIndex, errors);
+	const rawContingencies = Array.isArray(value.contingencies) ? value.contingencies : [];
+	const contingencies: WorkContingency[] = [];
+	if (rawContingencies.length === 0) errors.push(`节点 ${nodeIndex + 1} 至少需要一个风险兜底`);
+	for (const [contingencyIndex, raw] of rawContingencies.entries()) {
+		if (!isRecord(raw)) {
+			errors.push(`节点 ${nodeIndex + 1} 的兜底 ${contingencyIndex + 1} 格式无效`);
+			continue;
+		}
+		const risk = trimmed(raw.risk);
+		const trigger = trimmed(raw.trigger);
+		const action = trimmed(raw.action);
+		if (!risk || !trigger || !action) {
+			errors.push(`节点 ${nodeIndex + 1} 的兜底 ${contingencyIndex + 1} 必须包含风险、触发条件和行动`);
+			continue;
+		}
+		contingencies.push({ risk, trigger, action });
+	}
+	return summary && steps && deliverables && successCriteria && suggestions
+		&& contingencies.length === rawContingencies.length
+		? { summary, steps, deliverables, successCriteria, suggestions, contingencies }
+		: null;
+};
 
 export function validateWorkDraft(input: unknown): Result<WorkDraft, readonly string[]> {
 	if (!isRecord(input)) {
@@ -140,6 +220,7 @@ export function validateWorkDraft(input: unknown): Result<WorkDraft, readonly st
 		if (!owner) errors.push(`节点 ${index + 1} 负责人不能为空`);
 		if (!nonNegativeInteger(rawNode.workMinutes)) errors.push(`节点 ${index + 1} 的工作量不能为负数`);
 		if (!nonNegativeInteger(rawNode.waitMinutes)) errors.push(`节点 ${index + 1} 的等待时间不能为负数`);
+		const detail = workNodeDetail(rawNode.detail, index, errors);
 
 		const dependencyIndexes = Array.isArray(rawNode.dependencyIndexes)
 			? rawNode.dependencyIndexes.filter((value): value is number => Number.isInteger(value))
@@ -165,13 +246,15 @@ export function validateWorkDraft(input: unknown): Result<WorkDraft, readonly st
 			}
 		}
 
-		if (nodeTitle && owner && nonNegativeInteger(rawNode.workMinutes) && nonNegativeInteger(rawNode.waitMinutes)) {
+		if (nodeTitle && owner && detail
+			&& nonNegativeInteger(rawNode.workMinutes) && nonNegativeInteger(rawNode.waitMinutes)) {
 			nodes.push({
 				title: nodeTitle,
 				owner,
 				workMinutes: rawNode.workMinutes,
 				waitMinutes: rawNode.waitMinutes,
 				dependencyIndexes,
+				detail,
 				...(potentialCollaborator ? { potentialCollaborator } : {}),
 			});
 		}

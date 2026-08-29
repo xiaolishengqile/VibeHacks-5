@@ -5,7 +5,7 @@ import { CommandService } from "../../src/work/command-service.js";
 import { DecisionEngine } from "../../src/work/decision-engine.js";
 import { createProfile } from "../../src/work/profile.js";
 import type { StoredWorkAggregate, WorkRepository } from "../../src/work/repositories.js";
-import type { WorkGoal, WorkNode } from "../../src/work/types.js";
+import { basicWorkNodeDetail, type WorkGoal, type WorkNode } from "../../src/work/types.js";
 
 class MemoryRepository implements WorkRepository {
 	aggregate: StoredWorkAggregate | null;
@@ -103,8 +103,14 @@ test("确认草稿后创建可排期的工作聚合", async () => {
 			deadline: "2026-09-04T18:00:00+08:00",
 			milestones: [{ title: "老板审核", at: "2026-09-02T18:00:00+08:00", nodeIndexes: [1] }],
 			nodes: [
-				{ title: "找小王拿数据", owner: "小王", workMinutes: 5, waitMinutes: 1440, dependencyIndexes: [] },
-				{ title: "搭建框架", owner: "self", workMinutes: 180, waitMinutes: 0, dependencyIndexes: [0] },
+				{
+					title: "找小王拿数据", owner: "小王", workMinutes: 5, waitMinutes: 1440,
+					dependencyIndexes: [], detail: basicWorkNodeDetail("找小王拿数据"),
+				},
+				{
+					title: "搭建框架", owner: "self", workMinutes: 180, waitMinutes: 0,
+					dependencyIndexes: [0], detail: basicWorkNodeDetail("搭建框架"),
+				},
 			],
 			assumptions: [],
 		},
@@ -113,6 +119,7 @@ test("确认草稿后创建可排期的工作聚合", async () => {
 	assert.equal(result.aggregate.graph.nodes.length, 2);
 	assert.equal(result.aggregate.graph.goal.milestones[0]?.nodeIds[0], result.aggregate.graph.nodes[1]?.id);
 	assert.equal(result.aggregate.graph.node(result.aggregate.graph.nodes[0]!.id).status, "ready");
+	assert.match(result.aggregate.graph.nodes[0]?.detail?.summary ?? "", /找小王拿数据/);
 });
 
 test("首次案例建立的工作模型经用户确认后才生成行动建议", async () => {
@@ -131,7 +138,10 @@ test("首次案例建立的工作模型经用户确认后才生成行动建议",
 			title: "季度复盘",
 			deadline: "2026-09-04T18:00:00+08:00",
 			milestones: [],
-			nodes: [{ title: "搭建框架", owner: "self", workMinutes: 180, waitMinutes: 0, dependencyIndexes: [] }],
+			nodes: [{
+				title: "搭建框架", owner: "self", workMinutes: 180, waitMinutes: 0,
+				dependencyIndexes: [], detail: basicWorkNodeDetail("搭建框架"),
+			}],
 			assumptions: [],
 		},
 	});
@@ -195,6 +205,7 @@ test("手动待办会追加到当前目标并用指定时间进入日历", async
 	assert.ok(todo);
 	assert.equal(todo.status, "ready");
 	assert.equal(todo.latestStart, "2026-08-28T15:30:00+08:00");
+	assert.match(todo.detail?.summary ?? "", /处理突发客诉/);
 	assert.equal(result.aggregate.graph.goal.milestones.at(-1)?.nodeIds[0], todo.id);
 	assert.equal(result.decisions.find((decision) => decision.nodeId === todo.id)?.latestStart, "2026-08-28T15:30:00+08:00");
 	assert.equal(result.change.kind, "todoAdded");

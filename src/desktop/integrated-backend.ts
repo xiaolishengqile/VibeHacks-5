@@ -83,6 +83,7 @@ function existingPlanContext(snapshot: ApplicationSnapshot): string {
 				workMinutes: node.workMinutes,
 				waitMinutes: node.waitMinutes,
 				status: node.status,
+				detail: node.detail,
 			})),
 	});
 }

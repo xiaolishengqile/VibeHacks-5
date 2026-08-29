@@ -3,6 +3,42 @@ import test from "node:test";
 
 import { validateWorkDraft } from "../../src/work/types.js";
 
+const completeDetail = {
+	summary: "先形成可以检查的结果",
+	steps: ["确认范围", "完成并检查结果"],
+	deliverables: ["可交付成果"],
+	successCriteria: ["结果完整且可检查"],
+	suggestions: ["先完成最小版本"],
+	contingencies: [{ risk: "资料不足", trigger: "开始时仍缺资料", action: "先用占位并标记待补" }],
+};
+
+test("工作草稿拒绝缺少具体兜底的任务详情", () => {
+	const result = validateWorkDraft({
+		title: "活动方案",
+		deadline: "2026-09-04T18:00:00+08:00",
+		milestones: [],
+		nodes: [{
+			title: "写活动方案",
+			owner: "self",
+			workMinutes: 90,
+			waitMinutes: 0,
+			dependencyIndexes: [],
+			detail: {
+				summary: "先形成可审阅的活动方案，再锁定外部资源",
+				steps: ["写出目标、流程和预算初稿"],
+				deliverables: ["活动方案初稿"],
+				successCriteria: ["方案包含目标、流程、预算和备选场地"],
+				suggestions: ["先交最小可审版本，不等待所有信息齐全"],
+				contingencies: [],
+			},
+		}],
+		assumptions: [],
+	});
+
+	assert.equal(result.ok, false);
+	assert.match(result.ok ? "" : result.error.join("；"), /兜底/);
+});
+
 test("工作草稿拒绝缺少目标时间和负数工时", () => {
 	const result = validateWorkDraft({
 		title: "季度复盘",
@@ -64,6 +100,7 @@ test("合法工作草稿返回经过规范化的结构", () => {
 				workMinutes: 5,
 				waitMinutes: 1440,
 				dependencyIndexes: [],
+				detail: completeDetail,
 			},
 			{
 				title: "搭建复盘框架",
@@ -71,6 +108,7 @@ test("合法工作草稿返回经过规范化的结构", () => {
 				workMinutes: 180,
 				waitMinutes: 0,
 				dependencyIndexes: [0],
+				detail: completeDetail,
 			},
 		],
 		assumptions: ["预计等待一天"],

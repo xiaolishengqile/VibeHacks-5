@@ -5,7 +5,7 @@ import { SqliteWorkRepository } from "../storage/work-repository.js";
 import { CommandService } from "../work/command-service.js";
 import { DecisionEngine } from "../work/decision-engine.js";
 import { createProfile } from "../work/profile.js";
-import { validateWorkDraft } from "../work/types.js";
+import { basicWorkNodeDetail, validateWorkDraft } from "../work/types.js";
 
 export interface DemoSummary {
 	readonly goalId: string;
@@ -52,11 +52,11 @@ export async function runCoreDemo(databasePath: string): Promise<DemoSummary> {
 				{ title: "老板审核", at: "2026-09-03T16:00:00+08:00", nodeIndexes: [4] },
 			],
 			nodes: [
-				{ title: "找协作方拿数据", owner: "小王", workMinutes: 5, waitMinutes: 1440, dependencyIndexes: [] },
-				{ title: "搭建复盘框架", owner: "self", workMinutes: 120, waitMinutes: 0, dependencyIndexes: [] },
-				{ title: "完成数据分析", owner: "self", workMinutes: 180, waitMinutes: 0, dependencyIndexes: [0, 1] },
-				{ title: "生成汇报材料", owner: "self", workMinutes: 120, waitMinutes: 0, dependencyIndexes: [2] },
-				{ title: "老板审核", owner: "老板", workMinutes: 15, waitMinutes: 480, dependencyIndexes: [3] },
+				{ title: "找协作方拿数据", owner: "小王", workMinutes: 5, waitMinutes: 1440, dependencyIndexes: [], detail: basicWorkNodeDetail("找协作方拿数据") },
+				{ title: "搭建复盘框架", owner: "self", workMinutes: 120, waitMinutes: 0, dependencyIndexes: [], detail: basicWorkNodeDetail("搭建复盘框架") },
+				{ title: "完成数据分析", owner: "self", workMinutes: 180, waitMinutes: 0, dependencyIndexes: [0, 1], detail: basicWorkNodeDetail("完成数据分析") },
+				{ title: "生成汇报材料", owner: "self", workMinutes: 120, waitMinutes: 0, dependencyIndexes: [2], detail: basicWorkNodeDetail("生成汇报材料") },
+				{ title: "老板审核", owner: "老板", workMinutes: 15, waitMinutes: 480, dependencyIndexes: [3], detail: basicWorkNodeDetail("老板审核") },
 			],
 			assumptions: ["协作数据预计等待一天", "老板审核预计等待半天"],
 		});

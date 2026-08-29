@@ -9,7 +9,7 @@ import {
 } from "../../src/desktop/integrated-backend.js";
 import type { ExecutionRepository } from "../../src/execution/repositories.js";
 import type { ApprovalRequest, Artifact, ExecutionEvent, ExecutionRun } from "../../src/execution/types.js";
-import type { WorkDraft } from "../../src/work/types.js";
+import { basicWorkNodeDetail, type WorkDraft } from "../../src/work/types.js";
 
 class CoreBackend {
 	snapshot: ApplicationSnapshot = {
@@ -67,7 +67,10 @@ function setup(options: { readonly defaultWorkDirectory?: string; readonly failC
 		title: "季度复盘",
 		deadline: "2026-09-04T18:00:00+08:00",
 		milestones: [],
-		nodes: [{ title: "生成复盘框架", owner: "self", workMinutes: 60, waitMinutes: 0, dependencyIndexes: [] }],
+		nodes: [{
+			title: "生成复盘框架", owner: "self", workMinutes: 60, waitMinutes: 0,
+			dependencyIndexes: [], detail: basicWorkNodeDetail("生成复盘框架"),
+		}],
 		assumptions: [],
 	};
 	const runtime: DesktopExecutionRuntime = {
@@ -125,6 +128,7 @@ test("执行代理就绪时使用结构化理解结果创建工作", async () =>
 	const context = setup();
 	await context.backend.submitText("下周五完成季度复盘");
 	assert.equal(context.core.draft?.title, "季度复盘");
+	assert.match(context.core.draft?.nodes[0]?.detail.summary ?? "", /生成复盘框架/);
 });
 
 test("从工作节点创建只绑定已选择目录的执行计划", async () => {

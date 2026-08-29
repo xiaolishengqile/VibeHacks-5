@@ -24,13 +24,32 @@ const completeTurn = (threadId, turnId) => send({
 	params: { threadId, turn: { id: turnId, status: "completed", error: null } },
 });
 
+const assistantDetail = (title, suggestion) => ({
+	summary: `完成「${title}」并形成可检查的阶段成果`,
+	steps: ["确认范围和所需资料", `完成「${title}」的最小可审版本`],
+	deliverables: [`「${title}」阶段成果`],
+	successCriteria: ["内容完整、结论清晰且未完成项已标记"],
+	suggestions: [suggestion],
+	contingencies: [{
+		risk: "依赖资料或反馈延期",
+		trigger: "约定反馈时间仍未获得关键信息",
+		action: "使用现有资料和占位内容先完成最小版本",
+	}],
+});
+
 const draft = {
 	title: "季度复盘",
 	deadline: "2026-09-04T18:00:00+08:00",
 	milestones: [{ title: "老板预览", at: "2026-09-02T18:00:00+08:00", nodeIndexes: [1] }],
 	nodes: [
-		{ title: "找协作方拿数据", owner: "小王", workMinutes: 20, waitMinutes: 1440, dependencyIndexes: [] },
-		{ title: "搭建复盘框架", owner: "self", workMinutes: 70, waitMinutes: 0, dependencyIndexes: [0] },
+		{
+			title: "找协作方拿数据", owner: "小王", workMinutes: 20, waitMinutes: 1440, dependencyIndexes: [],
+			detail: assistantDetail("找协作方拿数据", "明确反馈截止和二次跟进时间，并准备替代数据源"),
+		},
+		{
+			title: "搭建复盘框架", owner: "self", workMinutes: 70, waitMinutes: 0, dependencyIndexes: [0],
+			detail: assistantDetail("搭建复盘框架", "先写完整叙事文稿，再制作演示页面；缺失数据先占位"),
+		},
 	],
 	assumptions: ["测试用确定性工作草稿"],
 	confidence: 0.96,

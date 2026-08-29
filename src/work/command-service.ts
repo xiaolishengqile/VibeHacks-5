@@ -9,7 +9,7 @@ import type {
 	WorkChangeKind,
 	WorkRepository,
 } from "./repositories.js";
-import type { WorkDraft, WorkGoal, WorkNode, WorkProfile } from "./types.js";
+import { basicWorkNodeDetail, type WorkDraft, type WorkGoal, type WorkNode, type WorkProfile } from "./types.js";
 
 export interface LoadedAggregate {
 	readonly profile: WorkProfile;
@@ -77,6 +77,7 @@ export class CommandService {
 			owner: draftNode.owner,
 			workMinutes: draftNode.workMinutes,
 			waitMinutes: draftNode.waitMinutes,
+			detail: draftNode.detail,
 			dependencyIds: draftNode.dependencyIndexes.map((dependencyIndex) => nodeIds[dependencyIndex]!),
 			status: draftNode.dependencyIndexes.length === 0 ? "ready" : "planned",
 			...(draftNode.potentialCollaborator ? { potentialCollaborator: draftNode.potentialCollaborator } : {}),
@@ -173,6 +174,7 @@ export class CommandService {
 			dependencyIds: [],
 			status: "ready",
 			latestStart: todo.at,
+			detail: basicWorkNodeDetail(todo.title),
 		};
 		const goal: WorkGoal = {
 			...aggregate.graph.goal,

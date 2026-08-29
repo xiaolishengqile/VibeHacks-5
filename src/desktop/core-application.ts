@@ -1,6 +1,6 @@
 import type { CommandService, CommandState } from "../work/command-service.js";
 import type { Clock } from "../work/repositories.js";
-import type { WorkProfile } from "../work/types.js";
+import { basicWorkNodeDetail, type WorkProfile } from "../work/types.js";
 import { isProfileConfirmed } from "../work/profile.js";
 import {
 	emptyApplicationSnapshot,
@@ -37,6 +37,7 @@ export class FallbackWorkBackend {
 					workMinutes: 60,
 					waitMinutes: 0,
 					dependencyIndexes: [],
+					detail: basicWorkNodeDetail(title),
 				}],
 				assumptions: ["智能理解服务不可用，已建立可手动调整的本地计划"],
 			},
