@@ -9,6 +9,8 @@ const readyDecision: WorkDecision = {
 	nodeId: "node_1",
 	title: "找小赵拿数据",
 	latestStart: "2026-08-28T10:00:00+08:00",
+	scheduledStart: "2026-08-28T09:00:00+08:00",
+	scheduledEnd: "2026-08-28T09:30:00+08:00",
 	targetAt: "2026-08-29T18:00:00+08:00",
 	recommendedAction: "start",
 	risk: "high",

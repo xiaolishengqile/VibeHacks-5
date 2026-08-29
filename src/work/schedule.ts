@@ -39,18 +39,82 @@ const isWeekend = (dayStartMs: number, offsetMinutes: number): boolean => {
 	return weekday === 0 || weekday === 6;
 };
 
+const workingMinutes = (profile: WorkProfile): { readonly start: number; readonly end: number } => {
+	if (!profile.dailyCapacityMinutes.confirmed) throw new Error("每日容量尚未确认");
+	const start = parseClock(profile.workdayStart.value);
+	const configuredEnd = parseClock(profile.workdayEnd.value);
+	const end = Math.min(configuredEnd, start + profile.dailyCapacityMinutes.value);
+	if (end <= start) throw new Error("有效工作时段为空");
+	return { start, end };
+};
+
+const nextWorkingDayStart = (
+	dayStartMs: number,
+	offsetMinutes: number,
+	startMinute: number,
+): number => {
+	let nextDay = dayStartMs + dayMs;
+	while (isWeekend(nextDay, offsetMinutes)) nextDay += dayMs;
+	return nextDay + startMinute * minuteMs;
+};
+
+export function alignToWorkingTime(
+	value: string,
+	profile: WorkProfile,
+	referenceOffset: string,
+): string {
+	const valueMs = Date.parse(value);
+	if (Number.isNaN(valueMs)) throw new Error("当前时间无效");
+	const offsetMinutes = parseOffsetMinutes(referenceOffset);
+	const window = workingMinutes(profile);
+	let dayStart = localDayStartMs(valueMs, offsetMinutes);
+	if (isWeekend(dayStart, offsetMinutes)) {
+		while (isWeekend(dayStart, offsetMinutes)) dayStart += dayMs;
+		return formatWithOffset(dayStart + window.start * minuteMs, offsetMinutes);
+	}
+
+	const workStart = dayStart + window.start * minuteMs;
+	const workEnd = dayStart + window.end * minuteMs;
+	if (valueMs <= workStart) return formatWithOffset(workStart, offsetMinutes);
+	if (valueMs >= workEnd) {
+		return formatWithOffset(nextWorkingDayStart(dayStart, offsetMinutes, window.start), offsetMinutes);
+	}
+
+	const elapsed = valueMs - dayStart;
+	const rounded = dayStart + Math.ceil(elapsed / (15 * minuteMs)) * 15 * minuteMs;
+	return rounded < workEnd
+		? formatWithOffset(rounded, offsetMinutes)
+		: formatWithOffset(nextWorkingDayStart(dayStart, offsetMinutes, window.start), offsetMinutes);
+}
+
+export function addWorkingMinutes(start: string, minutes: number, profile: WorkProfile): string {
+	if (!Number.isInteger(minutes) || minutes < 0) throw new RangeError("工作分钟必须是非负整数");
+	if (minutes === 0) return start;
+	const offsetMinutes = parseOffsetMinutes(start);
+	const window = workingMinutes(profile);
+	let cursor = Date.parse(alignToWorkingTime(start, profile, start));
+	let remaining = minutes;
+
+	while (remaining > 0) {
+		const dayStart = localDayStartMs(cursor, offsetMinutes);
+		const workEnd = dayStart + window.end * minuteMs;
+		const available = Math.max(0, Math.floor((workEnd - cursor) / minuteMs));
+		const used = Math.min(available, remaining);
+		cursor += used * minuteMs;
+		remaining -= used;
+		if (remaining > 0) cursor = nextWorkingDayStart(dayStart, offsetMinutes, window.start);
+	}
+
+	return formatWithOffset(cursor, offsetMinutes);
+}
+
 export function subtractWorkingMinutes(target: string, minutes: number, profile: WorkProfile): string {
 	if (!Number.isInteger(minutes) || minutes < 0) throw new RangeError("工作分钟必须是非负整数");
 	if (minutes === 0) return target;
-	if (!profile.dailyCapacityMinutes.confirmed) throw new Error("每日容量尚未确认");
-
 	const targetMs = Date.parse(target);
 	if (Number.isNaN(targetMs)) throw new Error("目标时间无效");
 	const offsetMinutes = parseOffsetMinutes(target);
-	const startMinute = parseClock(profile.workdayStart.value);
-	const configuredEnd = parseClock(profile.workdayEnd.value);
-	const endMinute = Math.min(configuredEnd, startMinute + profile.dailyCapacityMinutes.value);
-	if (endMinute <= startMinute) throw new Error("有效工作时段为空");
+	const { start: startMinute, end: endMinute } = workingMinutes(profile);
 
 	let cursor = targetMs;
 	let remaining = minutes;

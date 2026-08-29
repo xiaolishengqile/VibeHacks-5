@@ -201,6 +201,35 @@ test("周末创建计划时把前置工作安排到下一个工作周", () => {
 	);
 
 	assert.equal(decisions.find((item) => item.nodeId === "request")?.latestStart, "2026-08-31T15:48:00+08:00");
+	assert.equal(decisions.find((item) => item.nodeId === "request")?.scheduledStart, "2026-08-31T09:00:00+08:00");
+	assert.equal(decisions.find((item) => item.nodeId === "request")?.scheduledEnd, "2026-08-31T09:15:00+08:00");
+});
+
+test("实际可执行时间晚于最晚开始时升级风险并说明冲突", () => {
+	const urgentNode: WorkNode = {
+		id: "urgent",
+		goalId: goal.id,
+		title: "紧急初稿",
+		owner: "self",
+		workMinutes: 120,
+		waitMinutes: 0,
+		dependencyIds: [],
+		status: "ready",
+	};
+	const decision = new DecisionEngine().replan(
+		WorkGraph.create({
+			...goal,
+			deadline: "2026-08-31T10:00:00+08:00",
+			milestones: [],
+		}, [urgentNode]),
+		profile,
+		"2026-08-31T09:00:00+08:00",
+	)[0];
+
+	assert.equal(decision?.risk, "high");
+	assert.equal(decision?.scheduledStart, "2026-08-31T09:00:00+08:00");
+	assert.equal(decision?.scheduledEnd, "2026-08-31T11:30:00+08:00");
+	assert.match(decision?.reason ?? "", /实际排期晚于最晚开始/);
 });
 
 test("单个节点超过每日容量时明确提示容量风险", () => {

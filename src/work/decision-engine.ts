@@ -1,4 +1,5 @@
 import type { WorkGraph } from "./graph.js";
+import { buildForwardSchedule } from "./forward-schedule.js";
 import { subtractCalendarMinutes, subtractWorkingMinutes } from "./schedule.js";
 import type { Milestone, WorkNode, WorkProfile } from "./types.js";
 
@@ -9,6 +10,8 @@ export interface WorkDecision {
 	readonly nodeId: string;
 	readonly title: string;
 	readonly latestStart: string;
+	readonly scheduledStart: string;
+	readonly scheduledEnd: string;
 	readonly targetAt: string;
 	readonly recommendedAction: RecommendedAction;
 	readonly risk: DecisionRisk;
@@ -20,7 +23,7 @@ interface Target {
 	readonly label: string;
 }
 
-type ComputedDecision = WorkDecision & { readonly priority: number };
+type ComputedDecision = Omit<WorkDecision, "scheduledStart" | "scheduledEnd"> & { readonly priority: number };
 
 const earliestTargetFor = (node: WorkNode, deadline: string, milestones: readonly Milestone[]): Target => {
 	const candidates = milestones
@@ -95,9 +98,28 @@ export class DecisionEngine {
 		};
 		const decisions = graph.nodes.map(decide);
 
+		const windows = buildForwardSchedule(
+			graph.nodes,
+			new Map(decisions.map((decision) => [decision.nodeId, decision.latestStart])),
+			profile,
+			now,
+			graph.goal.deadline,
+		);
 		return decisions
 			.sort((left, right) => left.priority - right.priority)
-			.map(({ priority: _priority, ...decision }) => decision);
+			.map(({ priority: _priority, ...decision }): WorkDecision => {
+				const window = windows.get(decision.nodeId);
+				if (!window) throw new Error(`缺少任务排期：${decision.nodeId}`);
+				const conflict = Date.parse(window.scheduledStart) > Date.parse(decision.latestStart);
+				return {
+					...decision,
+					...window,
+					risk: conflict ? "high" : decision.risk,
+					reason: conflict
+						? `${decision.reason}；实际排期晚于最晚开始，需缩小范围或采用兜底方案`
+						: decision.reason,
+				};
+			});
 	}
 
 	#action(node: WorkNode, blocked: boolean, slackMinutes: number): RecommendedAction {
