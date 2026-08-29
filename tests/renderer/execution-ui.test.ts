@@ -37,6 +37,14 @@ test("完整工作台合并账号、执行、审批和成果操作区", async ()
 	assert.doesNotMatch(await read("workbench.ts"), /暂无安排/);
 });
 
+test("完整工作台复用清理数据入口，方便演示重置", async () => {
+	const html = await read("index.html");
+	const source = await read("workbench.ts");
+	assert.match(html, /id="clear-workbench-records"[^>]*>清除记录<\/button>/);
+	assert.match(source, /confirmAction/);
+	assert.match(source, /startDay\.resetApplicationData\(\)/);
+});
+
 test("轻面板不要求用户选择或读取业务文件夹", async () => {
 	const html = await read("mini.html");
 	assert.doesNotMatch(html, /choose-directory|选择目录|工作目录|读取文件夹/);

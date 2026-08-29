@@ -1,7 +1,7 @@
 import type { ApplicationSnapshot, UiCommand } from "../desktop/application-service.js";
 import type { CalendarDayView, WeekCalendarView } from "./calendar-view.js";
 import { toCalendarWindowView } from "./calendar-view.js";
-import { requestText } from "./dialogs.js";
+import { confirmAction, requestText } from "./dialogs.js";
 import { clearElement, createTextElement, renderEmpty, requiredElement, setText } from "./dom.js";
 import { formatHumanInstant, toExecutionView, toGraphView, toTodayActionView } from "./view-models.js";
 
@@ -403,6 +403,27 @@ calendarTarget.addEventListener("wheel", (event) => {
 
 requiredElement<HTMLButtonElement>("codex-login").addEventListener("click", () => void run({ name: "startCodexLogin" }));
 requiredElement<HTMLButtonElement>("codex-refresh").addEventListener("click", () => void run({ name: "refreshCodex" }));
+const clearWorkbenchRecords = requiredElement<HTMLButtonElement>("clear-workbench-records");
+clearWorkbenchRecords.addEventListener("click", async () => {
+	const confirmed = await confirmAction({
+		title: "清除演示记录",
+		message: "将停止当前执行并清空工作习惯、计划、执行、审批和成果记录。不会删除已生成文件，也不会退出执行代理账号。",
+		confirmLabel: "清除并重新开始",
+	});
+	if (!confirmed) return;
+	clearWorkbenchRecords.disabled = true;
+	text("today-reason", "正在清除记录并重新启动…");
+	try {
+		const result = await window.startDay.resetApplicationData();
+		if (!result.ok) {
+			clearWorkbenchRecords.disabled = false;
+			text("today-reason", result.error);
+		}
+	} catch (error) {
+		clearWorkbenchRecords.disabled = false;
+		text("today-reason", error instanceof Error ? error.message : "记录清除失败，请重试。");
+	}
+});
 requiredElement<HTMLButtonElement>("start-today-execution").addEventListener("click", () => {
 	const goalId = snapshot?.goal?.id;
 	const nodeId = snapshot?.nodes.find((node) => node.status === "ready")?.id;
