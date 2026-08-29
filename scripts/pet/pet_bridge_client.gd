@@ -18,7 +18,6 @@ signal state_changed(state: String)
 var _port := 0
 var _token := ""
 var _poll_request: HTTPRequest
-var _event_request: HTTPRequest
 var _poll_timer: Timer
 var _poll_in_flight := false
 
@@ -42,10 +41,6 @@ func configure(port: int, token: String) -> bool:
 	_poll_request.request_completed.connect(_on_poll_completed)
 	add_child(_poll_request)
 
-	_event_request = HTTPRequest.new()
-	_event_request.timeout = 2.0
-	add_child(_event_request)
-
 	_poll_timer = Timer.new()
 	_poll_timer.wait_time = POLL_SECONDS
 	_poll_timer.timeout.connect(_poll_state)
@@ -62,19 +57,29 @@ func is_integrated() -> bool:
 func post_event(event_type: String) -> bool:
 	if not is_integrated() or event_type not in ALLOWED_EVENTS:
 		return false
-	if _event_request.get_http_client_status() != HTTPClient.STATUS_DISCONNECTED:
-		return false
+	var event_request := HTTPRequest.new()
+	event_request.timeout = 2.0
+	event_request.request_completed.connect(func(
+		_result: int,
+		_response_code: int,
+		_headers: PackedStringArray,
+		_body: PackedByteArray,
+	) -> void: event_request.queue_free())
+	add_child(event_request)
 	var headers := PackedStringArray([
 		"Authorization: Bearer %s" % _token,
 		"Content-Type: application/json",
 	])
 	var body := JSON.stringify({"type": event_type})
-	return _event_request.request(
+	var error := event_request.request(
 		_base_url() + "/event",
 		headers,
 		HTTPClient.METHOD_POST,
 		body,
-	) == OK
+	)
+	if error != OK:
+		event_request.queue_free()
+	return error == OK
 
 
 func _poll_state() -> void:

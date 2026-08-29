@@ -22,7 +22,7 @@ const requestWithHost = (bridge: PetBridge, host: string): Promise<number> => ne
 	outgoing.end();
 });
 
-test("桌宠桥接拒绝错误令牌并接受单击事件", async () => {
+test("桌宠桥接拒绝错误令牌并接受打开轻面板事件", async () => {
 	const bridge = await PetBridge.start();
 	try {
 		assert.equal((await fetch(`${bridge.url}/state`)).status, 401);
@@ -39,7 +39,7 @@ test("桌宠桥接拒绝错误令牌并接受单击事件", async () => {
 	}
 });
 
-test("桌宠桥接接受悬浮菜单事件", async () => {
+test("桌宠桥接接受入口事件", async () => {
 	const bridge = await PetBridge.start();
 	try {
 		for (const type of ["open_workbench", "open_today", "open_input", "hide_pet"] as const) {

@@ -47,7 +47,7 @@ test("桌宠入口事件会显示轻面板", async ({ startDay }) => {
 	await expect.poll(() => startDay.isMiniPanelVisible()).toBe(true);
 });
 
-test("桌宠悬浮菜单事件打开对应入口", async ({ startDay }) => {
+test("桌宠入口事件打开对应轻面板状态", async ({ startDay }) => {
 	await startDay.hideMiniPanel();
 	await startDay.triggerPetEvent("open_today");
 	await expect.poll(() => startDay.isMiniPanelVisible()).toBe(true);
