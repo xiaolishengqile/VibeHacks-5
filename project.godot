@@ -8,10 +8,11 @@ run/main_scene="res://scenes/main.tscn"
 
 [display]
 
-window/size/viewport_width=855
-window/size/viewport_height=750
-window/size/window_width_override=285
-window/size/window_height_override=250
+window/size/viewport_width=900
+window/size/viewport_height=900
+window/size/window_width_override=120
+window/size/window_height_override=120
+window/stretch/mode="canvas_items"
 window/size/borderless=true
 window/size/always_on_top=true
 window/size/transparent=true
@@ -26,4 +27,3 @@ renderer/rendering_method.mobile="gl_compatibility"
 viewport/transparent_background=true
 environment/defaults/default_clear_color=Color(0, 0, 0, 0)
 textures/vram_compression/import_etc2_astc=true
-anti_aliasing/quality/msaa_3d=2

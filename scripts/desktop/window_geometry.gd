@@ -2,6 +2,32 @@ class_name WindowGeometry
 extends RefCounted
 
 
+static func physical_window_size(logical_size: Vector2i, screen_scale: float) -> Vector2i:
+	var scale := maxf(screen_scale, 1.0)
+	return Vector2i(
+		roundi(float(logical_size.x) * scale),
+		roundi(float(logical_size.y) * scale),
+	)
+
+
+static func bottom_right_position(
+	usable_rect: Rect2i,
+	physical_size: Vector2i,
+	margin: Vector2i,
+	screen_scale: float,
+) -> Vector2i:
+	return usable_rect.end - physical_size - physical_window_size(margin, screen_scale)
+
+
+static func is_near_right_edge(
+	window_rect: Rect2i,
+	usable_rect: Rect2i,
+	threshold: int,
+) -> bool:
+	var distance := usable_rect.end.x - window_rect.end.x
+	return absi(distance) <= maxi(threshold, 0)
+
+
 static func ellipse_polygon(
 	size: Vector2i,
 	center: Vector2,

@@ -8,16 +8,6 @@ const DesktopWindowControllerScript = preload("res://scripts/desktop/desktop_win
 
 static func run() -> Array[String]:
 	var errors: Array[String] = []
-	var viewport := Vector2(240, 210)
-	if not PetAnimatorScript.gaze_offset(viewport * 0.5, viewport).is_zero_approx():
-		errors.append("鼠标位于窗口中心时视线偏移必须为零")
-	var clamped_gaze := PetAnimatorScript.gaze_offset(Vector2(960, -420), viewport)
-	if not clamped_gaze.is_equal_approx(Vector2(0.07, -0.07)):
-		errors.append("视线偏移必须限制在 0.07 范围内")
-	if not is_equal_approx(PetAnimatorScript.blink_openness(0.5), 0.0):
-		errors.append("眨眼中点必须完全闭合")
-	if not is_equal_approx(PetAnimatorScript.blink_openness(-0.1), 1.0):
-		errors.append("眨眼周期外必须完全睁开")
 	if not PetInteractionScript.should_quit_for_button(MOUSE_BUTTON_RIGHT, true):
 		errors.append("右键按下必须请求退出")
 	if PetInteractionScript.should_quit_for_button(MOUSE_BUTTON_LEFT, true):
@@ -27,22 +17,31 @@ static func run() -> Array[String]:
 	visual.build()
 	var animator := PetAnimatorScript.new()
 	animator.setup(visual)
-	animator.set_mouse_position(Vector2(120, 105))
 	animator.react()
 
 	var window := Window.new()
 	var window_controller = DesktopWindowControllerScript.new()
 	window_controller.configure(window)
 	var interaction := PetInteractionScript.new()
-	interaction.setup(window_controller, animator)
+	interaction.setup(window_controller, animator, visual)
+	var peek_toggle := visual.get_node("PeekToggle") as Button
+	peek_toggle.pressed.emit()
+	if not visual.is_peek_mode():
+		errors.append("手动按钮必须能进入探头状态")
+	var usable := DisplayServer.screen_get_usable_rect(DisplayServer.window_get_current_screen())
+	if window.position.x + window.size.x != usable.end.x:
+		errors.append("手动进入探头状态时必须贴紧桌面右侧")
+	peek_toggle.pressed.emit()
+	if visual.is_peek_mode():
+		errors.append("手动按钮必须能退出探头状态")
 	var press := InputEventMouseButton.new()
 	press.button_index = MOUSE_BUTTON_LEFT
 	press.pressed = true
-	interaction._input(press)
+	interaction._unhandled_input(press)
 	if not window_controller.is_dragging():
 		errors.append("左键按下必须开始拖拽")
 	press.pressed = false
-	interaction._input(press)
+	interaction._unhandled_input(press)
 	if window_controller.is_dragging():
 		errors.append("左键松开必须结束拖拽")
 

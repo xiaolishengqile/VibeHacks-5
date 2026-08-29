@@ -1,84 +1,70 @@
 extends RefCounted
 
+const PetConfigScript = preload("res://scripts/config/pet_config.gd")
 const PetVisualScript = preload("res://scripts/pet/pet_visual.gd")
 
 
 static func run() -> Array[String]:
 	var errors: Array[String] = []
-	var visual := PetVisualScript.new()
-	visual.build()
+	var visual: Node = PetVisualScript.new()
+	visual.call("build")
 
-	if visual.get_node_or_null("Body/Base") == null:
-		errors.append("桌宠必须包含基础身体")
-	var fur_shells := visual.get_node_or_null("Body/FurShells")
-	if fur_shells == null or fur_shells.get_child_count() != 48:
-		errors.append("桌宠必须包含 48 层密集短绒")
-	elif (fur_shells.get_child(0) as MeshInstance3D).material_override.get_shader_parameter(
-		"fur_texture"
-	) == null:
-		errors.append("密集短绒必须使用参考图提炼的真实绒毛材质")
-	var body_mesh := (visual.get_node("Body/Base") as MeshInstance3D).mesh as SphereMesh
-	if body_mesh.radial_segments != 128 or body_mesh.rings != 64:
-		errors.append("身体网格密度不足，毛发轮廓会显得粗糙")
-	var fur_tufts := visual.get_node_or_null("Body/FurTufts") as MultiMeshInstance3D
-	if fur_tufts == null or fur_tufts.multimesh == null:
-		errors.append("桌宠必须包含定向细长毛束")
-	elif fur_tufts.multimesh.instance_count < 1400:
-		errors.append("定向毛束数量不足，无法形成参考图中的蓬松效果")
+	if not visual is Node2D:
+		errors.append("桌宠外观必须使用二维节点")
+	var artwork := visual.get_node_or_null("Body/Artwork") as Sprite2D
+	if artwork == null:
+		errors.append("二维桌宠必须包含完整立绘")
+		visual.free()
+		return errors
+	if artwork.texture == null:
+		errors.append("二维桌宠必须加载猫咪素材")
 	else:
-		for index in fur_tufts.multimesh.instance_count:
-			var origin := fur_tufts.multimesh.get_instance_transform(index).origin
-			if origin.z < 0.45:
-				continue
-			var left_distance := Vector2(
-				(origin.x + 0.31) / 0.29,
-				(origin.y - 0.14) / 0.27,
-			).length()
-			var right_distance := Vector2(
-				(origin.x - 0.31) / 0.29,
-				(origin.y - 0.14) / 0.27,
-			).length()
-			if minf(left_distance, right_distance) < 1.0:
-				errors.append("定向毛束不能穿过眼睛区域")
-				break
-	if visual.get_node_or_null("Eyes/Left") == null:
-		errors.append("桌宠必须包含左眼")
-	if visual.get_node_or_null("Eyes/Right") == null:
-		errors.append("桌宠必须包含右眼")
-	if visual.get_node_or_null("Eyes/Left/UpperLid") == null:
-		errors.append("左眼必须包含独立上眼皮")
-	if visual.get_node_or_null("Eyes/Right/UpperLid") == null:
-		errors.append("右眼必须包含独立上眼皮")
-	if visual.get_node_or_null("Body/Hat") != null:
-		errors.append("参考效果不能保留紫色帽子")
-	if visual.get_node_or_null("Shadow") == null:
-		errors.append("桌宠必须包含桌面阴影")
-	for method_name in ["set_body_pose", "set_blink", "set_gaze", "set_shadow"]:
-		if not visual.has_method(method_name):
-			errors.append("桌宠外观缺少姿态接口：%s" % method_name)
-	if not errors.is_empty():
+		if artwork.texture.get_size() != Vector2(1254, 1254):
+			errors.append("猫咪素材必须保留高分辨率细节")
+		var displayed_size := artwork.texture.get_size() * artwork.scale
+		if not is_equal_approx(displayed_size.x, 870.0):
+			errors.append("猫咪立绘必须完整适配内部画布")
+	var artwork_material := artwork.material as ShaderMaterial
+	if artwork_material == null or artwork_material.shader == null:
+		errors.append("二维素材必须使用透明键控材质")
+	var peek_artwork := visual.get_node_or_null("Body/PeekArtwork") as Sprite2D
+	if peek_artwork == null or peek_artwork.texture == null:
+		errors.append("桌宠必须包含右侧探头立绘")
+	else:
+		if peek_artwork.texture.get_size() != Vector2(1254, 1254):
+			errors.append("探头立绘必须保留高分辨率细节")
+		if peek_artwork.visible:
+			errors.append("探头立绘默认必须隐藏")
+		if peek_artwork.material == null:
+			errors.append("探头立绘必须使用透明键控材质")
+	var peek_toggle := visual.get_node_or_null("PeekToggle") as Button
+	if peek_toggle == null:
+		errors.append("桌宠必须提供手动探头按钮")
+	elif not is_zero_approx(peek_toggle.modulate.a):
+		errors.append("探头按钮默认必须隐藏并在悬停时出现")
+	if not visual.find_children("*", "Node3D", true, false).is_empty():
+		errors.append("二维桌宠不能保留三维节点")
+	if not visual.has_method("set_body_pose"):
+		errors.append("二维桌宠必须提供整体姿态接口")
 		visual.free()
 		return errors
 
-	visual.set_body_pose(Vector3(1.05, 0.96, 1.0), 0.08)
-	if not visual.get_node("Body").scale.is_equal_approx(Vector3(1.05, 0.96, 1.0)):
-		errors.append("身体姿态缩放未生效")
-	if not is_equal_approx(visual.get_node("Eyes").position.y, 0.08):
-		errors.append("眼睛必须跟随身体垂直移动")
-	visual.set_blink(1.0)
-	var sleepy_lid_y: float = (visual.get_node("Eyes/Left/UpperLid") as Node3D).position.y
-	visual.set_blink(0.0)
-	var closed_lid_y: float = (visual.get_node("Eyes/Left/UpperLid") as Node3D).position.y
-	if closed_lid_y >= sleepy_lid_y:
-		errors.append("闭眼时上眼皮必须向下覆盖眼球")
-	if not visual.get_node("Eyes/Left").scale.is_equal_approx(Vector3.ONE):
-		errors.append("眨眼不能再压扁整颗眼睛")
-	visual.set_gaze(Vector2(0.03, -0.02))
-	if not visual.get_node("Eyes/Left/Gaze").position.is_equal_approx(Vector3(0.03, -0.02, 0.0)):
-		errors.append("视线偏移未应用到瞳孔组")
-	visual.set_shadow(0.5)
-	if visual.get_node("Shadow").scale.x <= 0.88:
-		errors.append("阴影强度必须同步影响阴影宽度")
+	visual.call("set_body_pose", Vector2(1.05, 0.96), 8.0)
+	var body := visual.get_node("Body") as Node2D
+	if not body.scale.is_equal_approx(Vector2(1.05, 0.96)):
+		errors.append("整体姿态缩放未应用到二维立绘")
+	var expected_position := Vector2(PetConfigScript.RENDER_SIZE) * 0.5 + Vector2(0.0, 8.0)
+	if not body.position.is_equal_approx(expected_position):
+		errors.append("整体姿态位移未应用到二维立绘")
+
+	visual.call("set_peek_mode", true)
+	if artwork.visible or not peek_artwork.visible:
+		errors.append("进入探头状态时必须切换到探头立绘")
+	if not visual.call("is_peek_mode"):
+		errors.append("桌宠必须记录当前探头状态")
+	visual.call("set_peek_mode", false)
+	if not artwork.visible or peek_artwork.visible:
+		errors.append("退出探头状态时必须恢复完整立绘")
 
 	visual.free()
 	return errors

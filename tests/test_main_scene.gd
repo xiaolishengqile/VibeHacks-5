@@ -12,8 +12,14 @@ static func run() -> Array[String]:
 	var scene := packed_scene.instantiate()
 	var tree := Engine.get_main_loop() as SceneTree
 	tree.root.add_child(scene)
+	if not scene is Node2D:
+		errors.append("主场景必须使用二维根节点")
 	for node_name in ["PetVisual", "PetAnimator", "PetInteraction"]:
 		if scene.get_node_or_null(node_name) == null:
 			errors.append("主场景缺少模块：%s" % node_name)
+	if not scene.find_children("*", "Camera3D", true, false).is_empty():
+		errors.append("二维桌宠不能创建三维摄像机")
+	if not scene.find_children("*", "Light3D", true, false).is_empty():
+		errors.append("二维桌宠不能创建三维灯光")
 	scene.free()
 	return errors

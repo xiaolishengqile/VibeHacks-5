@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://ctrphect64uct"
-path="res://.godot/imported/fur_plush.png-0774b80cf669504dbff99794e2147e54.ctex"
+uid="uid://byrat6vc4prs0"
+path="res://.godot/imported/crystal_cat_2d.png-bacc3c5231d233482c630e381ef13970.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/textures/fur_plush.png"
-dest_files=["res://.godot/imported/fur_plush.png-0774b80cf669504dbff99794e2147e54.ctex"]
+source_file="res://assets/pet/crystal_cat_2d.png"
+dest_files=["res://.godot/imported/crystal_cat_2d.png-bacc3c5231d233482c630e381ef13970.ctex"]
 
 [params]
 
