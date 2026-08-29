@@ -1,5 +1,9 @@
 import { expect, test } from "./fixtures.js";
 
+test("应用启动时不显示已经取消的完整轻面板", async ({ startDay }) => {
+	await expect.poll(() => startDay.isMiniPanelVisible()).toBe(false);
+});
+
 test("季度复盘从输入到两个成果验收形成完整闭环", async ({ startDay }) => {
 	await startDay.submit("下周五做季度复盘，周三老板先看，数据找小王，先帮我搭框架");
 	await startDay.expectNode("找协作方拿数据", "ready");
@@ -45,6 +49,9 @@ test("桌宠入口事件会显示轻面板", async ({ startDay }) => {
 	await startDay.hideMiniPanel();
 	await startDay.triggerPetOpenPanel();
 	await expect.poll(() => startDay.isMiniPanelVisible()).toBe(true);
+	await expect(startDay.mini.getByRole("region", { name: "当日日程" })).toBeVisible();
+	await expect(startDay.mini.locator(".input-card")).toBeHidden();
+	await expect(startDay.mini.locator(".compact-card:visible")).toHaveCount(0);
 });
 
 test("桌宠入口事件打开对应轻面板状态", async ({ startDay }) => {
@@ -118,6 +125,39 @@ test("轻面板输入框随内容增高并限制最大高度", async ({ startDay
 	expect(capped.scrollHeight).toBeGreaterThan(capped.height);
 });
 
+test("轻面板支持回车发送并在完成后继续输入", async ({ startDay }) => {
+	await startDay.hideMiniPanel();
+	await startDay.triggerPetEvent("open_input");
+	const input = startDay.mini.locator("#work-input");
+
+	await input.fill("下周五完成季度复盘");
+	await input.press("Enter");
+	await expect(startDay.mini.locator(".chat-message--user")).toHaveCount(1);
+	await expect(input).toHaveValue("");
+
+	await input.fill("重新安排季度复盘");
+	await expect(startDay.mini.getByRole("button", { name: "发送" })).toBeEnabled();
+});
+
+test("手动待办只在完整工作台添加并同步日历", async ({ startDay }) => {
+	await expect(startDay.mini.getByRole("button", { name: "手动待办" })).toHaveCount(0);
+	await startDay.workbench.getByRole("button", { name: "添加待办" }).click();
+	let dialog = startDay.workbench.locator("dialog.app-dialog");
+	await dialog.getByLabel("添加待办").fill("整理会议纪要");
+	await dialog.getByRole("button", { name: "下一步" }).click();
+	dialog = startDay.workbench.locator("dialog.app-dialog");
+	const nextWorkday = await startDay.workbench.evaluate(() => {
+		const date = new Date();
+		do date.setDate(date.getDate() + 1); while ([0, 6].includes(date.getDay()));
+		date.setHours(10, 0, 0, 0);
+		const pad = (value: number) => String(value).padStart(2, "0");
+		return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T10:00`;
+	});
+	await dialog.getByLabel("安排时间").fill(nextWorkday);
+	await dialog.getByRole("button", { name: "加入日历" }).click();
+	await expect.poll(async () => (await startDay.snapshot()).nodes.some((node) => node.title === "整理会议纪要")).toBe(true);
+});
+
 test("完整工作台周日历切换时有横向滑动动画", async ({ startDay }) => {
 	const calendar = startDay.workbench.locator("#week-calendar");
 	await expect(calendar.locator("[data-calendar-track]")).toHaveCount(1);
@@ -168,6 +208,7 @@ test("完整工作台把计划移到右侧并折叠空执行状态", async ({ st
 
 test("轻面板和完整工作台使用明亮的日历布局", async ({ startDay }) => {
 	await startDay.submit("下周五做季度复盘，周三老板先看，数据找小王，先帮我搭框架");
+	await startDay.triggerPetEvent("open_today");
 
 	const weekCalendar = startDay.workbench.getByRole("region", { name: "周日历" });
 	await expect(weekCalendar).toBeVisible();
@@ -202,14 +243,15 @@ test("轻面板和完整工作台使用明亮的日历布局", async ({ startDay
 	expect(workbenchLayout.days.at(-1)?.right).toBeLessThanOrEqual(workbenchLayout.clientWidth);
 });
 
-test("代理状态不会撑破轻面板且关闭后可由桌宠重新打开", async ({ startDay }) => {
+test("轻面板保持紧凑且关闭后只恢复今日视图", async ({ startDay }) => {
 	await startDay.submit("下周五完成季度复盘");
 	await startDay.expectMiniPanelFitsViewport();
-	await startDay.expectMiniPanelHasContinuousSurface();
 	await startDay.closeMiniPanelFromButton();
 	await expect.poll(() => startDay.isMiniPanelVisible()).toBe(false);
 	await startDay.triggerPetOpenPanel();
 	await expect.poll(() => startDay.isMiniPanelVisible()).toBe(true);
+	await expect(startDay.mini.getByRole("region", { name: "当日日程" })).toBeVisible();
+	await expect(startDay.mini.locator(".input-card:visible, .compact-card:visible")).toHaveCount(0);
 });
 
 test("轻面板提供明确可用的关闭按钮和收纳后的清理入口", async ({ startDay }) => {

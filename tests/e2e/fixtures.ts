@@ -64,8 +64,9 @@ export class StartDayHarness {
 	}
 
 	async submit(text: string): Promise<void> {
+		await this.triggerPetEvent("open_input");
 		await this.mini.getByPlaceholder(/把要安排的事/).fill(text);
-		await this.mini.getByRole("button", { name: "安排" }).click();
+		await this.mini.getByRole("button", { name: "发送" }).click();
 		await expect.poll(async () => (await this.snapshot()).goal?.title).toBe("季度复盘");
 		await expect(this.mini.locator("#submit-message")).toContainText("同步到日历");
 		await expect.poll(async () => (await this.snapshot()).profile?.confirmed).toBe(true);
@@ -88,20 +89,18 @@ export class StartDayHarness {
 	}
 
 	async startAndConfirmExecution(): Promise<void> {
-		const miniStart = this.mini.getByRole("button", { name: "生成执行计划" });
-		if (await miniStart.count() > 0 && await miniStart.isEnabled()) await miniStart.click();
-		else await this.workbench.getByRole("button", { name: "生成执行计划" }).click();
+		await this.workbench.getByRole("button", { name: "生成执行计划" }).click();
 		await expect.poll(async () => (await this.snapshot()).executions.at(-1)?.status).toBe("awaitingApproval");
-		await this.mini.getByRole("button", { name: "确认并开始" }).click();
+		await this.workbench.getByRole("button", { name: "确认并开始" }).click();
 	}
 
 	async executeAndAcceptCurrent(actualMinutes: number): Promise<void> {
 		await this.startAndConfirmExecution();
 		await expect.poll(async () => (await this.snapshot()).approvals.length).toBe(1);
-		await this.mini.getByRole("button", { name: "批准一次" }).click();
+		await this.workbench.getByRole("button", { name: "批准一次" }).click();
 		await this.expectExecution("succeeded");
-		await this.mini.getByRole("button", { name: "接受成果" }).click();
-		const dialog = this.mini.locator("dialog.app-dialog");
+		await this.workbench.getByRole("button", { name: "接受成果" }).last().click();
+		const dialog = this.workbench.locator("dialog.app-dialog");
 		await dialog.getByLabel("记录实际耗时").fill(String(actualMinutes));
 		await dialog.getByRole("button", { name: "确认" }).click();
 		await expect.poll(async () => (await this.snapshot()).nodes.some((node) => node.status === "done")).toBe(true);
@@ -215,42 +214,6 @@ export class StartDayHarness {
 		expect(widestRight).toBeLessThanOrEqual(420);
 	}
 
-	async expectMiniPanelHasContinuousSurface(): Promise<void> {
-		const metrics = await this.mini.evaluate(async () => {
-			const bodyStyle = getComputedStyle(document.body);
-			const shell = document.querySelector<HTMLElement>(".shell--mini");
-			if (!shell) throw new Error("找不到轻面板外框");
-			const documentScrollHeight = document.documentElement.scrollHeight;
-			const viewportHeight = window.innerHeight;
-			const maxScroll = documentScrollHeight - viewportHeight;
-			const shellBottoms: number[] = [];
-			for (const position of [0, maxScroll / 2, maxScroll]) {
-				window.scrollTo(0, position);
-				await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-				shellBottoms.push(shell.getBoundingClientRect().bottom);
-			}
-			window.scrollTo(0, 0);
-			return {
-				bodyBorderBottomWidth: bodyStyle.borderBottomWidth,
-				bodyHeight: document.body.getBoundingClientRect().height,
-				bodyScrollHeight: document.body.scrollHeight,
-				documentScrollHeight,
-				viewportHeight,
-				maxScroll,
-				shellBorderBottomWidth: getComputedStyle(shell).borderBottomWidth,
-				shellBottoms,
-			};
-		});
-		expect(metrics.bodyBorderBottomWidth).toBe("0px");
-		expect(metrics.bodyHeight).toBeGreaterThanOrEqual(metrics.bodyScrollHeight - 1);
-		expect(Math.abs(metrics.bodyScrollHeight - metrics.documentScrollHeight)).toBeLessThanOrEqual(1);
-		expect(metrics.maxScroll).toBeGreaterThan(50);
-		expect(metrics.shellBorderBottomWidth).toBe("1px");
-		expect(metrics.shellBottoms[0]).toBeGreaterThan(metrics.viewportHeight + 50);
-		expect(metrics.shellBottoms[1]).toBeGreaterThan(metrics.viewportHeight + 20);
-		expect(Math.abs((metrics.shellBottoms[2] ?? 0) - metrics.viewportHeight)).toBeLessThanOrEqual(2);
-	}
-
 	async isMiniPanelVisible(): Promise<boolean> {
 		return this.app.evaluate(({ BrowserWindow }) =>
 			BrowserWindow.getAllWindows().find((window) => window.getTitle() === "启动日轻面板")?.isVisible() ?? false);
@@ -318,7 +281,7 @@ export class StartDayHarness {
 		this.workspace = join(await this.app.evaluate(({ app }) => app.getPath("userData")), "generated-work");
 		await this.app.evaluate(({ BrowserWindow, dialog }, workspace) => {
 			dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [workspace] });
-			for (const window of BrowserWindow.getAllWindows()) window.show();
+			BrowserWindow.getAllWindows().find((window) => window.getTitle() === "启动日工作台")?.show();
 		}, this.workspace);
 		await expect.poll(async () => typeof await this.mini.evaluate(() => window.startDay)).toBe("object");
 	}

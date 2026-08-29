@@ -13,7 +13,6 @@ const shell = requiredElement<HTMLElement>("mini-shell");
 const chatLog = requiredElement<HTMLDivElement>("chat-log");
 const input = requiredElement<HTMLTextAreaElement>("work-input");
 const submit = requiredElement<HTMLButtonElement>("submit-work");
-const manualTodo = requiredElement<HTMLButtonElement>("manual-todo");
 const message = requiredElement<HTMLParagraphElement>("submit-message");
 const planSummary = requiredElement<HTMLParagraphElement>("plan-summary");
 const profileSummary = requiredElement<HTMLParagraphElement>("profile-summary");
@@ -59,7 +58,7 @@ const setMessage = (value: string, error = false): void => {
 
 const updateSubmitState = (): void => {
 	submit.disabled = isSubmitDisabled(input.value, busy);
-	setText(submit, busy ? "安排中…" : "安排");
+	setText(submit, busy ? "发送中…" : "发送");
 };
 
 const resizeWorkInput = (): void => {
@@ -169,66 +168,43 @@ const reload = async (): Promise<void> => {
 input.addEventListener("input", handleWorkInput);
 window.startDay.onMiniPanelMode(setMiniPanelMode);
 window.startDay.onFocusInput(() => setMiniPanelMode("input"));
-submit.addEventListener("click", async () => {
+
+const submitCurrentInput = async (): Promise<void> => {
+	if (busy || isSubmitDisabled(input.value, false)) return;
 	const request = ++actionSequence;
 	const userText = input.value.trim();
 	busy = true;
 	updateSubmitState();
 	appendChat("user", userText);
 	setMessage("正在拆解并同步到日历…");
-	const result = await window.startDay.submitWorkText(userText);
-	busy = false;
-	updateSubmitState();
-	if (request !== actionSequence) return;
-	if (result.ok) {
-		render(result.value);
-		input.value = "";
+	try {
+		const result = await window.startDay.submitWorkText(userText);
+		if (request !== actionSequence) return;
+		if (result.ok) {
+			render(result.value);
+			input.value = "";
+			appendChat("assistant", planSummaryText(result.value));
+			setMessage("已拆解并同步到日历");
+		} else {
+			setMessage(result.error, true);
+			appendChat("assistant", result.error);
+		}
+	} catch (error) {
+		const errorMessage = error instanceof Error ? error.message : "发送失败，请重试";
+		setMessage(errorMessage, true);
+		appendChat("assistant", errorMessage);
+	} finally {
+		busy = false;
 		handleWorkInput();
-		appendChat("assistant", planSummaryText(result.value));
-		setMessage("已拆解并同步到日历");
-	} else {
-		setMessage(result.error, true);
-		appendChat("assistant", result.error);
+		input.focus();
 	}
-});
-
-const localDateTimeValue = (date = new Date()): string => {
-	const next = new Date(date);
-	next.setMinutes(Math.ceil(next.getMinutes() / 15) * 15, 0, 0);
-	const pad = (value: number): string => String(value).padStart(2, "0");
-	return `${next.getFullYear()}-${pad(next.getMonth() + 1)}-${pad(next.getDate())}T${pad(next.getHours())}:${pad(next.getMinutes())}`;
 };
 
-manualTodo.addEventListener("click", async () => {
-	const title = await requestText({
-		title: "手动待办",
-		message: "要添加什么待办？",
-		confirmLabel: "下一步",
-	});
-	if (!title) return;
-	const at = await requestText({
-		title: "安排时间",
-		message: "选择这个待办出现在日历里的时间",
-		defaultValue: localDateTimeValue(),
-		inputType: "datetime-local",
-		confirmLabel: "同步到日历",
-	});
-	if (!at) return;
-	const instant = new Date(at);
-	if (Number.isNaN(instant.getTime())) return setMessage("待办时间无效", true);
-	manualTodo.disabled = true;
-	setMessage("正在同步手动待办…");
-	const result = await window.startDay.addManualTodo({ title, at: instant.toISOString() });
-	manualTodo.disabled = false;
-	if (result.ok) {
-		render(result.value);
-		appendChat("user", `手动添加：${title}`);
-		appendChat("assistant", `已把「${title}」同步到日历。`);
-		setMessage("手动待办已同步到日历");
-	} else {
-		setMessage(result.error, true);
-		appendChat("assistant", result.error);
-	}
+submit.addEventListener("click", () => void submitCurrentInput());
+input.addEventListener("keydown", (event) => {
+	if (event.key !== "Enter" || event.shiftKey || event.isComposing) return;
+	event.preventDefault();
+	void submitCurrentInput();
 });
 
 requiredElement<HTMLButtonElement>("open-workbench").addEventListener("click", () => {

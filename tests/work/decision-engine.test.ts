@@ -118,6 +118,91 @@ test("依赖未完成的节点保持等待并说明阻塞", () => {
 	assert.match(analysis?.reason ?? "", /依赖/);
 });
 
+test("前置任务必须在下游任务最晚开始前完成", () => {
+	const chainedGoal: WorkGoal = {
+		...goal,
+		milestones: [{
+			id: "milestone_delivery",
+			title: "完成审核版",
+			at: "2026-09-02T16:00:00+08:00",
+			nodeIds: ["draft", "review"],
+		}],
+	};
+	const chainedNodes: readonly WorkNode[] = [
+		{
+			id: "draft",
+			goalId: chainedGoal.id,
+			title: "完成初稿",
+			owner: "self",
+			workMinutes: 180,
+			waitMinutes: 0,
+			dependencyIds: [],
+			status: "ready",
+		},
+		{
+			id: "review",
+			goalId: chainedGoal.id,
+			title: "校对审核版",
+			owner: "self",
+			workMinutes: 45,
+			waitMinutes: 0,
+			dependencyIds: ["draft"],
+			status: "planned",
+		},
+	];
+
+	const decisions = new DecisionEngine().replan(
+		WorkGraph.create(chainedGoal, chainedNodes),
+		profile,
+		"2026-08-29T14:00:00+08:00",
+	);
+
+	assert.equal(decisions.find((item) => item.nodeId === "review")?.latestStart, "2026-09-02T15:06:00+08:00");
+	assert.equal(decisions.find((item) => item.nodeId === "draft")?.latestStart, "2026-09-02T11:30:00+08:00");
+});
+
+test("周末创建计划时把前置工作安排到下一个工作周", () => {
+	const dataGoal: WorkGoal = {
+		...goal,
+		milestones: [{
+			id: "milestone_data",
+			title: "取得数据",
+			at: "2026-09-01T10:00:00+08:00",
+			nodeIds: ["request", "wait"],
+		}],
+	};
+	const dataNodes: readonly WorkNode[] = [
+		{
+			id: "request",
+			goalId: dataGoal.id,
+			title: "联系小王",
+			owner: "self",
+			workMinutes: 10,
+			waitMinutes: 0,
+			dependencyIds: [],
+			status: "ready",
+		},
+		{
+			id: "wait",
+			goalId: dataGoal.id,
+			title: "等待小王数据",
+			owner: "小王",
+			workMinutes: 0,
+			waitMinutes: 480,
+			dependencyIds: ["request"],
+			status: "planned",
+		},
+	];
+
+	const decisions = new DecisionEngine().replan(
+		WorkGraph.create(dataGoal, dataNodes),
+		profile,
+		"2026-08-29T14:00:00+08:00",
+	);
+
+	assert.equal(decisions.find((item) => item.nodeId === "request")?.latestStart, "2026-08-31T15:48:00+08:00");
+});
+
 test("单个节点超过每日容量时明确提示容量风险", () => {
 	const oversized: WorkNode = {
 		id: "oversized",

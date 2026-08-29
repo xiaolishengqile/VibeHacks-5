@@ -41,7 +41,7 @@ let closeDatabase: (() => void) | null = null;
 let closePetEvents: (() => void) | null = null;
 let closeShortcuts: (() => void) | null = null;
 let shutdownStarted = false;
-let currentMiniPanelMode: MiniPanelMode = "full";
+let currentMiniPanelMode: MiniPanelMode = "today";
 
 const createWindows = (): void => {
 	if (!workbench || workbench.isDestroyed()) workbench = createWorkbenchWindow(BrowserWindow);
@@ -61,7 +61,7 @@ const openMiniPanelModeNearCursor = (mode: MiniPanelMode): void => {
 };
 
 const openMiniPanelNearCursor = (): void => {
-	openMiniPanelModeNearCursor("full");
+	openMiniPanelModeNearCursor("today");
 };
 
 const openWorkbenchWindow = (): void => {

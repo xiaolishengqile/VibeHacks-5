@@ -86,7 +86,7 @@ export function workbenchWindowOptions(): SecureWindowOptions {
 }
 
 export function miniPanelWindowOptions(): SecureWindowOptions {
-	const size = miniPanelSizeForMode("full");
+	const size = miniPanelSizeForMode("today");
 	return {
 		...size,
 		show: false,

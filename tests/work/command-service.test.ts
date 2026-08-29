@@ -200,6 +200,20 @@ test("手动待办会追加到当前目标并用指定时间进入日历", async
 	assert.equal(result.change.kind, "todoAdded");
 });
 
+test("手动待办不能安排在周末", async () => {
+	const { service } = setup();
+
+	await assert.rejects(
+		() => service.addManualTodo({
+			profile,
+			goalId: "goal_1",
+			title: "周末整理材料",
+			at: "2026-08-29T10:00:00+08:00",
+		}),
+		/周六周日不安排工作/,
+	);
+});
+
 test("停止任务必须确认全部受影响节点且令牌只能使用一次", async () => {
 	const { service } = setup();
 	const prepared = await service.prepareStop({ goalId: "goal_1", nodeId: "request_data" });

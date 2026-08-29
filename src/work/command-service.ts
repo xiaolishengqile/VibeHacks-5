@@ -42,6 +42,11 @@ const normalizeManualTodo = (input: { readonly title: string; readonly at: strin
 	return { title, at: input.at };
 };
 
+const isWeekendAt = (at: string, timeZone: string): boolean => {
+	const weekday = new Intl.DateTimeFormat("en-US", { timeZone, weekday: "short" }).format(new Date(at));
+	return weekday === "Sat" || weekday === "Sun";
+};
+
 export class CommandService {
 	readonly #stopConfirmations = new Map<string, StopConfirmation>();
 	readonly #repository: WorkRepository;
@@ -154,6 +159,7 @@ export class CommandService {
 		const aggregate = input.goalId
 			? await this.#load(input.goalId)
 			: this.#manualTodoAggregate(input.profile, todo);
+		if (isWeekendAt(todo.at, aggregate.profile.timezone.value)) throw new Error("周六周日不安排工作，请选择工作日");
 		const nodeId = this.#ids.next("node");
 		const milestoneId = this.#ids.next("milestone");
 		const now = this.#clock.now();

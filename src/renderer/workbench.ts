@@ -1,6 +1,7 @@
 import type { ApplicationSnapshot, UiCommand } from "../desktop/application-service.js";
 import type { CalendarDayView, WeekCalendarView } from "./calendar-view.js";
 import { toCalendarWindowView } from "./calendar-view.js";
+import { localWorkdayDateTimeValue } from "./date-input.js";
 import { confirmAction, requestText } from "./dialogs.js";
 import { clearElement, createTextElement, renderEmpty, requiredElement, setText } from "./dom.js";
 import { formatHumanInstant, toExecutionView, toGraphView, toTodayActionView } from "./view-models.js";
@@ -348,6 +349,33 @@ const shiftCalendarDays = (delta: number): void => {
 const calendarTarget = requiredElement<HTMLDivElement>("week-calendar");
 requiredElement<HTMLButtonElement>("calendar-prev-week").addEventListener("click", () => shiftCalendarDays(-calendarWindowDays));
 requiredElement<HTMLButtonElement>("calendar-next-week").addEventListener("click", () => shiftCalendarDays(calendarWindowDays));
+const addManualTodo = requiredElement<HTMLButtonElement>("add-manual-todo");
+addManualTodo.addEventListener("click", async () => {
+	const title = await requestText({ title: "添加待办", message: "要添加什么待办？", confirmLabel: "下一步" });
+	if (!title) return;
+	const at = await requestText({
+		title: "安排时间",
+		message: "选择工作日时间，周六周日不安排工作",
+		defaultValue: localWorkdayDateTimeValue(),
+		inputType: "datetime-local",
+		confirmLabel: "加入日历",
+	});
+	if (!at) return;
+	const instant = new Date(at);
+	if (Number.isNaN(instant.getTime())) return text("today-reason", "待办时间无效");
+	addManualTodo.disabled = true;
+	try {
+		const result = await window.startDay.addManualTodo({ title, at: instant.toISOString() });
+		if (result.ok) {
+			render(result.value);
+			text("today-reason", `已把「${title}」加入工作日历`);
+		} else {
+			text("today-reason", result.error);
+		}
+	} finally {
+		addManualTodo.disabled = false;
+	}
+});
 calendarTarget.addEventListener("pointerdown", (event) => {
 	if (!snapshot || calendarSliding || event.button !== 0) return;
 	calendarSliding = true;

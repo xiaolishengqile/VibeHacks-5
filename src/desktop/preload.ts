@@ -1,7 +1,7 @@
 import type { ApplicationSnapshot, UiCommand } from "./application-service.js";
 import type { Result } from "../shared/result.js";
 
-export type MiniPanelMode = "full" | "today" | "input";
+export type MiniPanelMode = "today" | "input";
 
 export interface DesktopApi {
 	getSnapshot(): Promise<Result<ApplicationSnapshot, string>>;

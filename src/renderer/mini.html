@@ -8,7 +8,7 @@
 		<link rel="stylesheet" href="styles.css">
 	</head>
 	<body class="mini-body">
-		<main id="mini-shell" class="shell shell--mini">
+		<main id="mini-shell" class="shell shell--mini" data-mini-mode="today">
 			<header class="mini-header drag-region">
 				<div>
 					<p class="eyebrow">启动日日历</p>
@@ -46,8 +46,7 @@
 				<div id="chat-log" class="chat-log" aria-live="polite"></div>
 				<textarea id="work-input" rows="3" placeholder="把要安排的事发给我，我会拆解并同步到日历"></textarea>
 				<div class="input-actions">
-					<button id="manual-todo" class="text-button" type="button">手动待办</button>
-					<button id="submit-work" class="primary-button" type="button" disabled>安排</button>
+					<button id="submit-work" class="primary-button" type="button" disabled>发送</button>
 				</div>
 				<p id="submit-message" class="form-message" aria-live="polite"></p>
 			</section>

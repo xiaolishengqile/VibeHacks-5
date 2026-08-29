@@ -98,6 +98,8 @@ test("工作理解返回结构化草稿并保留关键假设", async () => {
 	const input = server.turnCalls[0]?.input as Array<{ text: string }>;
 	assert.match(input[0]?.text ?? "", /不得计算最晚开始时间/);
 	assert.match(input[0]?.text ?? "", /不得修改任何工作记录/);
+	assert.match(input[0]?.text ?? "", /当前时间：\d{4}-\d{2}-\d{2}T/);
+	assert.match(input[0]?.text ?? "", /周六、周日不安排工作/);
 });
 
 test("重新安排时把现有安排交给理解器并要求不遗漏", async () => {

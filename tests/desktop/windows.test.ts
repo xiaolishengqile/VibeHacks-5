@@ -24,11 +24,11 @@ test("桌宠轻面板无边框、默认隐藏且保持置顶", () => {
 	assert.equal(options.frame, false);
 	assert.equal(options.show, false);
 	assert.equal(options.alwaysOnTop, true);
+	assert.equal(options.height, 300);
 	assert.equal(options.webPreferences.nodeIntegration, false);
 });
 
 test("桌宠拆分入口使用紧凑轻面板窗口", () => {
-	assert.deepEqual(miniPanelSizeForMode("full"), { width: 420, height: 560 });
 	assert.deepEqual(miniPanelSizeForMode("today"), { width: 420, height: 300 });
 	assert.deepEqual(miniPanelSizeForMode("input"), { width: 420, height: 560 });
 });
