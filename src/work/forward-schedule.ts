@@ -21,7 +21,8 @@ export interface ScheduledWindow extends ScheduledSegment {
 const laterInstant = (left: string, right: string): string =>
 	Date.parse(left) >= Date.parse(right) ? left : right;
 
-const isTerminal = (node: WorkNode): boolean => node.status === "done" || node.status === "stopped";
+const isTerminal = (node: WorkNode): boolean =>
+	node.status === "done" || node.status === "stopped" || node.status === "failed";
 
 const isFixed = (node: WorkNode): node is WorkNode & { readonly fixedStart: string } =>
 	!isTerminal(node) && node.fixedStart !== undefined;

@@ -375,3 +375,37 @@ test("固定事项拒绝周末、工作时段外和相互重叠的窗口", () =>
 		/固定事项冲突/,
 	);
 });
+
+test("失败终态的固定事项不校验也不占用日历", () => {
+	const nodes: readonly WorkNode[] = [{
+		id: "failed_meeting",
+		goalId: "goal_1",
+		title: "已失败会议",
+		owner: "self",
+		workMinutes: 60,
+		waitMinutes: 0,
+		dependencyIds: [],
+		status: "failed",
+		fixedStart: "2026-08-30T10:00:00+08:00",
+	}, {
+		id: "draft",
+		goalId: "goal_1",
+		title: "撰写初稿",
+		owner: "self",
+		workMinutes: 60,
+		waitMinutes: 0,
+		dependencyIds: [],
+		status: "ready",
+	}];
+
+	const windows = buildForwardSchedule(
+		nodes,
+		new Map(),
+		profile,
+		"2026-08-31T09:00:00+08:00",
+		"2026-08-31T09:00:00+08:00",
+	);
+
+	assert.deepEqual(windows.get("failed_meeting")?.scheduledSegments, []);
+	assert.equal(windows.get("draft")?.scheduledStart, "2026-08-31T09:00:00+08:00");
+});
