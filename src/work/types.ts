@@ -105,6 +105,7 @@ export interface WorkNode {
 	readonly dependencyIds: readonly string[];
 	readonly status: WorkNodeStatus;
 	readonly latestStart?: string;
+	readonly fixedStart?: string;
 	readonly actualMinutes?: number;
 	readonly detail?: WorkNodeDetail;
 }
@@ -121,6 +122,7 @@ export interface WorkDraftNode {
 	readonly workMinutes: number;
 	readonly waitMinutes: number;
 	readonly dependencyIndexes: readonly number[];
+	readonly sourceNodeId?: string;
 	readonly potentialCollaborator?: CollaboratorRef;
 	readonly detail: WorkNodeDetail;
 }
@@ -220,6 +222,10 @@ export function validateWorkDraft(input: unknown): Result<WorkDraft, readonly st
 		if (!owner) errors.push(`节点 ${index + 1} 负责人不能为空`);
 		if (!nonNegativeInteger(rawNode.workMinutes)) errors.push(`节点 ${index + 1} 的工作量不能为负数`);
 		if (!nonNegativeInteger(rawNode.waitMinutes)) errors.push(`节点 ${index + 1} 的等待时间不能为负数`);
+		const sourceNodeId = rawNode.sourceNodeId === undefined ? undefined : trimmed(rawNode.sourceNodeId);
+		if (rawNode.sourceNodeId !== undefined && !sourceNodeId) {
+			errors.push(`节点 ${index + 1} 的来源标识不能为空`);
+		}
 		const detail = workNodeDetail(rawNode.detail, index, errors);
 
 		const dependencyIndexes = Array.isArray(rawNode.dependencyIndexes)
@@ -255,6 +261,7 @@ export function validateWorkDraft(input: unknown): Result<WorkDraft, readonly st
 				waitMinutes: rawNode.waitMinutes,
 				dependencyIndexes,
 				detail,
+				...(sourceNodeId ? { sourceNodeId } : {}),
 				...(potentialCollaborator ? { potentialCollaborator } : {}),
 			});
 		}
