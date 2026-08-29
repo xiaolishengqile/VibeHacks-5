@@ -125,18 +125,28 @@ test("轻面板输入框随内容增高并限制最大高度", async ({ startDay
 	expect(capped.scrollHeight).toBeGreaterThan(capped.height);
 });
 
-test("轻面板支持回车发送并在完成后继续输入", async ({ startDay }) => {
+test("轻面板点击发送后立即清空并在完成后继续输入", async ({ startDay }) => {
 	await startDay.hideMiniPanel();
 	await startDay.triggerPetEvent("open_input");
 	const input = startDay.mini.locator("#work-input");
 
-	await input.fill("下周五完成季度复盘");
-	await input.press("Enter");
+	await input.fill("慢速排期测试：下周五完成季度复盘");
+	await startDay.mini.getByRole("button", { name: "发送" }).click();
+	expect(await startDay.mini.locator("#submit-message").textContent()).toContain("正在拆解");
+	expect(await input.inputValue()).toBe("");
 	await expect(startDay.mini.locator(".chat-message--user")).toHaveCount(1);
-	await expect(input).toHaveValue("");
+	await expect(startDay.mini.locator(".chat-message--assistant").last()).toContainText("周一");
 
-	await input.fill("重新安排季度复盘");
-	await expect(startDay.mini.getByRole("button", { name: "发送" })).toBeEnabled();
+	await input.fill("临时出一版下午发送的全员用户群文案，请重新安排");
+	await startDay.mini.getByRole("button", { name: "发送" }).click();
+	await expect(startDay.mini.locator(".chat-message--assistant").last()).toContainText("紧急任务插入");
+	const titles = (await startDay.snapshot()).nodes.map((node) => node.title);
+	expect(titles).toEqual(expect.arrayContaining(["找协作方拿数据", "搭建复盘框架", "完成全员用户群文案"]));
+
+	await input.fill("排期失败测试");
+	await startDay.mini.getByRole("button", { name: "发送" }).click();
+	expect(await input.inputValue()).toBe("");
+	await expect(startDay.mini.locator("#submit-message")).toHaveClass(/is-error/);
 });
 
 test("界面不提供手动添加待办入口", async ({ startDay }) => {
@@ -201,7 +211,7 @@ test("轻面板和完整工作台使用明亮的日历布局", async ({ startDay
 	await expect(weekCalendar.locator(".calendar-day")).toHaveCount(7);
 	await expect(weekCalendar.getByText("找协作方拿数据")).toBeVisible();
 	await expect(startDay.mini.getByRole("region", { name: "当日日程" })).toBeVisible();
-	await expect(startDay.mini.getByText("找协作方拿数据")).toBeVisible();
+	await expect(startDay.mini.getByRole("heading", { name: "找协作方拿数据" })).toBeVisible();
 	const workbenchLayout = await startDay.workbench.evaluate(() => ({
 		colorScheme: getComputedStyle(document.documentElement).colorScheme,
 		background: getComputedStyle(document.documentElement).backgroundColor,

@@ -63,6 +63,21 @@ const interpretation = (threadId, turnId, params) => {
 	result.nodes = result.nodes.map((node, index) => sourceNodeIds[index]
 		? { ...node, sourceNodeId: sourceNodeIds[index] }
 		: node);
+	if (String(prompt).includes("临时出一版下午发送的全员用户群文案")) {
+		result.nodes.push({
+			title: "完成全员用户群文案",
+			owner: "self",
+			workMinutes: 80,
+			waitMinutes: 0,
+			dependencyIndexes: [],
+			detail: assistantDetail("完成全员用户群文案", "复用历史文案，预留上级审核和修改时间"),
+		});
+		result.milestones.push({
+			title: "全员用户群文案发布",
+			at: "2026-08-31T15:00:00+08:00",
+			nodeIndexes: [2],
+		});
+	}
 	send({
 		method: "item/completed",
 		params: { threadId, turnId, item: { type: "agentMessage", text: JSON.stringify(result) } },
@@ -161,7 +176,19 @@ input.on("line", (line) => {
 		const threadId = message.params.threadId;
 		const turnId = `turn-${++turnSequence}`;
 		send({ id: message.id, result: { turn: { id: turnId } } });
-		if (message.params.outputSchema) later(() => interpretation(threadId, turnId, message.params));
+		if (message.params.outputSchema) {
+			const prompt = message.params.input?.[0]?.text ?? "";
+			if (String(prompt).includes("排期失败测试")) {
+				return later(() => send({
+					method: "turn/completed",
+					params: { threadId, turn: { id: turnId, status: "failed", error: { message: "模拟工作理解失败" } } },
+				}));
+			}
+			later(
+				() => interpretation(threadId, turnId, message.params),
+				String(prompt).includes("慢速排期测试") ? 600 : 30,
+			);
+		}
 		else if (message.params.sandboxPolicy?.type === "readOnly") later(() => plan(threadId, turnId));
 		else execute(threadId, turnId, message.params);
 		return;

@@ -376,8 +376,10 @@ button:focus-visible, textarea:focus-visible, input:focus-visible, a:focus-visib
 }
 .chat-message--assistant {
 	justify-self: start;
+	max-width: 100%;
 	background: rgba(255, 255, 255, 0.72);
 	border: 1px solid var(--line);
+	white-space: pre-wrap;
 }
 .chat-message--user {
 	justify-self: end;

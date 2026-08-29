@@ -3,6 +3,7 @@ import type { MiniPanelMode } from "../desktop/preload.js";
 import { toWeekCalendarView } from "./calendar-view.js";
 import { confirmAction, requestText } from "./dialogs.js";
 import { clearElement, createTextElement, isSubmitDisabled, requiredElement, setText } from "./dom.js";
+import { toPlanResponseText } from "./plan-response-view.js";
 import { toExecutionView, toMiniExecutionControl, toTodayActionView } from "./view-models.js";
 
 const actionRisk = requiredElement<HTMLSpanElement>("action-risk");
@@ -36,19 +37,16 @@ type ChatRole = "assistant" | "user";
 const appendChat = (role: ChatRole, value: string): void => {
 	const bubble = createTextElement("p", `chat-message chat-message--${role}`, value);
 	chatLog.append(bubble);
-	chatLog.scrollTop = chatLog.scrollHeight;
+	chatLog.scrollTop = role === "assistant"
+		? Math.max(0, bubble.offsetTop - chatLog.offsetTop - 2)
+		: chatLog.scrollHeight;
 };
-
-const planSummaryText = (value: ApplicationSnapshot): string =>
-	value.goal
-		? `已安排「${value.goal.title}」，共 ${value.nodes.length} 个事项，已经同步到日历。后续有突发情况，直接告诉我“重新安排”即可。`
-		: "把要安排的事发给我，我会拆解任务、依赖和时间，并同步到日历。";
 
 const ensureChat = (value: ApplicationSnapshot): void => {
 	if (chatInitialized) return;
 	chatInitialized = true;
 	clearElement(chatLog);
-	appendChat("assistant", planSummaryText(value));
+	appendChat("assistant", toPlanResponseText(value));
 };
 
 const setMessage = (value: string, error = false): void => {
@@ -173,8 +171,10 @@ const submitCurrentInput = async (): Promise<void> => {
 	if (busy || isSubmitDisabled(input.value, false)) return;
 	const request = ++actionSequence;
 	const userText = input.value.trim();
+	const previousSnapshot = snapshot;
+	input.value = "";
 	busy = true;
-	updateSubmitState();
+	handleWorkInput();
 	appendChat("user", userText);
 	setMessage("正在拆解并同步到日历…");
 	try {
@@ -182,8 +182,7 @@ const submitCurrentInput = async (): Promise<void> => {
 		if (request !== actionSequence) return;
 		if (result.ok) {
 			render(result.value);
-			input.value = "";
-			appendChat("assistant", planSummaryText(result.value));
+			appendChat("assistant", toPlanResponseText(result.value, previousSnapshot));
 			setMessage("已拆解并同步到日历");
 		} else {
 			setMessage(result.error, true);

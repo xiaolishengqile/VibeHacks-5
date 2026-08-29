@@ -128,6 +128,10 @@ test("工作理解返回结构化草稿并保留关键假设", async () => {
 	assert.match(input[0]?.text ?? "", /sourceNodeId/);
 	assert.match(input[0]?.text ?? "", /不得猜测职业/);
 	assert.match(input[0]?.text ?? "", /风险.*触发条件.*兜底/);
+	assert.match(input[0]?.text ?? "", /临时任务.*独立里程碑/);
+	assert.match(input[0]?.text ?? "", /保留原目标最终截止时间/);
+	assert.match(input[0]?.text ?? "", /不得伪造多人并行/);
+	assert.match(input[0]?.text ?? "", /复用已有材料/);
 });
 
 test("重新安排时把现有安排交给理解器并要求不遗漏", async () => {
