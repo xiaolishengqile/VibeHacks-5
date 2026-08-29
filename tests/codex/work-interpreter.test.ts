@@ -77,7 +77,10 @@ const validDraft = JSON.stringify({
 	deadline: "2026-09-04T18:00:00+08:00",
 	milestones: [{ title: "内部审核", at: "2026-09-03T15:00:00+08:00", nodeIndexes: [0] }],
 	nodes: [
-		{ title: "收集数据", owner: "我", workMinutes: 120, waitMinutes: 0, dependencyIndexes: [], detail: assistantDetail },
+		{
+			title: "收集数据", owner: "我", workMinutes: 120, waitMinutes: 0,
+			dependencyIndexes: [], sourceNodeId: "node_1", detail: assistantDetail,
+		},
 		{ title: "请小王核对数据", owner: "小王", workMinutes: 30, waitMinutes: 240, dependencyIndexes: [0], detail: assistantDetail },
 	],
 	assumptions: ["小王在工作日内回复"],
@@ -95,6 +98,7 @@ test("工作理解返回结构化草稿并保留关键假设", async () => {
 
 	assert.equal(interpretation.status, "ready");
 	assert.equal(interpretation.draft?.title, "季度复盘");
+	assert.equal(interpretation.draft?.nodes[0]?.sourceNodeId, "node_1");
 	assert.equal(interpretation.draft?.nodes.some((node) => node.owner === "小王"), true);
 	assert.deepEqual(interpretation.draft?.nodes[0]?.detail.suggestions, [
 		"先写完整叙事文稿，再制作演示页面",
@@ -113,6 +117,7 @@ test("工作理解返回结构化草稿并保留关键假设", async () => {
 	assert.deepEqual(server.turnCalls[0]?.sandboxPolicy, { type: "readOnly", networkAccess: false });
 	assert.equal(typeof server.turnCalls[0]?.outputSchema, "object");
 	assert.match(JSON.stringify(server.turnCalls[0]?.outputSchema), /"detail"/);
+	assert.match(JSON.stringify(server.turnCalls[0]?.outputSchema), /"sourceNodeId"/);
 	const input = server.turnCalls[0]?.input as Array<{ text: string }>;
 	assert.match(input[0]?.text ?? "", /不得计算最晚开始时间/);
 	assert.match(input[0]?.text ?? "", /不得修改任何工作记录/);
@@ -120,6 +125,8 @@ test("工作理解返回结构化草稿并保留关键假设", async () => {
 	assert.match(input[0]?.text ?? "", /周六、周日不安排工作/);
 	assert.match(input[0]?.text ?? "", /演示文稿.*先写.*叙事/);
 	assert.match(input[0]?.text ?? "", /原样保留已有有效详情/);
+	assert.match(input[0]?.text ?? "", /sourceNodeId/);
+	assert.match(input[0]?.text ?? "", /不得猜测职业/);
 	assert.match(input[0]?.text ?? "", /风险.*触发条件.*兜底/);
 });
 
