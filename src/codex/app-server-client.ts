@@ -83,11 +83,11 @@ export class CodexAppServer {
 		this.#account = account;
 	}
 
-	static async start(command: string, packageVersion = "1.0.0"): Promise<CodexAppServer> {
-		const transport = await JsonRpcTransport.start({
-			command,
-			args: ["app-server", "--stdio"],
-		} satisfies JsonRpcCommand);
+	static async start(command: string, packageVersion = "1.0.0", env?: NodeJS.ProcessEnv): Promise<CodexAppServer> {
+		const cmd: JsonRpcCommand = env !== undefined
+			? { command, args: ["app-server", "--stdio"], env }
+			: { command, args: ["app-server", "--stdio"] };
+		const transport = await JsonRpcTransport.start(cmd);
 		try {
 			return await CodexAppServer.connect(transport, packageVersion);
 		} catch (error) {

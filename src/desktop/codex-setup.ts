@@ -1,6 +1,9 @@
 import type { AccountState, BrowserLogin, RateLimitReadiness } from "../codex/app-server-client.js";
 import { CodexAppServer } from "../codex/app-server-client.js";
 import { locateCodex, type LocatedCodex } from "../codex/codex-locator.js";
+import { writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
+import { join } from "node:path";
 
 export interface CodexSetupClient {
 	account(refresh?: boolean): Promise<AccountState>;
@@ -23,15 +26,65 @@ export interface CodexSetupState {
 
 export interface CodexSetupDependencies<TClient extends CodexSetupClient = CodexSetupClient> {
 	readonly locate: () => Promise<LocatedCodex | null>;
-	readonly connect: (command: string) => Promise<TClient>;
+	readonly connect: (command: string, env?: NodeJS.ProcessEnv) => Promise<TClient>;
 	readonly openExternal: (url: string) => Promise<void>;
+	readonly writeTextFile?: (path: string, content: string) => Promise<void>;
 }
 
 const defaultDependencies: CodexSetupDependencies = {
 	locate: () => locateCodex(),
-	connect: (command) => CodexAppServer.start(command),
+	connect: (command, env) => CodexAppServer.start(command, "1.0.0", env),
 	openExternal: async () => { throw new Error("桌面浏览器打开能力尚未配置"); },
+	writeTextFile: async (path, content) => { await writeFile(path, content, "utf8"); },
 };
+
+export interface CodexProviderConfig {
+	endpoint: string;
+	model: string;
+	apiKey: string;
+}
+
+export const defaultCodexProviderConfig: CodexProviderConfig = {
+	endpoint: "https://api.stepfun.com/step_plan/v1",
+	model: "step-3.7-flash",
+	apiKey: "15KqpefQXWOuQnepEUgRSGtBG0HUMR98vDM3cQIpNV1Bjd1JfNb0n2zbkzUuWnQpw",
+};
+
+export const codexProviderConfigPath = join(homedir(), ".codex", "startday-config.toml");
+
+export function parseCodexProviderConfig(raw: string): CodexProviderConfig {
+	const config: CodexProviderConfig = { ...defaultCodexProviderConfig };
+	for (const line of raw.split(/\r?\n/)) {
+		const match = line.match(/^\s*(\w+)\s*=\s*"([^"]*)"\s*$/);
+		if (!match) continue;
+		const [, key, value] = match;
+		if (key === undefined || value === undefined) continue;
+		if (key === "endpoint") config.endpoint = value;
+		else if (key === "model") config.model = value;
+		else if (key === "apiKey" || key === "apikey") config.apiKey = value;
+	}
+	return config;
+}
+
+export function formatCodexProviderConfig(config: CodexProviderConfig): string {
+	return `endpoint = "${config.endpoint.replace(/"/g, "")}"\nmodel = "${config.model.replace(/"/g, "")}"\napikey = "${config.apiKey.replace(/"/g, "")}"\n`;
+}
+
+export function readCodexProviderConfig(dependencies: CodexSetupDependencies): Promise<CodexProviderConfig> {
+	return readStoredCodexProviderConfig().catch(() => ({ ...defaultCodexProviderConfig }));
+}
+
+export async function readStoredCodexProviderConfig(): Promise<CodexProviderConfig> {
+	const { readFile } = await import("node:fs/promises");
+	const raw = await readFile(codexProviderConfigPath, "utf8");
+	return parseCodexProviderConfig(raw);
+}
+
+export async function writeCodexProviderConfig(config: CodexProviderConfig, dependencies: CodexSetupDependencies = defaultDependencies): Promise<void> {
+	const content = formatCodexProviderConfig(config);
+	if (dependencies.writeTextFile) await dependencies.writeTextFile(codexProviderConfigPath, content);
+	else await writeFile(codexProviderConfigPath, content, "utf8");
+}
 
 const accountLabel = (account: Readonly<Record<string, unknown>>): string => {
 	if (typeof account.email === "string" && account.email.trim()) return account.email.trim();
@@ -75,10 +128,18 @@ export class CodexSetup<TClient extends CodexSetupClient = CodexSetupClient> {
 	}
 
 	async #loadReadiness(refresh: boolean): Promise<CodexSetupState> {
+		const provider = this.#dependencies.writeTextFile !== undefined
+			? await readCodexProviderConfig(this.#dependencies)
+			: { ...defaultCodexProviderConfig };
 		try {
 			if (!this.#located) this.#located = await this.#dependencies.locate();
 			if (!this.#located) return this.#store(this.#unavailable("未找到本机执行代理"));
-			if (!this.#client) this.#client = await this.#dependencies.connect(this.#located.command);
+			if (!this.#client) {
+				const env: Record<string, string | undefined> = { ...process.env };
+				if (provider.endpoint.trim()) env.OPENAI_BASE_URL = provider.endpoint.replace(/\/$/, "");
+				if (provider.apiKey.trim()) env.OPENAI_API_KEY = provider.apiKey.trim();
+				this.#client = await this.#dependencies.connect(this.#located.command, env);
+			}
 			const account = await this.#client.account(refresh && this.#lastState !== null);
 			if (!account.account) {
 				return this.#store({
@@ -129,6 +190,11 @@ export class CodexSetup<TClient extends CodexSetupClient = CodexSetupClient> {
 		if (!this.#client) throw new Error("执行代理不可用，无法登录");
 		const login = await this.#client.startChatGptLogin();
 		await this.#dependencies.openExternal(trustedAuthUrl(login.authUrl).toString());
+	}
+
+	async updateProviderConfig(config: CodexProviderConfig): Promise<void> {
+		await writeCodexProviderConfig(config, this.#dependencies);
+		await this.close();
 	}
 
 	async client(): Promise<TClient> {

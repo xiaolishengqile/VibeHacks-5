@@ -177,6 +177,10 @@ const startDesktop = async (): Promise<void> => {
 		openMiniPanel: openMiniPanelNearCursor,
 		openWorkbench: openWorkbenchWindow,
 	});
+	if (process.platform !== "darwin") {
+		workbench?.show();
+		workbench?.focus();
+	}
 
 	app.on("before-quit", (event) => {
 		if (shutdownStarted) return;

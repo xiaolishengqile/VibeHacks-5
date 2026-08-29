@@ -100,6 +100,7 @@ export class PetProcess {
 
 	#spawn(): void {
 		if (!this.#connection) return;
+		if (process.platform !== "darwin") return; // 桌宠仅支持 macOS，非 macOS 跳过
 		const spec = petLaunchSpec({
 			...this.#connection,
 			packaged: this.#options.packaged,
