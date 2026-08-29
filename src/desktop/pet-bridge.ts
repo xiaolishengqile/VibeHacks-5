@@ -5,12 +5,24 @@ import type { PetStatus } from "../renderer/view-models.js";
 
 export type PetEvent =
 	| { readonly type: "open_panel" }
+	| { readonly type: "open_workbench" }
+	| { readonly type: "open_today" }
+	| { readonly type: "open_input" }
+	| { readonly type: "hide_pet" }
 	| { readonly type: "quit_requested" }
 	| { readonly type: "pet_ready" };
 
 type PetEventListener = (event: PetEvent) => void;
 
-const allowedEvents = new Set<PetEvent["type"]>(["open_panel", "quit_requested", "pet_ready"]);
+const allowedEvents = new Set<PetEvent["type"]>([
+	"open_panel",
+	"open_workbench",
+	"open_today",
+	"open_input",
+	"hide_pet",
+	"quit_requested",
+	"pet_ready",
+]);
 const allowedStates = new Set<PetStatus>([
 	"idle", "urgent", "thinking", "awaiting_approval", "executing", "completed", "failed",
 ]);

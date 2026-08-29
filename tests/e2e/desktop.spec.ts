@@ -47,6 +47,21 @@ test("桌宠入口事件会显示轻面板", async ({ startDay }) => {
 	await expect.poll(() => startDay.isMiniPanelVisible()).toBe(true);
 });
 
+test("桌宠悬浮菜单事件打开对应入口", async ({ startDay }) => {
+	await startDay.hideMiniPanel();
+	await startDay.triggerPetEvent("open_today");
+	await expect.poll(() => startDay.isMiniPanelVisible()).toBe(true);
+
+	await startDay.hideMiniPanel();
+	await startDay.triggerPetEvent("open_input");
+	await expect.poll(() => startDay.isMiniPanelVisible()).toBe(true);
+	await expect.poll(() => startDay.mini.evaluate(() => document.activeElement?.id)).toBe("work-input");
+
+	await startDay.hideWorkbench();
+	await startDay.triggerPetEvent("open_workbench");
+	await expect.poll(() => startDay.isWorkbenchVisible()).toBe(true);
+});
+
 test("轻面板和完整工作台使用明亮的日历布局", async ({ startDay }) => {
 	await startDay.submit("下周五做季度复盘，周三老板先看，数据找小王，先帮我搭框架");
 

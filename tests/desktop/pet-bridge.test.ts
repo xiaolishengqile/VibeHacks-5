@@ -39,6 +39,24 @@ test("桌宠桥接拒绝错误令牌并接受单击事件", async () => {
 	}
 });
 
+test("桌宠桥接接受悬浮菜单事件", async () => {
+	const bridge = await PetBridge.start();
+	try {
+		for (const type of ["open_workbench", "open_today", "open_input", "hide_pet"] as const) {
+			const received = oncePetEvent(bridge);
+			const response = await fetch(`${bridge.url}/event`, {
+				method: "POST",
+				headers: { authorization: `Bearer ${bridge.token}`, "content-type": "application/json" },
+				body: JSON.stringify({ type }),
+			});
+			assert.equal(response.status, 202);
+			assert.deepEqual(await received, { type });
+		}
+	} finally {
+		await bridge.close();
+	}
+});
+
 test("桌宠桥接只接受本机主机名和八千字节内的请求", async () => {
 	const bridge = await PetBridge.start();
 	try {

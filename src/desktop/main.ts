@@ -18,6 +18,7 @@ import { createDesktopExecutionRuntime } from "./codex-runtime.js";
 import { IntegratedDesktopBackend } from "./integrated-backend.js";
 import { CommandWorkExecutionPort } from "../work/execution-port.js";
 import { registerDesktopIpc } from "./ipc.js";
+import { channels } from "./channels.js";
 import { PetBridge } from "./pet-bridge.js";
 import { PetProcess } from "./pet-process.js";
 import { runApplicationReset } from "./reset-application-data.js";
@@ -58,6 +59,11 @@ const openWorkbenchWindow = (): void => {
 	workbench?.focus();
 };
 
+const openMiniInputNearCursor = (): void => {
+	openMiniPanelNearCursor();
+	miniPanel?.webContents.send(channels.focusInput);
+};
+
 const startDesktop = async (): Promise<void> => {
 	const bridge = await PetBridge.start();
 	const petProcess = new PetProcess({
@@ -68,6 +74,9 @@ const startDesktop = async (): Promise<void> => {
 	closePetEvents = bridge.onEvent((event) => {
 		if (event.type === "quit_requested") return app.quit();
 		if (event.type === "open_panel") openMiniPanelNearCursor();
+		if (event.type === "open_today") openMiniPanelNearCursor();
+		if (event.type === "open_input") openMiniInputNearCursor();
+		if (event.type === "open_workbench") openWorkbenchWindow();
 	});
 	petProcess.start({ port: bridge.port, token: bridge.token });
 

@@ -7,6 +7,7 @@ export interface DesktopApi {
 	runCommand(command: UiCommand): Promise<Result<ApplicationSnapshot, string>>;
 	openWorkbench(): Promise<Result<null, string>>;
 	hideMiniPanel(): Promise<Result<null, string>>;
+	onFocusInput(listener: () => void): () => void;
 	resetApplicationData(): Promise<Result<null, string>>;
 	chooseWorkDirectory(): Promise<Result<string | null, string>>;
 	subscribe(listener: () => void): () => void;

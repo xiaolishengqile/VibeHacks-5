@@ -43,6 +43,10 @@ test("轻面板不要求用户选择或读取业务文件夹", async () => {
 	assert.doesNotMatch(await read("mini-panel.ts"), /chooseWorkDirectory|工作目录/);
 });
 
+test("轻面板可以响应想法入口并聚焦输入框", async () => {
+	assert.match(await read("mini-panel.ts"), /startDay\.onFocusInput\(/);
+});
+
 test("执行界面仍只用安全文本节点显示代理内容", async () => {
 	const source = `${await read("workbench.ts")}\n${await read("mini-panel.ts")}`;
 	assert.doesNotMatch(source, /\.innerHTML\s*=/);

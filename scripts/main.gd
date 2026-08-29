@@ -36,6 +36,7 @@ func _ready() -> void:
 		bridge.state_changed.connect(animator.set_status)
 		interaction.open_panel_requested.connect(bridge.post_event.bind("open_panel"))
 		interaction.quit_requested.connect(bridge.post_event.bind("quit_requested"))
+		interaction.menu_action_requested.connect(bridge.post_event)
 		bridge.post_event("pet_ready")
 
 	_add_camera_and_lights()

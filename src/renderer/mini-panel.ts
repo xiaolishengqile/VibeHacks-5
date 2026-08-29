@@ -119,6 +119,7 @@ const reload = async (): Promise<void> => {
 };
 
 input.addEventListener("input", updateSubmitState);
+window.startDay.onFocusInput(() => input.focus());
 submit.addEventListener("click", async () => {
 	const request = ++requestSequence;
 	busy = true;
