@@ -8,6 +8,7 @@ export type PetEvent =
 	| { readonly type: "open_workbench" }
 	| { readonly type: "open_today" }
 	| { readonly type: "open_input" }
+	| { readonly type: "close_today" }
 	| { readonly type: "hide_pet" }
 	| { readonly type: "quit_requested" }
 	| { readonly type: "pet_ready" };
@@ -19,6 +20,7 @@ const allowedEvents = new Set<PetEvent["type"]>([
 	"open_workbench",
 	"open_today",
 	"open_input",
+	"close_today",
 	"hide_pet",
 	"quit_requested",
 	"pet_ready",

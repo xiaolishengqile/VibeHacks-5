@@ -41,6 +41,7 @@ let closeDatabase: (() => void) | null = null;
 let closePetEvents: (() => void) | null = null;
 let closeShortcuts: (() => void) | null = null;
 let shutdownStarted = false;
+let currentMiniPanelMode: MiniPanelMode = "full";
 
 const createWindows = (): void => {
 	if (!workbench || workbench.isDestroyed()) workbench = createWorkbenchWindow(BrowserWindow);
@@ -50,6 +51,7 @@ const createWindows = (): void => {
 const openMiniPanelModeNearCursor = (mode: MiniPanelMode): void => {
 	createWindows();
 	if (!miniPanel) return;
+	currentMiniPanelMode = mode;
 	const size = miniPanelSizeForMode(mode);
 	miniPanel.setSize(size.width, size.height, false);
 	const cursor = screen.getCursorScreenPoint();
@@ -73,6 +75,10 @@ const openMiniInputNearCursor = (): void => {
 	miniPanel?.webContents.send(channels.focusInput);
 };
 
+const closeMiniTodayPreview = (): void => {
+	if (currentMiniPanelMode === "today") miniPanel?.hide();
+};
+
 const startDesktop = async (): Promise<void> => {
 	const bridge = await PetBridge.start();
 	const petProcess = new PetProcess({
@@ -85,6 +91,7 @@ const startDesktop = async (): Promise<void> => {
 		if (event.type === "open_panel") openMiniPanelNearCursor();
 		if (event.type === "open_today") openMiniPanelModeNearCursor("today");
 		if (event.type === "open_input") openMiniInputNearCursor();
+		if (event.type === "close_today") closeMiniTodayPreview();
 		if (event.type === "open_workbench") openWorkbenchWindow();
 	});
 	petProcess.start({ port: bridge.port, token: bridge.token });

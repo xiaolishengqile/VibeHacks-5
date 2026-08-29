@@ -8,6 +8,7 @@ const ALLOWED_EVENTS := [
 	"open_workbench",
 	"open_today",
 	"open_input",
+	"close_today",
 	"hide_pet",
 	"quit_requested",
 	"pet_ready",

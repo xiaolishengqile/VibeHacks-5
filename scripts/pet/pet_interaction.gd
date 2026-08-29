@@ -29,9 +29,14 @@ func setup(window_controller, animator: Node, visual: Node, integrated_mode: boo
 
 
 static func hover_action_for_pointer(was_hovering: bool, global_position: Vector2i, pet_rect: Rect2i, dragging: bool) -> String:
-	if dragging or was_hovering or not pet_rect.has_point(global_position):
+	if dragging:
 		return ""
-	return "open_today"
+	var hovering := pet_rect.has_point(global_position)
+	if hovering and not was_hovering:
+		return "open_today"
+	if was_hovering and not hovering:
+		return "close_today"
+	return ""
 
 
 static func should_quit_for_button(button_index: MouseButton, pressed: bool) -> bool:

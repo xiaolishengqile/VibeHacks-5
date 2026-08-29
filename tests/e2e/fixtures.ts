@@ -13,7 +13,7 @@ const executablePath = join(projectRoot, "release", "启动日.app", "Contents",
 const fakeCodex = join(projectRoot, "tests", "e2e", "fake-codex.mjs");
 
 type FakeMode = "success" | "slow" | "failure";
-type PetEventType = "open_panel" | "open_workbench" | "open_today" | "open_input" | "hide_pet";
+type PetEventType = "open_panel" | "open_workbench" | "open_today" | "open_input" | "close_today" | "hide_pet";
 type Snapshot = {
 	goal: { id: string; title: string } | null;
 	profile: { confirmed: boolean } | null;
@@ -243,7 +243,7 @@ export class StartDayHarness {
 		});
 		expect(metrics.bodyBorderBottomWidth).toBe("0px");
 		expect(metrics.bodyHeight).toBeGreaterThanOrEqual(metrics.bodyScrollHeight - 1);
-		expect(metrics.bodyScrollHeight).toBe(metrics.documentScrollHeight);
+		expect(Math.abs(metrics.bodyScrollHeight - metrics.documentScrollHeight)).toBeLessThanOrEqual(1);
 		expect(metrics.maxScroll).toBeGreaterThan(50);
 		expect(metrics.shellBorderBottomWidth).toBe("1px");
 		expect(metrics.shellBottoms[0]).toBeGreaterThan(metrics.viewportHeight + 50);

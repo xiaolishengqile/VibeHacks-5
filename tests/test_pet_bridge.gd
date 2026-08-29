@@ -20,15 +20,19 @@ static func run() -> Array[String]:
 		errors.append("鼠标进入桌宠区域必须请求显示今日待办")
 	if PetInteractionScript.hover_action_for_pointer(true, Vector2i(120, 120), pet_rect, false) != "":
 		errors.append("鼠标停留在桌宠区域不能重复请求今日待办")
+	if PetInteractionScript.hover_action_for_pointer(true, Vector2i(20, 20), pet_rect, false) != "close_today":
+		errors.append("鼠标离开桌宠区域必须请求关闭今日待办")
 	if PetInteractionScript.hover_action_for_pointer(false, Vector2i(120, 120), pet_rect, true) != "":
 		errors.append("拖动桌宠时不能误触发今日待办")
+	if PetInteractionScript.hover_action_for_pointer(true, Vector2i(20, 20), pet_rect, true) != "":
+		errors.append("拖动桌宠时不能误触发关闭今日待办")
 	var tree := Engine.get_main_loop() as SceneTree
 	var bridge_client := PetBridgeClientScript.new()
 	tree.root.add_child(bridge_client)
 	if not bridge_client.configure(9, "test-token"):
 		errors.append("桌宠桥接客户端必须能完成测试配置")
-	elif not bridge_client.post_event("open_today") or not bridge_client.post_event("open_input"):
-		errors.append("悬浮今日待办后立刻双击输入不能丢失第二个事件")
+	elif not bridge_client.post_event("open_today") or not bridge_client.post_event("open_input") or not bridge_client.post_event("close_today"):
+		errors.append("悬浮今日待办、双击输入和离开关闭不能丢失事件")
 	bridge_client.queue_free()
 	var executing = PetStateScript.animation_parameters("executing")
 	var idle = PetStateScript.animation_parameters("idle")

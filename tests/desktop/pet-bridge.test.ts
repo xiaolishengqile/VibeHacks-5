@@ -42,7 +42,7 @@ test("桌宠桥接拒绝错误令牌并接受打开轻面板事件", async () =>
 test("桌宠桥接接受入口事件", async () => {
 	const bridge = await PetBridge.start();
 	try {
-		for (const type of ["open_workbench", "open_today", "open_input", "hide_pet"] as const) {
+		for (const type of ["open_workbench", "open_today", "open_input", "close_today", "hide_pet"] as const) {
 			const received = oncePetEvent(bridge);
 			const response = await fetch(`${bridge.url}/event`, {
 				method: "POST",

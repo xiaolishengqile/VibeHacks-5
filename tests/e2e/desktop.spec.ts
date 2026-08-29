@@ -72,6 +72,20 @@ test("桌宠入口事件打开对应轻面板状态", async ({ startDay }) => {
 	await expect.poll(() => startDay.isWorkbenchVisible()).toBe(true);
 });
 
+test("桌宠离开事件只关闭悬浮今日待办", async ({ startDay }) => {
+	await startDay.hideMiniPanel();
+	await startDay.triggerPetEvent("open_today");
+	await expect.poll(() => startDay.isMiniPanelVisible()).toBe(true);
+	await startDay.triggerPetEvent("close_today");
+	await expect.poll(() => startDay.isMiniPanelVisible()).toBe(false);
+
+	await startDay.triggerPetEvent("open_input");
+	await expect.poll(() => startDay.isMiniPanelVisible()).toBe(true);
+	await startDay.triggerPetEvent("close_today");
+	await expect.poll(() => startDay.isMiniPanelVisible()).toBe(true);
+	await expect.poll(() => startDay.mini.evaluate(() => document.activeElement?.id)).toBe("work-input");
+});
+
 test("轻面板输入框随内容增高并限制最大高度", async ({ startDay }) => {
 	await startDay.hideMiniPanel();
 	await startDay.triggerPetEvent("open_input");

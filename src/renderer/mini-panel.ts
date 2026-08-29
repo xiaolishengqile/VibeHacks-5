@@ -28,7 +28,8 @@ const executionSecondary = requiredElement<HTMLButtonElement>("execution-seconda
 
 let busy = false;
 let snapshot: ApplicationSnapshot | null = null;
-let requestSequence = 0;
+let actionSequence = 0;
+let reloadSequence = 0;
 let chatInitialized = false;
 
 type ChatRole = "assistant" | "user";
@@ -83,9 +84,9 @@ const setMiniPanelMode = (mode: MiniPanelMode): void => {
 };
 
 const run = async (command: UiCommand): Promise<void> => {
-	const request = ++requestSequence;
+	const request = ++actionSequence;
 	const result = await window.startDay.runCommand(command);
-	if (request !== requestSequence) return;
+	if (request !== actionSequence) return;
 	if (result.ok) {
 		render(result.value);
 		setMessage("");
@@ -158,9 +159,9 @@ const render = (value: ApplicationSnapshot): void => {
 };
 
 const reload = async (): Promise<void> => {
-	const request = ++requestSequence;
+	const request = ++reloadSequence;
 	const result = await window.startDay.getSnapshot();
-	if (request !== requestSequence) return;
+	if (request !== reloadSequence) return;
 	if (result.ok) render(result.value);
 	else setMessage(result.error, true);
 };
@@ -169,7 +170,7 @@ input.addEventListener("input", handleWorkInput);
 window.startDay.onMiniPanelMode(setMiniPanelMode);
 window.startDay.onFocusInput(() => setMiniPanelMode("input"));
 submit.addEventListener("click", async () => {
-	const request = ++requestSequence;
+	const request = ++actionSequence;
 	const userText = input.value.trim();
 	busy = true;
 	updateSubmitState();
@@ -178,11 +179,7 @@ submit.addEventListener("click", async () => {
 	const result = await window.startDay.submitWorkText(userText);
 	busy = false;
 	updateSubmitState();
-	if (request !== requestSequence) {
-		if (result.ok) setMessage("");
-		else setMessage(result.error, true);
-		return;
-	}
+	if (request !== actionSequence) return;
 	if (result.ok) {
 		render(result.value);
 		input.value = "";
