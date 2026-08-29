@@ -89,6 +89,9 @@ static func run() -> Array[String]:
 					var sizes := _label_font_sizes(button)
 					if sizes.size() == 2 and sizes[1] < sizes[0]:
 						small_description_count += 1
+					for label in _labels(button):
+						if not label.has_theme_font_override("font"):
+							errors.append("菜单按钮中文文本必须指定中文字体")
 	if menu_window_count != 4:
 		errors.append("桌宠菜单必须创建四个独立按钮窗口")
 	if menu_labels != ["工作台", "今日", "想法", "隐藏"]:
@@ -130,6 +133,15 @@ static func _label_texts(node: Node) -> Array[String]:
 		if child is Label:
 			result.append(child.text)
 		result.append_array(_label_texts(child))
+	return result
+
+
+static func _labels(node: Node) -> Array[Label]:
+	var result: Array[Label] = []
+	for child in node.get_children():
+		if child is Label:
+			result.append(child)
+		result.append_array(_labels(child))
 	return result
 
 

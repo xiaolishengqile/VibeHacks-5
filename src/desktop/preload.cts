@@ -17,7 +17,7 @@ const channels = Object.freeze({
 	changed: "application:changed",
 });
 
-const isMiniPanelMode = (value: unknown): value is MiniPanelMode => value === "today" || value === "input";
+const isMiniPanelMode = (value: unknown): value is MiniPanelMode => value === "full" || value === "today" || value === "input";
 
 const desktopApi = {
 	getSnapshot: () => ipcRenderer.invoke(channels.snapshot),

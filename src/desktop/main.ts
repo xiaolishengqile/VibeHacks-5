@@ -28,6 +28,7 @@ import { toPetStatus } from "../renderer/view-models.js";
 import {
 	createMiniPanelWindow,
 	createWorkbenchWindow,
+	miniPanelSizeForMode,
 	registerWindowShortcuts,
 	screenCornerForPoint,
 	showMiniPanelNearPet,
@@ -46,17 +47,19 @@ const createWindows = (): void => {
 	if (!miniPanel || miniPanel.isDestroyed()) miniPanel = createMiniPanelWindow(BrowserWindow);
 };
 
-const openMiniPanelNearCursor = (): void => {
+const openMiniPanelModeNearCursor = (mode: MiniPanelMode): void => {
 	createWindows();
 	if (!miniPanel) return;
+	const size = miniPanelSizeForMode(mode);
+	miniPanel.setSize(size.width, size.height, false);
 	const cursor = screen.getCursorScreenPoint();
 	const workArea = screen.getDisplayNearestPoint(cursor).workArea;
 	showMiniPanelNearPet(miniPanel, workArea, screenCornerForPoint(cursor, workArea));
+	miniPanel.webContents.send(channels.miniMode, mode);
 };
 
-const openMiniPanelModeNearCursor = (mode: MiniPanelMode): void => {
-	openMiniPanelNearCursor();
-	miniPanel?.webContents.send(channels.miniMode, mode);
+const openMiniPanelNearCursor = (): void => {
+	openMiniPanelModeNearCursor("full");
 };
 
 const openWorkbenchWindow = (): void => {

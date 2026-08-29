@@ -2,6 +2,8 @@ import type { BrowserWindow, BrowserWindowConstructorOptions } from "electron";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import type { MiniPanelMode } from "./preload.js";
+
 type SecureWindowOptions = BrowserWindowConstructorOptions & {
 	readonly webPreferences: NonNullable<BrowserWindowConstructorOptions["webPreferences"]>;
 };
@@ -15,6 +17,11 @@ export type ScreenCorner = "topLeft" | "topRight" | "bottomLeft" | "bottomRight"
 interface RectangleLike {
 	readonly x: number;
 	readonly y: number;
+	readonly width: number;
+	readonly height: number;
+}
+
+interface WindowSize {
 	readonly width: number;
 	readonly height: number;
 }
@@ -79,9 +86,9 @@ export function workbenchWindowOptions(): SecureWindowOptions {
 }
 
 export function miniPanelWindowOptions(): SecureWindowOptions {
+	const size = miniPanelSizeForMode("full");
 	return {
-		width: 420,
-		height: 560,
+		...size,
 		show: false,
 		frame: false,
 		resizable: false,
@@ -90,6 +97,10 @@ export function miniPanelWindowOptions(): SecureWindowOptions {
 		backgroundColor: "#f5f5f7",
 		webPreferences: secureWebPreferences(),
 	};
+}
+
+export function miniPanelSizeForMode(mode: MiniPanelMode): WindowSize {
+	return mode === "full" ? { width: 420, height: 560 } : { width: 420, height: 300 };
 }
 
 export function createWorkbenchWindow(Window: BrowserWindowConstructor): BrowserWindow {

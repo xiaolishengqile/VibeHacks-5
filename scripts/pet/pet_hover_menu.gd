@@ -7,6 +7,11 @@ const BUTTON_SIZE := Vector2i(58, 58)
 const BUTTON_MARGIN := 6
 const TITLE_FONT_SIZE := 13
 const DESCRIPTION_FONT_SIZE := 10
+const CHINESE_FONT_PATHS := [
+	"/System/Library/Fonts/Hiragino Sans GB.ttc",
+	"/System/Library/Fonts/STHeiti Medium.ttc",
+	"/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
+]
 const BUTTON_SPECS := [
 	{
 		"label": "工作台",
@@ -61,6 +66,7 @@ var _visible := false
 func setup() -> void:
 	if not _button_windows.is_empty():
 		return
+	var text_font := _button_font()
 	for spec in BUTTON_SPECS:
 		var window := Window.new()
 		window.name = "PetMenuButton"
@@ -88,7 +94,7 @@ func setup() -> void:
 		button.add_theme_stylebox_override("hover", _button_style(spec["hover"], border_color))
 		button.add_theme_stylebox_override("pressed", _button_style(spec["pressed"], border_color))
 		button.pressed.connect(_on_button_pressed.bind(String(spec["event"])))
-		_add_button_text(button, String(spec["label"]), String(spec["description"]), font_color)
+		_add_button_text(button, String(spec["label"]), String(spec["description"]), font_color, text_font)
 		window.add_child(button)
 
 		add_child(window)
@@ -156,7 +162,7 @@ func _button_style(fill: Color, border: Color) -> StyleBoxFlat:
 	return style
 
 
-func _add_button_text(button: Button, label: String, description: String, font_color: Color) -> void:
+func _add_button_text(button: Button, label: String, description: String, font_color: Color, font: Font) -> void:
 	var content := VBoxContainer.new()
 	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	content.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -165,20 +171,30 @@ func _add_button_text(button: Button, label: String, description: String, font_c
 	content.offset_top = BUTTON_MARGIN
 	content.offset_right = -BUTTON_MARGIN
 	content.offset_bottom = -BUTTON_MARGIN
-	content.add_child(_button_label(label, font_color, TITLE_FONT_SIZE))
-	content.add_child(_button_label(description, font_color, DESCRIPTION_FONT_SIZE))
+	content.add_child(_button_label(label, font_color, TITLE_FONT_SIZE, font))
+	content.add_child(_button_label(description, font_color, DESCRIPTION_FONT_SIZE, font))
 	button.add_child(content)
 
 
-func _button_label(text: String, font_color: Color, font_size: int) -> Label:
+func _button_label(text: String, font_color: Color, font_size: int, font: Font) -> Label:
 	var label := Label.new()
 	label.text = text
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.add_theme_font_override("font", font)
 	label.add_theme_color_override("font_color", font_color)
 	label.add_theme_font_size_override("font_size", font_size)
 	return label
+
+
+func _button_font() -> Font:
+	for path in CHINESE_FONT_PATHS:
+		if FileAccess.file_exists(path):
+			var font := FontFile.new()
+			if font.load_dynamic_font(path) == OK:
+				return font
+	return SystemFont.new()
 
 
 func _on_button_pressed(event_type: String) -> void:
