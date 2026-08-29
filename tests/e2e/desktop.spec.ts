@@ -72,6 +72,37 @@ test("桌宠悬浮菜单事件打开对应入口", async ({ startDay }) => {
 	await expect.poll(() => startDay.isWorkbenchVisible()).toBe(true);
 });
 
+test("轻面板输入框随内容增高并限制最大高度", async ({ startDay }) => {
+	await startDay.hideMiniPanel();
+	await startDay.triggerPetEvent("open_input");
+	await expect.poll(() => startDay.isMiniPanelVisible()).toBe(true);
+	const input = startDay.mini.locator("#work-input");
+	await expect(input).toBeVisible();
+
+	const initial = await input.evaluate((element: HTMLTextAreaElement) => ({
+		height: element.getBoundingClientRect().height,
+		maxHeight: Number.parseFloat(getComputedStyle(element).maxHeight),
+	}));
+	await input.fill("我需要的是下周二提交晋升材料，但是晋升材料需要哪些东西，需要一个 PPT，需要上级审核，PPT 里的东西包括最近的项目成果，项目价值，自己的贡献，下一步计划，风险说明，协作方反馈，最终需要整理成清晰的汇报材料。");
+	const grown = await input.evaluate((element: HTMLTextAreaElement) => ({
+		height: element.getBoundingClientRect().height,
+		maxHeight: Number.parseFloat(getComputedStyle(element).maxHeight),
+		overflowY: getComputedStyle(element).overflowY,
+	}));
+	expect(grown.height).toBeGreaterThan(initial.height);
+	expect(grown.height).toBeLessThanOrEqual(grown.maxHeight + 1);
+	expect(grown.overflowY).toBe("auto");
+
+	await input.fill(Array.from({ length: 20 }, (_, index) => `第${index + 1}行内容`).join("\n"));
+	const capped = await input.evaluate((element: HTMLTextAreaElement) => ({
+		height: element.getBoundingClientRect().height,
+		maxHeight: Number.parseFloat(getComputedStyle(element).maxHeight),
+		scrollHeight: element.scrollHeight,
+	}));
+	expect(capped.height).toBeLessThanOrEqual(capped.maxHeight + 1);
+	expect(capped.scrollHeight).toBeGreaterThan(capped.height);
+});
+
 test("完整工作台周日历切换时有横向滑动动画", async ({ startDay }) => {
 	const calendar = startDay.workbench.locator("#week-calendar");
 	await expect(calendar.locator("[data-calendar-track]")).toHaveCount(1);

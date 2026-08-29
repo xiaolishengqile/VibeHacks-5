@@ -316,11 +316,16 @@ button:focus-visible, textarea:focus-visible, input:focus-visible, a:focus-visib
 .mini-event-card h1 { margin: 0 0 5px; font-size: 19px; line-height: 1.22; overflow-wrap: anywhere; }
 .mini-event-card p { margin: 0; font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }
 
+.shell--mini { --work-input-max-height: 180px; }
+.shell--mini[data-mini-mode="input"] { --work-input-max-height: 150px; }
 .input-card, .compact-card { min-width: 0; padding: 15px; border-radius: 16px; overflow: hidden; }
 .input-card label { display: block; margin-bottom: 8px; color: var(--text); font-size: 13px; font-weight: 650; }
 textarea {
 	width: 100%;
+	min-height: 81px;
+	max-height: var(--work-input-max-height);
 	resize: none;
+	overflow-y: auto;
 	border: 1px solid var(--line);
 	border-radius: 12px;
 	padding: 11px;

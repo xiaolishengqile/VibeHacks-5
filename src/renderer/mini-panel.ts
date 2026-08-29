@@ -38,9 +38,25 @@ const updateSubmitState = (): void => {
 	setText(submit, busy ? "正在整理…" : "整理计划");
 };
 
+const resizeWorkInput = (): void => {
+	input.style.height = "auto";
+	const maxHeight = Number.parseFloat(getComputedStyle(input).maxHeight);
+	input.style.height = `${Math.min(input.scrollHeight, Number.isFinite(maxHeight) ? maxHeight : input.scrollHeight)}px`;
+};
+
+const handleWorkInput = (): void => {
+	resizeWorkInput();
+	updateSubmitState();
+};
+
 const setMiniPanelMode = (mode: MiniPanelMode): void => {
 	shell.dataset.miniMode = mode;
-	if (mode === "input") requestAnimationFrame(() => input.focus());
+	if (mode === "input") {
+		requestAnimationFrame(() => {
+			resizeWorkInput();
+			input.focus();
+		});
+	}
 };
 
 const run = async (command: UiCommand): Promise<void> => {
@@ -125,7 +141,7 @@ const reload = async (): Promise<void> => {
 	else setMessage(result.error, true);
 };
 
-input.addEventListener("input", updateSubmitState);
+input.addEventListener("input", handleWorkInput);
 window.startDay.onMiniPanelMode(setMiniPanelMode);
 window.startDay.onFocusInput(() => setMiniPanelMode("input"));
 submit.addEventListener("click", async () => {
@@ -286,5 +302,5 @@ resultLink.addEventListener("click", (event) => {
 });
 
 window.startDay.subscribe(() => void reload());
-updateSubmitState();
+handleWorkInput();
 await reload();
