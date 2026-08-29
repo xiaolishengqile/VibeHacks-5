@@ -1,4 +1,5 @@
 import type { ApplicationSnapshot, UiCommand } from "../desktop/application-service.js";
+import type { CalendarDayView, WeekCalendarView } from "./calendar-view.js";
 import { toWeekCalendarView, weekOffsetDeltaFromSwipe } from "./calendar-view.js";
 import { requestText } from "./dialogs.js";
 import { clearElement, createTextElement, renderEmpty, requiredElement, setText } from "./dom.js";
@@ -8,6 +9,8 @@ const text = (id: string, value: string): void => setText(requiredElement(id), v
 let snapshot: ApplicationSnapshot | null = null;
 let requestSequence = 0;
 let calendarWeekOffset = 0;
+let calendarSlideToken = 0;
+let calendarSliding = false;
 let touchStartX: number | null = null;
 let lastWheelShiftAt = 0;
 
@@ -63,33 +66,59 @@ const renderCodex = (value: ApplicationSnapshot): void => {
 	login.hidden = !value.codex.canStartBrowserLogin;
 };
 
-const renderCalendar = (value: ApplicationSnapshot): void => {
-	const calendar = toWeekCalendarView(value, new Date().toISOString(), calendarWeekOffset);
+const renderCalendarDay = (day: CalendarDayView): HTMLElement => {
+	const column = document.createElement("article");
+	column.className = `calendar-day${day.isToday ? " is-today" : ""}`;
+	const heading = document.createElement("header");
+	heading.append(createTextElement("strong", "", day.weekday));
+	heading.append(createTextElement("span", "", day.dateLabel));
+	column.append(heading);
+	for (const item of day.items) {
+		const event = document.createElement("div");
+		event.className = `calendar-event calendar-event--${item.tone}`;
+		const time = createTextElement("time", "", item.timeLabel);
+		time.setAttribute("datetime", item.dateTime);
+		event.append(time);
+		event.append(createTextElement("strong", "", item.title));
+		event.append(createTextElement("span", "", `${item.owner} · ${item.status}`));
+		column.append(event);
+	}
+	return column;
+};
+
+const renderCalendarWeek = (calendar: WeekCalendarView): HTMLElement => {
+	const week = document.createElement("div");
+	week.className = "calendar-week";
+	for (const day of calendar.days) {
+		const column = renderCalendarDay(day);
+		column.classList.toggle("is-focus", day.key === calendar.focusDayKey);
+		week.append(column);
+	}
+	return week;
+};
+
+const renderCalendarTrack = (calendars: readonly WeekCalendarView[], sliding = false): HTMLDivElement => {
+	const track = document.createElement("div");
+	track.className = `calendar-slider-track${sliding ? " is-sliding" : ""}`;
+	track.dataset.calendarTrack = "";
+	for (const calendar of calendars) track.append(renderCalendarWeek(calendar));
+	return track;
+};
+
+const updateCalendarHeading = (calendar: WeekCalendarView): void => {
 	text("calendar-range", calendar.rangeLabel);
 	const outside = requiredElement<HTMLParagraphElement>("calendar-outside");
 	setText(outside, calendar.outsideWeekCount > 0 ? `另有 ${calendar.outsideWeekCount} 项安排在其他周` : "");
 	outside.hidden = calendar.outsideWeekCount === 0;
+};
+
+const renderCalendar = (value: ApplicationSnapshot): void => {
+	const calendar = toWeekCalendarView(value, new Date().toISOString(), calendarWeekOffset);
+	updateCalendarHeading(calendar);
 	const target = requiredElement<HTMLDivElement>("week-calendar");
+	target.setAttribute("aria-busy", "false");
 	clearElement(target);
-	for (const day of calendar.days) {
-		const column = document.createElement("article");
-		column.className = `calendar-day${day.isToday ? " is-today" : ""}${day.key === calendar.focusDayKey ? " is-focus" : ""}`;
-		const heading = document.createElement("header");
-		heading.append(createTextElement("strong", "", day.weekday));
-		heading.append(createTextElement("span", "", day.dateLabel));
-		column.append(heading);
-		for (const item of day.items) {
-			const event = document.createElement("div");
-			event.className = `calendar-event calendar-event--${item.tone}`;
-			const time = createTextElement("time", "", item.timeLabel);
-			time.setAttribute("datetime", item.dateTime);
-			event.append(time);
-			event.append(createTextElement("strong", "", item.title));
-			event.append(createTextElement("span", "", `${item.owner} · ${item.status}`));
-			column.append(event);
-		}
-		target.append(column);
-	}
+	target.append(renderCalendarTrack([calendar]));
 };
 
 const renderExecutionState = (value: ApplicationSnapshot): void => {
@@ -225,8 +254,36 @@ const reload = async (): Promise<void> => {
 };
 
 const shiftCalendarWeek = (delta: number): void => {
-	calendarWeekOffset += delta;
-	if (snapshot) renderCalendar(snapshot);
+	if (!snapshot || delta === 0 || calendarSliding) return;
+	if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+		calendarWeekOffset += delta;
+		renderCalendar(snapshot);
+		return;
+	}
+	calendarSliding = true;
+	const token = ++calendarSlideToken;
+	const target = requiredElement<HTMLDivElement>("week-calendar");
+	const previous = toWeekCalendarView(snapshot, new Date().toISOString(), calendarWeekOffset - 1);
+	const current = toWeekCalendarView(snapshot, new Date().toISOString(), calendarWeekOffset);
+	const next = toWeekCalendarView(snapshot, new Date().toISOString(), calendarWeekOffset + 1);
+	target.setAttribute("aria-busy", "true");
+	clearElement(target);
+	const track = renderCalendarTrack([previous, current, next], true);
+	track.style.transform = "translate3d(-100%, 0, 0)";
+	target.append(track);
+	requestAnimationFrame(() => {
+		track.style.transform = delta > 0 ? "translate3d(-200%, 0, 0)" : "translate3d(0%, 0, 0)";
+	});
+	let finished = false;
+	const finish = (): void => {
+		if (finished || token !== calendarSlideToken) return;
+		finished = true;
+		calendarWeekOffset += delta;
+		calendarSliding = false;
+		if (snapshot) renderCalendar(snapshot);
+	};
+	track.addEventListener("transitionend", finish, { once: true });
+	window.setTimeout(finish, 420);
 };
 
 const calendarTarget = requiredElement<HTMLDivElement>("week-calendar");

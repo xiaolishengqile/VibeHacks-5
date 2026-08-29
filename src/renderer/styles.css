@@ -73,13 +73,27 @@ button:focus-visible, textarea:focus-visible, input:focus-visible, a:focus-visib
 .calendar-outside { margin: 5px 0 0; color: #8a5400; font-size: 12px; }
 
 .week-calendar {
-	display: grid;
-	grid-template-columns: repeat(7, minmax(0, 1fr));
 	min-height: 260px;
 	overflow: hidden;
 	border: 1px solid var(--line);
 	border-radius: 18px;
 	background: rgba(246, 247, 250, 0.74);
+	touch-action: pan-y;
+}
+.calendar-slider-track {
+	display: flex;
+	min-height: inherit;
+	transform: translate3d(0, 0, 0);
+	will-change: transform;
+}
+.calendar-slider-track.is-sliding {
+	transition: transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.calendar-week {
+	display: grid;
+	flex: 0 0 100%;
+	grid-template-columns: repeat(7, minmax(0, 1fr));
+	min-height: inherit;
 }
 .calendar-day { min-width: 0; padding: 14px 10px; border-left: 1px solid var(--line); }
 .calendar-day:first-child { border-left: 0; }
@@ -306,7 +320,8 @@ textarea:focus { border-color: rgba(0, 122, 255, 0.55); background: #fff; box-sh
 }
 
 @media (max-width: 700px) {
-	.week-calendar { grid-template-columns: 1fr; min-height: 220px; }
+	.week-calendar { min-height: 220px; }
+	.calendar-week { grid-template-columns: 1fr; }
 	.calendar-day { display: none; border-left: 0; }
 	.calendar-day.is-focus { display: block; }
 }

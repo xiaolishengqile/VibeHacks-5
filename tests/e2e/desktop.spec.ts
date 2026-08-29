@@ -62,6 +62,27 @@ test("桌宠悬浮菜单事件打开对应入口", async ({ startDay }) => {
 	await expect.poll(() => startDay.isWorkbenchVisible()).toBe(true);
 });
 
+test("完整工作台周日历切换时有横向滑动动画", async ({ startDay }) => {
+	await startDay.workbench.getByRole("button", { name: "下一周" }).click();
+	const duringSlide = await startDay.workbench.locator("#week-calendar").evaluate((calendar) => {
+		const track = calendar.querySelector<HTMLElement>("[data-calendar-track]");
+		if (!track) return null;
+		const style = getComputedStyle(track);
+		return {
+			busy: calendar.getAttribute("aria-busy"),
+			panels: track.children.length,
+			sliding: style.transitionProperty.includes("transform") && style.transform !== "none",
+		};
+	});
+
+	expect(duringSlide).toEqual({ busy: "true", panels: 3, sliding: true });
+	await expect.poll(() => startDay.workbench.locator("#week-calendar").evaluate((calendar) => ({
+		busy: calendar.getAttribute("aria-busy"),
+		panels: calendar.querySelector("[data-calendar-track]")?.children.length ?? 0,
+		range: document.getElementById("calendar-range")?.textContent,
+	}))).toEqual({ busy: "false", panels: 1, range: "8月31日—9月6日" });
+});
+
 test("轻面板和完整工作台使用明亮的日历布局", async ({ startDay }) => {
 	await startDay.submit("下周五做季度复盘，周三老板先看，数据找小王，先帮我搭框架");
 
