@@ -96,7 +96,7 @@ button:focus-visible, textarea:focus-visible, input:focus-visible, a:focus-visib
 	grid-template-columns: repeat(7, minmax(0, 1fr));
 	min-height: inherit;
 }
-.calendar-day { min-width: 0; padding: 14px 10px; border-left: 1px solid var(--line); }
+.calendar-day { display: flex; min-width: 0; flex-direction: column; padding: 14px 10px; border-left: 1px solid var(--line); }
 .calendar-day:first-child { border-left: 0; }
 .calendar-day.is-today { background: rgba(0, 122, 255, 0.045); }
 .calendar-day.is-focus header strong { color: var(--accent); }
@@ -106,14 +106,18 @@ button:focus-visible, textarea:focus-visible, input:focus-visible, a:focus-visib
 .calendar-empty { display: block; padding: 12px 2px; text-align: center; }
 .calendar-event {
 	display: grid;
+	width: 100%;
 	gap: 4px;
 	margin-top: 8px;
 	padding: 10px;
+	border: 0;
 	border-radius: 11px;
 	background: var(--accent-soft);
 	color: #0a4d92;
 	overflow: hidden;
+	text-align: left;
 }
+.calendar-event:hover { filter: brightness(0.98); transform: translateY(-1px); }
 .calendar-event time, .calendar-event span { font-size: 11px; opacity: 0.82; }
 .calendar-event strong { font-size: 12px; line-height: 1.35; overflow-wrap: anywhere; }
 .calendar-event--urgent { background: #ffe9ec; color: #a81b37; }
@@ -121,6 +125,13 @@ button:focus-visible, textarea:focus-visible, input:focus-visible, a:focus-visib
 .calendar-event--waiting { background: #fff2dd; color: #8a5400; }
 .calendar-event--completed { background: #e7f7ec; color: #176c36; }
 .calendar-event--failed { background: #f2f2f7; color: #8b2635; }
+.calendar-capacity {
+	margin-top: auto;
+	padding-top: 14px;
+	color: var(--muted);
+	font-size: 10px;
+	line-height: 1.4;
+}
 
 .dashboard-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 16px; }
 .panel { grid-column: span 6; min-width: 0; padding: 22px; border-radius: 20px; }
@@ -204,6 +215,22 @@ button:focus-visible, textarea:focus-visible, input:focus-visible, a:focus-visib
 .app-dialog input { width: 100%; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; color: var(--text); background: #f5f5f7; }
 .app-dialog .button-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 4px; }
 .app-dialog .button-row button { width: 100%; font-weight: 650; }
+.task-detail-dialog { width: min(720px, calc(100vw - 40px)); max-height: min(84vh, 820px); }
+.task-detail-card { display: grid; gap: 16px; padding: 24px; }
+.task-detail-card > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.task-detail-card h2 { font-size: 25px; }
+.task-detail-card h3 { margin: 0; font-size: 15px; }
+.task-detail-meta { margin: -7px 0 0; font-size: 13px; }
+.task-detail-section { display: grid; gap: 8px; }
+.task-detail-section p, .task-detail-section ul { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
+.task-detail-section ul { display: grid; gap: 4px; padding-left: 20px; }
+.task-detail-delivery { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.task-detail-delivery > h3 { grid-column: 1 / -1; }
+.task-detail-delivery .task-detail-section { padding: 12px; border-radius: 12px; background: #f5f5f7; }
+.task-contingency { display: grid; gap: 5px; padding: 12px; border: 1px solid rgba(168, 27, 55, 0.15); border-radius: 12px; background: #fff5f6; }
+.task-contingency strong { color: #a81b37; }
+.task-detail-reason { padding-top: 4px; }
+.task-detail-close { justify-self: end; }
 .panel--history { padding-block: 15px; }
 .panel--history summary { cursor: pointer; color: var(--text); font-weight: 700; }
 .panel--history .stack-list { margin-top: 12px; }

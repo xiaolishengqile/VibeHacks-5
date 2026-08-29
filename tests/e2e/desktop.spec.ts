@@ -243,6 +243,26 @@ test("轻面板和完整工作台使用明亮的日历布局", async ({ startDay
 	expect(workbenchLayout.days.at(-1)?.right).toBeLessThanOrEqual(workbenchLayout.clientWidth);
 });
 
+test("日历任务点击后立即展开助理详情并显示每日留白", async ({ startDay }) => {
+	await startDay.submit("下周五做季度复盘，先回收数据，再写晋升汇报材料");
+	const calendar = startDay.workbench.getByRole("region", { name: "周日历" });
+
+	await expect(calendar).toContainText("已为临时事项保留");
+	for (const label of ["周六", "周日"]) {
+		await expect(calendar.locator(".calendar-day", { hasText: label }).locator(".calendar-event")).toHaveCount(0);
+	}
+
+	await startDay.workbench.getByRole("button", { name: /搭建复盘框架/ }).click();
+	const detail = startDay.workbench.getByRole("dialog", { name: /搭建复盘框架/ });
+	await expect(detail).toContainText("执行步骤");
+	await expect(detail).toContainText("交付物与完成标准");
+	await expect(detail).toContainText("助理建议");
+	await expect(detail).toContainText("风险与兜底");
+	await expect(detail).toContainText("先写完整叙事文稿，再制作演示页面");
+	await detail.press("Escape");
+	await expect(detail).toHaveCount(0);
+});
+
 test("轻面板保持紧凑且关闭后只恢复今日视图", async ({ startDay }) => {
 	await startDay.submit("下周五完成季度复盘");
 	await startDay.expectMiniPanelFitsViewport();

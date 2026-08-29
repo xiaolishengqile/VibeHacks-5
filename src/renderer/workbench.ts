@@ -4,6 +4,7 @@ import { toCalendarWindowView } from "./calendar-view.js";
 import { localWorkdayDateTimeValue } from "./date-input.js";
 import { confirmAction, requestText } from "./dialogs.js";
 import { clearElement, createTextElement, renderEmpty, requiredElement, setText } from "./dom.js";
+import { toTaskDetailView, type TaskDetailView } from "./task-detail-view.js";
 import { formatHumanInstant, toExecutionView, toGraphView, toTodayActionView } from "./view-models.js";
 
 const text = (id: string, value: string): void => setText(requiredElement(id), value);
@@ -76,6 +77,89 @@ const renderCodex = (value: ApplicationSnapshot): void => {
 	login.hidden = !value.codex.canStartBrowserLogin;
 };
 
+const durationLabel = (minutes: number): string => {
+	const hours = Math.floor(minutes / 60);
+	const remainder = minutes % 60;
+	if (hours > 0 && remainder > 0) return `${hours} 小时 ${remainder} 分钟`;
+	if (hours > 0) return `${hours} 小时`;
+	return `${minutes} 分钟`;
+};
+
+const detailList = (title: string, items: readonly string[]): HTMLElement => {
+	const section = document.createElement("section");
+	section.className = "task-detail-section";
+	section.append(createTextElement("h3", "", title));
+	const list = document.createElement("ul");
+	for (const item of items) list.append(createTextElement("li", "", item));
+	section.append(list);
+	return section;
+};
+
+const showTaskDetail = (detail: TaskDetailView): void => {
+	document.querySelector("dialog.task-detail-dialog")?.remove();
+	const dialog = document.createElement("dialog");
+	dialog.className = "app-dialog task-detail-dialog";
+	const card = document.createElement("article");
+	card.className = "task-detail-card";
+	const header = document.createElement("header");
+	const heading = createTextElement("h2", "", detail.title);
+	heading.id = "task-detail-title";
+	dialog.setAttribute("aria-labelledby", heading.id);
+	header.append(heading);
+	header.append(createTextElement("span", "pill", detail.risk));
+	card.append(header);
+	card.append(createTextElement(
+		"p",
+		"task-detail-meta",
+		`${detail.scheduledLabel} · ${detail.owner} · ${detail.status}`,
+	));
+	card.append(createTextElement(
+		"p",
+		"task-detail-meta",
+		`预计工作 ${durationLabel(detail.workMinutes)} · 最晚开始 ${detail.latestStartLabel}`,
+	));
+	if (detail.waitMinutes > 0) {
+		card.append(createTextElement("p", "task-detail-meta", `外部等待 ${durationLabel(detail.waitMinutes)}`));
+	}
+	if (detail.dependencies.length > 0) {
+		card.append(createTextElement("p", "task-detail-meta", `前置任务：${detail.dependencies.join("、")}`));
+	}
+	const purpose = document.createElement("section");
+	purpose.className = "task-detail-section";
+	purpose.append(createTextElement("h3", "", "任务目的"));
+	purpose.append(createTextElement("p", "", detail.summary));
+	card.append(purpose);
+	card.append(detailList("执行步骤", detail.steps));
+	const delivery = document.createElement("section");
+	delivery.className = "task-detail-section task-detail-delivery";
+	delivery.append(createTextElement("h3", "", "交付物与完成标准"));
+	delivery.append(detailList("交付物", detail.deliverables), detailList("完成标准", detail.successCriteria));
+	card.append(delivery);
+	card.append(detailList("助理建议", detail.suggestions));
+	const risks = document.createElement("section");
+	risks.className = "task-detail-section";
+	risks.append(createTextElement("h3", "", "风险与兜底"));
+	for (const contingency of detail.contingencies) {
+		const risk = document.createElement("article");
+		risk.className = "task-contingency";
+		risk.append(createTextElement("strong", "", contingency.risk));
+		risk.append(createTextElement("p", "", `触发条件：${contingency.trigger}`));
+		risk.append(createTextElement("p", "", `兜底动作：${contingency.action}`));
+		risks.append(risk);
+	}
+	if (detail.reason) risks.append(createTextElement("p", "task-detail-reason", `排期判断：${detail.reason}`));
+	card.append(risks);
+	const close = createTextElement("button", "primary-button task-detail-close", "关闭详情") as HTMLButtonElement;
+	close.type = "button";
+	close.addEventListener("click", () => dialog.close());
+	card.append(close);
+	dialog.append(card);
+	dialog.addEventListener("close", () => dialog.remove(), { once: true });
+	document.body.append(dialog);
+	dialog.showModal();
+	close.focus();
+};
+
 const renderCalendarDay = (day: CalendarDayView): HTMLElement => {
 	const column = document.createElement("article");
 	column.className = `calendar-day${day.isToday ? " is-today" : ""}`;
@@ -84,15 +168,32 @@ const renderCalendarDay = (day: CalendarDayView): HTMLElement => {
 	heading.append(createTextElement("span", "", day.dateLabel));
 	column.append(heading);
 	for (const item of day.items) {
-		const event = document.createElement("div");
+		const event = document.createElement("button");
+		event.type = "button";
 		event.className = `calendar-event calendar-event--${item.tone}`;
+		event.setAttribute("aria-haspopup", "dialog");
 		const time = createTextElement("time", "", item.timeLabel);
 		time.setAttribute("datetime", item.dateTime);
 		event.append(time);
 		event.append(createTextElement("strong", "", item.title));
 		event.append(createTextElement("span", "", `${item.owner} · ${item.status}`));
+		event.addEventListener("click", () => {
+			if (!snapshot) return;
+			const detail = toTaskDetailView(snapshot, item.id);
+			if (detail) showTaskDetail(detail);
+		});
 		column.append(event);
 	}
+	const capacity = document.createElement("footer");
+	capacity.className = "calendar-capacity";
+	capacity.append(createTextElement(
+		"span",
+		"",
+		day.reservedMinutes > 0
+			? `已安排 ${durationLabel(day.scheduledMinutes)} · 已为临时事项保留 ${durationLabel(day.reservedMinutes)}`
+			: day.scheduledMinutes > 0 ? `已安排 ${durationLabel(day.scheduledMinutes)}` : "周末不安排工作",
+	));
+	column.append(capacity);
 	return column;
 };
 
@@ -378,6 +479,7 @@ addManualTodo.addEventListener("click", async () => {
 });
 calendarTarget.addEventListener("pointerdown", (event) => {
 	if (!snapshot || calendarSliding || event.button !== 0) return;
+	if ((event.target as Element).closest(".calendar-event")) return;
 	calendarSliding = true;
 	const rail = renderSlidingCalendarTrack();
 	if (!rail) return completeCalendarMotion(0);
