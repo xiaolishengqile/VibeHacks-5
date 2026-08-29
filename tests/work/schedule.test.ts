@@ -3,10 +3,12 @@ import test from "node:test";
 
 import { createProfile } from "../../src/work/profile.js";
 import {
+	addCalendarMinutes,
 	addWorkingMinutes,
 	alignToWorkingTime,
 	isWithinWorkday,
 	subtractWorkingMinutes,
+	workdayWindowAt,
 } from "../../src/work/schedule.js";
 
 const profile = createProfile(
@@ -97,4 +99,31 @@ test("工作时段校验包含个人时区、上下班和周末边界", () => {
 	assert.equal(isWithinWorkday("2026-08-31T02:00:00Z", profile), true);
 	assert.equal(isWithinWorkday("2026-08-31T13:00:00Z", profile), false);
 	assert.equal(isWithinWorkday("2026-08-30T02:00:00Z", profile), false);
+});
+
+test("自然分钟保留固定事项开始时的时区偏移", () => {
+	assert.equal(
+		addCalendarMinutes("2026-08-31T10:00:00+08:00", 75),
+		"2026-08-31T11:15:00+08:00",
+	);
+});
+
+test("固定事项使用完整上下班区间而非每日容量", () => {
+	const unconfirmedProfile = createProfile({
+		id: "profile_unconfirmed",
+		timezone: "Asia/Shanghai",
+		workdayStart: "09:00",
+		workdayEnd: "18:00",
+		dailyCapacityMinutes: 420,
+		bufferPercent: 20,
+		source: "inferred",
+	}, "2026-08-28T09:00:00+08:00");
+
+	assert.deepEqual(
+		workdayWindowAt("2026-08-31T16:00:00+08:00", unconfirmedProfile),
+		{
+			start: "2026-08-31T09:00:00+08:00",
+			end: "2026-08-31T18:00:00+08:00",
+		},
+	);
 });

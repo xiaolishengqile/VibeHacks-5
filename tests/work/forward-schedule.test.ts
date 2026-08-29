@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { buildForwardSchedule } from "../../src/work/forward-schedule.js";
+import { buildForwardSchedule, validateFixedSchedule } from "../../src/work/forward-schedule.js";
 import { createProfile } from "../../src/work/profile.js";
 import type { WorkNode } from "../../src/work/types.js";
 
@@ -297,4 +297,81 @@ test("依赖等待期间仍可安排无关工作", () => {
 
 	assert.equal(windows.get("dependent")?.scheduledStart, "2026-09-01T09:15:00+08:00");
 	assert.equal(windows.get("independent")?.scheduledStart, "2026-08-31T09:15:00+08:00");
+});
+
+test("固定事项先占用日历且不添加安全缓冲", () => {
+	const nodes: readonly WorkNode[] = [{
+		id: "meeting",
+		goalId: "goal_1",
+		title: "固定会议",
+		owner: "self",
+		workMinutes: 60,
+		waitMinutes: 0,
+		dependencyIds: [],
+		status: "ready",
+		fixedStart: "2026-08-31T10:00:00+08:00",
+	}, {
+		id: "draft",
+		goalId: "goal_1",
+		title: "撰写初稿",
+		owner: "self",
+		workMinutes: 100,
+		waitMinutes: 0,
+		dependencyIds: [],
+		status: "ready",
+	}];
+
+	const windows = buildForwardSchedule(
+		nodes,
+		new Map(),
+		profile,
+		"2026-08-31T09:00:00+08:00",
+		"2026-08-31T09:00:00+08:00",
+	);
+
+	assert.deepEqual(windows.get("meeting")?.scheduledSegments, [{
+		scheduledStart: "2026-08-31T10:00:00+08:00",
+		scheduledEnd: "2026-08-31T11:00:00+08:00",
+	}]);
+	assert.equal(windows.get("draft")?.scheduledStart, "2026-08-31T11:00:00+08:00");
+	assert.equal(windows.get("draft")?.scheduledEnd, "2026-08-31T13:00:00+08:00");
+});
+
+test("固定事项拒绝周末、工作时段外和相互重叠的窗口", () => {
+	const fixedNode = (id: string, fixedStart: string, workMinutes = 60): WorkNode => ({
+		id,
+		goalId: "goal_1",
+		title: id,
+		owner: "self",
+		workMinutes,
+		waitMinutes: 0,
+		dependencyIds: [],
+		status: "ready",
+		fixedStart,
+	});
+	const unconfirmedProfile = createProfile({
+		id: "profile_unconfirmed",
+		timezone: "Asia/Shanghai",
+		workdayStart: "09:00",
+		workdayEnd: "18:00",
+		dailyCapacityMinutes: 420,
+		bufferPercent: 20,
+		source: "inferred",
+	}, "2026-08-28T09:00:00+08:00");
+
+	assert.throws(
+		() => validateFixedSchedule([fixedNode("weekend", "2026-08-30T10:00:00+08:00")], unconfirmedProfile),
+		/工作时段/,
+	);
+	assert.throws(
+		() => validateFixedSchedule([fixedNode("late", "2026-08-31T17:30:00+08:00")], unconfirmedProfile),
+		/工作时段/,
+	);
+	assert.throws(
+		() => validateFixedSchedule([
+			fixedNode("first", "2026-08-31T10:00:00+08:00"),
+			fixedNode("second", "2026-08-31T10:30:00+08:00"),
+		], unconfirmedProfile),
+		/固定事项冲突/,
+	);
 });

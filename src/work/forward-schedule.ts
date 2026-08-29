@@ -1,4 +1,10 @@
-import { addWorkingMinutes, alignToWorkingTime, workingWindowAt } from "./schedule.js";
+import {
+	addCalendarMinutes,
+	addWorkingMinutes,
+	alignToWorkingTime,
+	workdayWindowAt,
+	workingWindowAt,
+} from "./schedule.js";
 import type { WorkNode, WorkProfile } from "./types.js";
 
 const minuteMs = 60_000;
@@ -17,6 +23,9 @@ const laterInstant = (left: string, right: string): string =>
 
 const isTerminal = (node: WorkNode): boolean => node.status === "done" || node.status === "stopped";
 
+const isFixed = (node: WorkNode): node is WorkNode & { readonly fixedStart: string } =>
+	!isTerminal(node) && node.fixedStart !== undefined;
+
 const waitUntil = (window: ScheduledWindow, waitMinutes: number): string =>
 	new Date(Date.parse(window.scheduledEnd) + waitMinutes * minuteMs).toISOString();
 
@@ -25,6 +34,38 @@ const roundedWorkMinutes = (node: WorkNode, profile: WorkProfile): number => {
 		+ Math.ceil(node.workMinutes * profile.bufferPercent.value / 100);
 	return Math.ceil(buffered / 15) * 15;
 };
+
+const fixedWindow = (node: WorkNode & { readonly fixedStart: string }): ScheduledWindow => {
+	const scheduledEnd = addCalendarMinutes(node.fixedStart, node.workMinutes);
+	return {
+		scheduledStart: node.fixedStart,
+		scheduledEnd,
+		scheduledSegments: [{ scheduledStart: node.fixedStart, scheduledEnd }],
+	};
+};
+
+export function validateFixedSchedule(nodes: readonly WorkNode[], profile: WorkProfile): void {
+	const fixedWindows = nodes.filter(isFixed).map((node) => ({ node, window: fixedWindow(node) }));
+	for (const { node, window } of fixedWindows) {
+		const workday = workdayWindowAt(node.fixedStart, profile);
+		if (!workday
+			|| Date.parse(window.scheduledStart) < Date.parse(workday.start)
+			|| Date.parse(window.scheduledEnd) > Date.parse(workday.end)) {
+			throw new Error(`固定事项不在工作时段内：${node.id}`);
+		}
+	}
+
+	fixedWindows.sort((left, right) =>
+		Date.parse(left.window.scheduledStart) - Date.parse(right.window.scheduledStart));
+	for (let index = 1; index < fixedWindows.length; index += 1) {
+		const previous = fixedWindows[index - 1];
+		const current = fixedWindows[index];
+		if (previous && current
+			&& Date.parse(current.window.scheduledStart) < Date.parse(previous.window.scheduledEnd)) {
+			throw new Error(`固定事项冲突：${previous.node.id} 与 ${current.node.id}`);
+		}
+	}
+}
 
 const busySegments = (
 	reservations: readonly ScheduledSegment[],
@@ -144,10 +185,16 @@ export function buildForwardSchedule(
 	referenceInstant: string,
 ): ReadonlyMap<string, ScheduledWindow> {
 	if (!profile.bufferPercent.confirmed) throw new Error("安全缓冲尚未确认");
+	validateFixedSchedule(nodes, profile);
 	const byId = new Map(nodes.map((node) => [node.id, node]));
 	const windows = new Map<string, ScheduledWindow>();
 	const reservations: ScheduledSegment[] = [];
 	const firstAvailable = alignToWorkingTime(now, profile, referenceInstant);
+	for (const node of nodes.filter(isFixed)) {
+		const window = fixedWindow(node);
+		windows.set(node.id, window);
+		reservations.push(...window.scheduledSegments);
+	}
 
 	const schedule = (node: WorkNode): ScheduledWindow => {
 		const existing = windows.get(node.id);
