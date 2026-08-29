@@ -5,10 +5,46 @@ signal action_requested(event_type: String)
 
 const BUTTON_SIZE := Vector2i(58, 58)
 const BUTTON_SPECS := [
-	{"label": "工作台", "event": "open_workbench", "offset": Vector2i(-38, 112)},
-	{"label": "今日", "event": "open_today", "offset": Vector2i(30, -54)},
-	{"label": "想法", "event": "open_input", "offset": Vector2i(126, -70)},
-	{"label": "隐藏", "event": "hide_pet", "offset": Vector2i(222, -42)},
+	{
+		"label": "工作台",
+		"event": "open_workbench",
+		"offset": Vector2i(-38, 112),
+		"font": Color("17324d"),
+		"normal": Color("dff0ff"),
+		"hover": Color("cce5ff"),
+		"pressed": Color("b7d8ff"),
+		"border": Color("3d7bb8"),
+	},
+	{
+		"label": "今日",
+		"event": "open_today",
+		"offset": Vector2i(30, -54),
+		"font": Color("233b24"),
+		"normal": Color("e3f7d5"),
+		"hover": Color("d4edc4"),
+		"pressed": Color("c0e3af"),
+		"border": Color("5d9b52"),
+	},
+	{
+		"label": "想法",
+		"event": "open_input",
+		"offset": Vector2i(126, -70),
+		"font": Color("3b294d"),
+		"normal": Color("efe4ff"),
+		"hover": Color("e2d3fa"),
+		"pressed": Color("d3c0f2"),
+		"border": Color("8b67c9"),
+	},
+	{
+		"label": "隐藏",
+		"event": "hide_pet",
+		"offset": Vector2i(222, -42),
+		"font": Color("512126"),
+		"normal": Color("ffe3e1"),
+		"hover": Color("ffd0cd"),
+		"pressed": Color("ffbbb8"),
+		"border": Color("c7525c"),
+	},
 ]
 
 var _button_windows: Array[Window] = []
@@ -38,11 +74,13 @@ func setup() -> void:
 		button.focus_mode = Control.FOCUS_NONE
 		button.mouse_filter = Control.MOUSE_FILTER_STOP
 		button.add_theme_font_size_override("font_size", 14)
-		button.add_theme_color_override("font_color", Color("4b3426"))
-		button.add_theme_color_override("font_hover_color", Color("2f2119"))
-		button.add_theme_stylebox_override("normal", _button_style(Color("ffe1a1"), Color("684734")))
-		button.add_theme_stylebox_override("hover", _button_style(Color("ffd483"), Color("563927")))
-		button.add_theme_stylebox_override("pressed", _button_style(Color("ffc463"), Color("563927")))
+		var font_color: Color = spec["font"]
+		var border_color: Color = spec["border"]
+		button.add_theme_color_override("font_color", font_color)
+		button.add_theme_color_override("font_hover_color", font_color)
+		button.add_theme_stylebox_override("normal", _button_style(spec["normal"], border_color))
+		button.add_theme_stylebox_override("hover", _button_style(spec["hover"], border_color))
+		button.add_theme_stylebox_override("pressed", _button_style(spec["pressed"], border_color))
 		button.pressed.connect(_on_button_pressed.bind(String(spec["event"])))
 		window.add_child(button)
 
