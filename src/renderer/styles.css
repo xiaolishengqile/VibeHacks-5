@@ -167,22 +167,27 @@ button:focus-visible, textarea:focus-visible, input:focus-visible, a:focus-visib
 	min-height: 100vh;
 	gap: 12px;
 	padding: 18px;
-	overflow-x: hidden;
 	border: 1px solid rgba(60, 60, 67, 0.12);
 	border-radius: 24px;
 	background: linear-gradient(165deg, rgba(255, 255, 255, 0.98), rgba(242, 246, 251, 0.98));
 }
 .shell--mini > * { min-width: 0; }
-.mini-header { min-height: 40px; padding-right: 112px; }
+.mini-header {
+	position: sticky;
+	top: 0;
+	z-index: 20;
+	min-height: 40px;
+	padding: 5px 8px 5px 0;
+	background: rgba(255, 255, 255, 0.96);
+	box-shadow: 0 8px 20px rgba(28, 39, 54, 0.06);
+	backdrop-filter: blur(20px) saturate(180%);
+}
 .mini-header p { margin: 0; }
 .mini-kicker { margin-top: 2px !important; color: var(--muted); font-size: 12px; }
 .status-dot { width: 9px; height: 9px; border-radius: 50%; background: #34c759; box-shadow: 0 0 0 4px rgba(52, 199, 89, 0.12); }
 .window-actions {
-	position: fixed;
-	top: 11px;
-	right: 11px;
-	z-index: 20;
 	display: flex;
+	flex: 0 0 auto;
 	align-items: center;
 	gap: 7px;
 }
@@ -199,9 +204,16 @@ button:focus-visible, textarea:focus-visible, input:focus-visible, a:focus-visib
 	font-size: 11px;
 	font-weight: 650;
 }
-.window-reset:hover:not(:disabled) { background: #fff0f1; border-color: rgba(193, 31, 50, 0.2); }
+.window-reset:hover:not(:disabled), .window-reset:focus:not(:disabled) {
+	border-color: #c11f32;
+	background: #c11f32;
+	color: #fff;
+}
 .window-close {
+	display: grid;
+	place-items: center;
 	width: 31px;
+	padding: 0;
 	border-radius: 50%;
 	background: rgba(118, 118, 128, 0.16);
 	color: #3a3a3c;

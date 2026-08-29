@@ -9,16 +9,16 @@
 	</head>
 	<body class="mini-body">
 		<main class="shell shell--mini">
-			<div class="window-actions" aria-label="窗口操作">
-				<button id="reset-application-data" class="window-reset" type="button" aria-label="清理数据" title="清理本地计划与执行记录">清理数据</button>
-				<button id="close-mini-panel" class="window-close" type="button" aria-label="关闭轻面板" title="关闭轻面板（桌宠继续运行）">×</button>
-			</div>
 			<header class="mini-header drag-region">
 				<div>
 					<p class="eyebrow">启动日日历</p>
 					<p id="mini-calendar-range" class="mini-kicker">本周</p>
 				</div>
-				<span class="status-dot" aria-label="连接状态"></span>
+				<div class="window-actions" aria-label="窗口操作">
+					<span class="status-dot" aria-label="连接状态"></span>
+					<button id="reset-application-data" class="window-reset" type="button" aria-label="清理数据" title="清理本地计划与执行记录">清理数据</button>
+					<button id="close-mini-panel" class="window-close" type="button" aria-label="关闭轻面板" title="关闭轻面板（桌宠继续运行）">×</button>
+				</div>
 			</header>
 
 			<section class="mini-calendar" aria-label="当日日程" aria-live="polite">

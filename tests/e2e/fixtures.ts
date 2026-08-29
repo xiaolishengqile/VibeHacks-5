@@ -133,6 +133,13 @@ export class StartDayHarness {
 		});
 	}
 
+	async focusMiniPanel(): Promise<void> {
+		await this.app.evaluate(({ BrowserWindow }) => {
+			BrowserWindow.getAllWindows().find((window) => window.getTitle() === "启动日轻面板")?.focus();
+		});
+		await expect.poll(() => this.mini.evaluate(() => document.hasFocus())).toBe(true);
+	}
+
 	async closeMiniPanelFromButton(): Promise<void> {
 		await this.mini.getByRole("button", { name: "关闭轻面板" }).click();
 	}

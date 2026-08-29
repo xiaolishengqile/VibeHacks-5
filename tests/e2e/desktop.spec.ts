@@ -116,6 +116,71 @@ test("轻面板提供明确可用的关闭按钮和位于左侧的清理入口",
 	await expect(dialog).toHaveCount(0);
 });
 
+test("轻面板窗口按钮的视觉状态与操作区域一致", async ({ startDay }) => {
+	const reset = startDay.mini.getByRole("button", { name: "清理数据" });
+	const close = startDay.mini.getByRole("button", { name: "关闭轻面板" });
+
+	const closeGeometry = await close.evaluate((button) => {
+		const buttonRect = button.getBoundingClientRect();
+		const glyphRange = document.createRange();
+		glyphRange.selectNodeContents(button);
+		const glyphRect = glyphRange.getBoundingClientRect();
+		return {
+			horizontalOffset: Math.abs(glyphRect.left + glyphRect.width / 2 - (buttonRect.left + buttonRect.width / 2)),
+			verticalOffset: Math.abs(glyphRect.top + glyphRect.height / 2 - (buttonRect.top + buttonRect.height / 2)),
+		};
+	});
+	expect(closeGeometry.horizontalOffset).toBeLessThanOrEqual(0.5);
+	expect(closeGeometry.verticalOffset).toBeLessThanOrEqual(0.5);
+
+	await startDay.focusMiniPanel();
+	await reset.hover();
+	await expect(reset).toHaveCSS("background-color", "rgb(193, 31, 50)");
+	await expect(reset).toHaveCSS("color", "rgb(255, 255, 255)");
+	await startDay.mini.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+	await startDay.mini.keyboard.press("Tab");
+	await expect(reset).toBeFocused();
+	await expect(reset).toHaveCSS("background-color", "rgb(193, 31, 50)");
+
+	const closeBox = await close.boundingBox();
+	expect(closeBox).not.toBeNull();
+	await close.click({ position: { x: (closeBox?.width ?? 0) - 2, y: (closeBox?.height ?? 0) / 2 } });
+	await expect.poll(() => startDay.isMiniPanelVisible()).toBe(false);
+	await startDay.triggerPetOpenPanel();
+	await expect.poll(() => startDay.isMiniPanelVisible()).toBe(true);
+});
+
+test("轻面板顶部栏在滚动前后都完整承载窗口按钮", async ({ startDay }) => {
+	const layoutAt = async (scrollTop: number) => startDay.mini.evaluate(async (targetScrollTop) => {
+		window.scrollTo(0, targetScrollTop);
+		await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+		const header = document.querySelector<HTMLElement>(".mini-header");
+		const actions = document.querySelector<HTMLElement>(".window-actions");
+		const close = document.querySelector<HTMLButtonElement>(".window-close");
+		if (!header || !actions || !close) throw new Error("找不到轻面板顶部栏");
+		const headerRect = header.getBoundingClientRect();
+		const actionsRect = actions.getBoundingClientRect();
+		const closeRect = close.getBoundingClientRect();
+		const edgeTarget = document.elementFromPoint(closeRect.right - 2, closeRect.top + closeRect.height / 2);
+		return {
+			header: { top: headerRect.top, right: headerRect.right, bottom: headerRect.bottom, left: headerRect.left },
+			actions: { top: actionsRect.top, right: actionsRect.right, bottom: actionsRect.bottom, left: actionsRect.left },
+			headerBackground: getComputedStyle(header).backgroundColor,
+			closeEdgeHit: edgeTarget === close || close.contains(edgeTarget),
+		};
+	}, scrollTop);
+
+	for (const layout of [await layoutAt(0), await layoutAt(320)]) {
+		expect(layout.header.top).toBeGreaterThanOrEqual(-0.5);
+		expect(layout.actions.top).toBeGreaterThanOrEqual(layout.header.top);
+		expect(layout.actions.right).toBeLessThanOrEqual(layout.header.right);
+		expect(layout.actions.bottom).toBeLessThanOrEqual(layout.header.bottom);
+		expect(layout.actions.left).toBeGreaterThanOrEqual(layout.header.left);
+		expect(layout.headerBackground).not.toBe("rgba(0, 0, 0, 0)");
+		expect(layout.closeEdgeHit).toBe(true);
+	}
+});
+
 test.describe("清理运行中的数据", () => {
 	test.use({ fakeMode: "slow" });
 	test("确认清理会停止代理、保留文件并恢复首次使用状态", async ({ startDay }) => {
